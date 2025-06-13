@@ -14,40 +14,52 @@ function Login() {
   const navigate = useNavigate();
 
 
-  const { backendUrl, isLoggedin, setisLoggedin, getUserData } = useContext(AppContext);
+  const { backendUrl, setisLoggedin, getUserData } = useContext(AppContext);
 
 
 
   const handleLogIn = async (e) => {
-    try {
-      e.preventDefault();
-  
-      const { data } = await axios.post(
-        backendUrl + '/api/auth/login',
-        { email, password },
-        {
-          withCredentials: true, // Ensure credentials (cookies) are included
-        }
-      );
-  
-      if (data.success) {
-        setisLoggedin(true);
-        getUserData();
-        navigate('/');
-        toast.success(data.message);
+  e.preventDefault();
 
-      } else {
-        toast.error("something went wrong"); // Use toast.error for error messages
+  try {
+    const { data } = await axios.post(
+      backendUrl + '/api/auth/login',
+      { email, password },
+      {
+        withCredentials: true, // Include cookies
       }
-    } catch (error) {
-      // Check if the error is from the backend and contains a response message
-      if (error.response && error.response.data && error.response.data.message) {
-        toast.error(error.response.data.message); // Display the backend message
-      } else {
-        toast.error("An error occurred. Please try again."); // Fallback error message
-      }
+    );
+
+    // Axios only enters here for 2xx responses
+    if (data.success) {
+      setisLoggedin(true);
+      getUserData(); // make sure this finishes before navigating
+     toast.success(data.message);
+     navigate("/");
+
+
+    } 
+
+    
+
+    
+    else {
+      toast.error(data.message || "Login failed");
+    }
+  } catch (error) {
+    // This block is triggered for 4xx or 5xx status codes
+    if (error.response && error.response.data && error.response.data.message) {
+      toast.error(error.response.data.message);
+
+      // Optional: make absolutely sure we don't mark the user as logged in
+      setisLoggedin(false);
+    } else {
+      toast.error("An unexpected error occurred. Please try again.");
+      setisLoggedin(false);
     }
   }
+};
+
 
   return (
     <form

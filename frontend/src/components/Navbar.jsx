@@ -6,8 +6,8 @@ import { useLocation } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { MenuItem } from "@mui/material";
-import SearchBox from "./SearchBox";
+// import { MenuItem } from "@mui/material";
+// import SearchBox from "./SearchBox";
 
 
 const Navbar = () => {
@@ -29,18 +29,37 @@ const Navbar = () => {
   const { userData, backendUrl, setisLoggedin, setuserData } =
     useContext(AppContext);
 
+  // const handleLogout = async () => {
+  //   try {
+  //     axios.defaults.withCredentials = true;
+  //     const { data } = await axios.post(backendUrl + "/api/auth/logout");
+  //     data.success && setisLoggedin(false);
+  //     data.success && setuserData(false);
+  //     navigate("/");
+  //     toast.success(data.message);
+  //   } catch (error) {
+  //     toast.error("Error signing out: " + error.message);
+  //   }
+  // };
+
+
   const handleLogout = async () => {
-    try {
-      axios.defaults.withCredentials = true;
-      const { data } = await axios.post(backendUrl + "/api/auth/logout");
-      data.success && setisLoggedin(false);
-      data.success && setuserData(false);
+  try {
+    axios.defaults.withCredentials = true;
+    const { data } = await axios.post(backendUrl + "/api/auth/logout");
+
+    if (data.success) {
+      setisLoggedin(false);
+      setuserData(false);
       navigate("/");
-      toast.success(data.message);
-    } catch (error) {
-      toast.error("Error signing out: ", error.message);
+      toast.success(data.message);  // ✅ Will show message like "User logged out"
+    } else {
+      toast.error("Logout failed. Please try again.");
     }
-  };
+  } catch (error) {
+    toast.error(`Error signing out: ${error.message}`);
+  }
+};
 
 
   const SendVerificationOtp = async () => {
@@ -189,7 +208,7 @@ const Navbar = () => {
                 ) : (
                   ""
                 )}</p>
-                <p className="cursor-pointer hover:text-gray-700">My Profile</p>
+                <Link to="/profile" className="cursor-pointer hover:text-gray-700">My Profile</Link>
                 <p className="cursor-pointer hover:text-gray-700">Orders</p>
                 {userData ? (
                   <p

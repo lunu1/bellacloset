@@ -22,8 +22,12 @@ const connectDB = async () => {
     debugging("Error connecting to database:", error.message);
     // Rethrow the error for handling by the caller
     throw error;
+
   }
 };
 
 // Export the connectDB function as the default export
 export default connectDB;
+
+
+

@@ -87,7 +87,7 @@ export default function DesignerNavbar() {
   };
   
   return (
-    <div className="w-full font-sans">
+    <div className=" w-full font-sans">
       {/* Main Navigation Bar */}
       <div className="bg-white border-gray-200 relative">
         <div className="container mx-auto">

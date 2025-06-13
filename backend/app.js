@@ -12,6 +12,7 @@ import userRouter from "./routes/userRoutes.js";
 import bannerRouter from "./routes/bannerRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import ProductRouter from "./routes/productRoutes.js";
+import adminRouter from "./routes/adminRoutes.js";
 
 // Connect to MongoDB database
 connectDB();
@@ -52,6 +53,7 @@ app.use("/api/user", userRouter);
 app.use("/api/product", ProductRouter);
 app.use("/api/banner", bannerRouter);
 app.use("/api/category", categoryRoutes);
+app.use("/api/admin", adminRouter);
 
 
 app.get("/", (req, res) => {

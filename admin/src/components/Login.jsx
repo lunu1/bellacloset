@@ -2,26 +2,42 @@ import axios from "axios";
 import { useState } from "react";
 import { backendURL } from "../config";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookie";// Import Cookies
 
 const Login = ({ setToken }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate()
 
+  // Login
   const onSubmitHandler = async (e) => {
+     e.preventDefault();
     try {
-      e.preventDefault();
-      const response = await axios.post(`${backendURL}/api/user/admin`, {
+     
+      const response = await axios.post(`${backendURL}/api/admin/login`, {
         email,
         password,
       });
-      if (!response.data.success) {
-        toast.error(response.data.message);
+       console.log("Response:", response.data); 
+    if (response.data.token)
+ {       
+         
+         toast.success(response.data.message);
+         Cookies.set("token", response.data.token);// Set the token in a cookie
+         setToken(response.data.token);// Update the token state
+         navigate('/')//  Redirect to the home page
+        
+       
       } else {
-        setToken(response.data.token);
+       
+        toast.error(response.data.message);
       }
     } catch (error) {
-      toast.error(error.response.data.message);
-    }
+  console.error("Login error:", error);
+  toast.error(error.response?.data?.message || "Something went wrong. Please try again.");
+}
+
   };
 
   return (

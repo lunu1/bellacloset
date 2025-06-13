@@ -37,6 +37,8 @@ function Signup() {
         getUserData();
         navigate('/');
         toast.success(data.message);
+        
+
       } else {
         toast.error("something went wrong"); // Use toast.error for error messages
       }

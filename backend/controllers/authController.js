@@ -5,7 +5,7 @@ import transporter from "../config/nodemailer.js";
 import createToken from "../utils/createToken.util.js";
 
 export const register = async (req, res) => {
-  const { name, email, password } = req.body;  // Ensure 'name' is used
+  const { name, email, password ,role } = req.body;  // Ensure 'name' is used
 
   try {
     const existingUser = await userModel.findOne({ email });
@@ -15,7 +15,7 @@ export const register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await userModel.create({ name, email, password: hashedPassword });
+    const user = await userModel.create({ name, email, password: hashedPassword , role: role || 'user',});
 
     const token = createToken({ id: user._id, role: user.role });  
 
@@ -56,7 +56,12 @@ export const login = async (req, res) => {
       return res.status(401).json({ success: false, message: "User does not exist" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    // 🛑 Blocked user check
+    if (user.isBlocked) {
+        return res.status(403).json({ success: false, message: "You have been blocked by the admin" });
+      }
+  
+      const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ success: false, message: "Incorrect Password" });
@@ -71,7 +76,7 @@ export const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(200).json({ success: true, message: "Login successful" });
+    return res.status(200).json({ success: true, message: "Login successful"});
 
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
