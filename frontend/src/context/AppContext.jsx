@@ -15,24 +15,45 @@ export const AppContextProvider = ({ children }) => {
 
 
 
+  // const getUserData = async () => {
+  //   try {
+  //     const { data } = await axios.get(backendUrl + "/api/user/data", {
+  //       withCredentials: true, // Ensure credentials (cookies) are included
+  //     });
+  //     data.success ? setuserData(data.userData) : toast.error(data.message);
+  //   //   console.log(userData)
+  //   } catch (error) {
+  //     toast.error(error.data.message);
+  //   }
+  // };
+
+
   const getUserData = async () => {
     try {
       const { data } = await axios.get(backendUrl + "/api/user/data", {
-        withCredentials: true, // Ensure credentials (cookies) are included
+        withCredentials: true,
       });
-      data.success ? setuserData(data.userData) : toast.error(data.message);
-    //   console.log(userData)
+
+      if (data.success) {
+        setuserData(data.userData);
+      } else {
+        toast.error(data.message);
+      }
     } catch (error) {
-      toast.error(error.data.message);
+      toast.error(error.response?.data?.message || "Failed to fetch user data");
     }
   };
+
+
+
+
 
   const getAuthState = async () => {
     try {
       const { data } = await axios.get(backendUrl + "/api/auth/is-auth");
       if (data.success) {
         setisLoggedin(true);
-        getUserData();
+        await getUserData();
       }
     } catch (error) {
       toast.error(error.data.message);

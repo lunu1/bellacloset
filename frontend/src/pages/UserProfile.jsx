@@ -1,9 +1,9 @@
 import { useContext, useEffect, useState } from "react";
-import { Edit3, NotebookTabs, X, Plus, Trash2, Check } from 'lucide-react';
+import { Edit3, NotebookTabs,  Plus, Trash2, Check } from 'lucide-react';
 import { AppContext } from "../context/AppContext";
 import axios from "axios";
-import { toast, ToastContainer } from "react-toastify";
-import 'react-toastify/dist/ReactToastify.css';
+import { toast} from "react-toastify";
+
 
 const addressFields = ["street", "city", "state", "zip", "country"];
 
@@ -22,10 +22,7 @@ const UserProfile = () => {
 
   const { backendUrl } = useContext(AppContext);
 
-  useEffect(() => {
-    getUserProfile();
-    getAddresses();
-  }, []);
+  
 
   useEffect(() => {
     if (addresses.length > 0) {
@@ -48,6 +45,8 @@ const UserProfile = () => {
     }
   };
 
+
+  
   const updateProfile = async () => {
     try {
       const res = await axios.put(`${backendUrl}/api/user/update-profile`, form);
@@ -77,6 +76,15 @@ const UserProfile = () => {
       console.error("Error fetching addresses:", err);
     }
   };
+
+  useEffect(() => {
+    getUserProfile();
+    getAddresses();
+  },[]);
+
+
+
+  
 
   const handleDefaultSelect = async (id) => {
     try {
@@ -149,7 +157,7 @@ const UserProfile = () => {
         {user && (
           <div className="bg-slate-100 rounded-xl shadow-lg p-8">
             <div className="text-center mb-8">
-              <div className="w-24 h-24 bg-gradient-to-br from-yellow-500 to-black rounded-full mx-auto mb-4 flex items-center justify-center text-white text-2xl font-bold">
+              <div className="w-24 h-24 bg-gradient-to-br from-yellow-500 to-black rounded-full mx-auto mb-4 flex items-center justify-center text-white text-2xl  sm:text-3xl font-bold">
                 {user.name ? user.name.charAt(0).toUpperCase() : "U"}
               </div>
 
@@ -160,7 +168,7 @@ const UserProfile = () => {
                     <input
                       value={form.name}
                       onChange={e => setForm({ ...form, name: e.target.value })}
-                      className="text-2xl font-bold text-gray-900 text-center border-b-2 border-yellow-600 focus:outline-none bg-transparent"
+                      className="text-2xl sm:text-3xl font-bold text-gray-900 text-center border-b-2 border-yellow-600 focus:outline-none bg-transparent"
                       autoFocus
                     />
                     <button onClick={handleNameEdit} className="text-green-600 hover:text-green-700">
@@ -169,7 +177,7 @@ const UserProfile = () => {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center">
-                    <h1 className="text-2xl font-bold text-gray-900">{user.name || "User Name"}</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{user.name || "User Name"}</h1>
                     <button onClick={() => setEditingName(true)} className="text-gray-500 hover:text-blue-600">
                       <Edit3 size={18} />
                     </button>
@@ -211,13 +219,13 @@ const UserProfile = () => {
 
               {addresses.map((address, i) => (
                 <div key={i} className="bg-gray-50 rounded-lg p-4 mb-3">
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
                     <input
                       type="radio"
                       name="defaultAddress"
                       checked={defaultAddressId === address._id}
                       onChange={() => handleDefaultSelect(address._id)}
-                      className="mt-1 accent-green-600"
+                      className="mt-1 "
                     />
 
                     <div className="flex-1 mx-4">
@@ -269,13 +277,13 @@ const UserProfile = () => {
                     </div>
                   ))}
                   <div className="flex gap-3 pt-4">
-                    <button onClick={addAddress} className="flex-1 bg-black hover:bg-gray-600 text-white py-2">Save</button>
-                    <button onClick={() => setShowAddAddress(false)} className="flex-1 bg-gray-300 text-gray-800 py-2">Cancel</button>
+                    <button onClick={addAddress} className="flex-1 bg-black hover:bg-gray-600 text-white py-2 rounded-md">Save</button>
+                    <button onClick={() => setShowAddAddress(false)} className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-md">Cancel</button>
                   </div>
                 </div>
               ) : (
                 <div className="text-center">
-                  <button onClick={() => setShowAddAddress(true)} className="inline-flex bg-gray-200 hover:bg-gray-300 text-black px-6 py-3">
+                  <button onClick={() => setShowAddAddress(true)} className="inline-flex bg-black hover:bg-gray-700 text-white px-6 py-3 rounded-md">
                     <Plus size={20} /> Add Address
                   </button>
                 </div>
@@ -299,8 +307,8 @@ const UserProfile = () => {
                     </div>
                   ))}
                   <div className="flex gap-3 pt-4">
-                    <button onClick={updateAddress} className="flex-1 bg-black text-white py-2">Update</button>
-                    <button onClick={() => setShowEdit(false)} className="flex-1 bg-gray-300 text-gray-800 py-2">Cancel</button>
+                    <button onClick={updateAddress} className="flex-1 bg-black text-white py-2 rounded-md">Update</button>
+                    <button onClick={() => setShowEdit(false)} className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-md">Cancel</button>
                   </div>
                 </div>
               )}
@@ -308,7 +316,7 @@ const UserProfile = () => {
           </div>
         )}
       </div>
-      <ToastContainer position="top-right" autoClose={3000} />
+      
     </div>
   );
 };

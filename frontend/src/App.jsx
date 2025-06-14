@@ -43,6 +43,9 @@ const App = () => {
         <Route path="/profile" element={<UserProfile />} />
       </Routes>
       <Footer />
+
+       {/* Toast container globally here */}
+        <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

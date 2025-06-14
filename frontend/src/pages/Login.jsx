@@ -33,9 +33,11 @@ function Login() {
     // Axios only enters here for 2xx responses
     if (data.success) {
       setisLoggedin(true);
-      getUserData(); // make sure this finishes before navigating
+       getUserData(); // make sure this finishes before navigating
+       navigate("/");
+      console.log("✅ User logged in:", data.success);
      toast.success(data.message);
-     navigate("/");
+     
 
 
     } 
