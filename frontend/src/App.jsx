@@ -18,6 +18,7 @@ import EmailVerify from "./pages/EmailVerify";
 import ResetPassword from "./pages/ResetPassword";
 import MegaNavbar from "./components/MegaNavbar";
 
+
 import UserProfile from "./pages/UserProfile";
 
 const App = () => {

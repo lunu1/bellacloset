@@ -1,35 +1,152 @@
 import Product from "../models/Product.js";
+import Variant from "../models/Variants.js";
+import slugify from "slugify";
+import mongoose from 'mongoose';
 
-// @desc Create a new product
-// @POST /api/products
-// @access Private (admin)
 
+// Create product with variants
 export const createProduct = async (req, res) => {
-    try {
-        const {
-            name,
-            description,
-            price,
-            category,
-            sizes,
-            variants,
-            hasColorVariants
-        } = req.body;
+  try {
+    const {
+      name,
+      slug: clientSlug,
+      description,
+      brand,
+      category,
+      tags,
+      options = [],
+      variants = [],
+      defaultImages = [],
+      defaultPrice,
+      defaultStock
+    } = req.body;
 
-        const newProduct = new Product({
-            name,
-            description,
-            price,
-            category,
-            variants,
-            hasColorVariants,
-            sizes: hasColorVariants ? [] : sizes,
-            variants: hasColorVariants ? variants : []
-        });
-
-        await newProduct.save();    
-        res.status(201).json({ message: "Product created", product: newProduct });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    // 1. Validate Required Fields
+    if (!name || !category) {
+      return res.status(400).json({ message: "Missing required product fields" });
     }
-}
+
+    if (!mongoose.Types.ObjectId.isValid(category)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
+    // 2. Generate Unique Slug
+    const baseSlug = clientSlug?.trim() || slugify(name, { lower: true });
+    const finalSlug = `${baseSlug}-${Date.now()}`;
+
+    // 3. Create the Base Product
+    const product = await Product.create({
+      name,
+      slug: finalSlug,
+      description,
+      brand,
+      category,
+      tags,
+      options,
+      images: [],
+      isActive: true,
+      isFeatured: false,
+      seo: {},
+    });
+
+    // 4. Generate Variants if present
+    let createdVariants = [];
+
+    if (Array.isArray(variants) && variants.length > 0) {
+      const usedSkus = new Set();
+
+      createdVariants = await Promise.all(
+        variants
+          .filter(v => v.attributes && Object.values(v.attributes).some(val => val && val.trim() !== ''))
+          .map(async (v) => {
+            const attrs = v.attributes || {};
+            const valuesArr = Object.values(attrs);
+            const values = valuesArr.join('-').toLowerCase();
+            const variantSlug = slugify(`${finalSlug}-${values}`, { lower: true });
+            const sku = `${finalSlug.toUpperCase()}-${values.toUpperCase().replace(/\s+/g, '-')}`;
+
+            if (usedSkus.has(sku)) throw new Error("Duplicate variant SKU generated.");
+            usedSkus.add(sku);
+
+            return Variant.create({
+              product: product._id,
+              optionValues: attrs,
+              slug: variantSlug,
+              sku,
+              price: parseFloat(v.price || defaultPrice || 0),
+              stock: parseInt(v.stock || defaultStock || 0),
+              images: Array.isArray(v.images) ? v.images.slice(0, 4) : [],
+            });
+          })
+      );
+    }
+
+    // 5. Assign Default Images to Product
+    const hasColorOption = options.includes('Color');
+    const defaultVariantImages = createdVariants.find(v => v.images.length)?.images || [];
+
+    product.images = createdVariants.length > 0 && hasColorOption
+      ? defaultVariantImages.slice(0, 4)
+      : defaultImages.slice(0, 4);
+
+    await product.save();
+
+    // 6. Done
+    res.status(201).json({ product, variants: createdVariants });
+
+  } catch (error) {
+    console.error('❌ Product creation error:', error);
+    res.status(500).json({ message: "Failed to create product", error: error.message });
+  }
+};
+
+// Get all products with variants grouped
+export const getAllProducts = async (req, res) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+
+    const result = await Promise.all(
+      products.map(async (product) => {
+        const variants = await Variant.find({ product: product._id });
+        return { product, variants };
+      })
+    );
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch products', error: error.message });
+  }
+};
+
+
+// Get single product with variants
+export const getProductById = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    const variants = await Variant.find({ product: product._id });
+    res.json({ product, variants });
+  } catch (error) {
+    res.status(404).json({ message: "Product not found", error });
+  }
+};
+
+// Update product
+export const updateProduct = async (req, res) => {
+  try {
+    const updatedProduct = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updatedProduct);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update product", error });
+  }
+};
+
+// Delete product and all its variants
+export const deleteProduct = async (req, res) => {
+  try {
+    await Variant.deleteMany({ product: req.params.id });
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ message: "Product and variants deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to delete product", error });
+  }
+};
