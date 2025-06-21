@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import {  useState } from "react";
 import { Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
@@ -14,6 +14,8 @@ import UserList from "./pages/UserList";
 import Login from "./components/Login";
 import Admin from "./pages/Admin";
 import Cookies from "js-cookie";
+import CouponCreation from "./pages/CouponCreation";
+
 
 // export let backendURL = import.meta.env.VITE_BACKEND_URL;
 export let currency = "PKR. ";
@@ -47,14 +49,15 @@ const App = () => {
             } mx-auto my-8 text-gray-800 text-base`}
           >
           <Routes>
-            <Route path="/" element= { <Admin />}></Route>
+            <Route path="/" element= { <Admin /> }></Route>
             <Route path="/add" element={<Add token={token} />}></Route>
             <Route path="/list" element={<List token={token} />}></Route>
             <Route path="/orders" element={<Orders token={token} />}></Route>
             <Route path="/banner" element={<Banner token={token} />}></Route>
-            <Route path="/category" element={<Category token={token} />}></Route>
+            <Route path="/category" element={<Category token={token} /> }></Route>
             <Route path="/users" element= { <UserList token={token} />}></Route>
-            <Route path="/login" element={<Login setToken={setToken} />}></Route>
+            <Route path="/login" element={<Login setToken={setToken} /> }></Route>
+            <Route path="/coupons" element={<CouponCreation />}></Route>
           </Routes>
         </div>
       </div>

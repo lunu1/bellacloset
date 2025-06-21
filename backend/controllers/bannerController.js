@@ -29,8 +29,9 @@ export const uploadBanner = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Banner updated", imageUrl });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
+  
+  res.status(500).json({ success: false, message: err.message });
+}
 };
 
 export const getBanner = async (req, res) => {

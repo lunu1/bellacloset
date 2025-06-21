@@ -93,8 +93,9 @@ const Navbar = () => {
           </Link>
 
           {/* Dropdown Menu */}
+          
           {userData && (
-            <div className="absolute right-0 hidden pt-4 group-hover:block dropdown-menu z-10">
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-10">
               <div className="flex flex-col gap-2 px-5 py-3 text-gray-500 rounded w-36 bg-slate-100">
                 {!userData?.isAccountVerified && (
                   <button onClick={SendVerificationOtp}>
@@ -115,7 +116,9 @@ const Navbar = () => {
                 </button>
               </div>
             </div>
+           
           )}
+          
         </div>
 
         {/* Cart Icon */}

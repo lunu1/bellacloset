@@ -1,82 +1,21 @@
 import { useEffect, useState } from 'react';
 // import { ChevronDown } from 'lucide-react';
-import axios from "axios";
-import { backendURL } from '../config';
+import { useDispatch , useSelector } from 'react-redux';
+import { fetchCategories } from '../redux/categorySlice';
+
+
 
 export default function DesignerNavbar() {
   const [activeCategory, setActiveCategory] = useState(null);
-  const [navbarData, setNavbarData] = useState([]);
+  const dispatch = useDispatch();
 
-  // const navbarData = [
-  //   {
-  //     "name": "WOMEN",
-  //     "children": [
-  //       {
-  //         "name": "BAGS",
-  //         "children": ["Tote Bags", "Shoulder Bags", "Clutches", "Satchel Bags", "Backpacks", "All Bags"]
-  //       },
-  //       {
-  //         "name": "SHOES",
-  //         "children": ["Sandals", "Sneakers", "Heels", "Boots", "All Shoes"]
-  //       },
-  //       {
-  //         "name": "SHOES",
-  //         "children": ["Sandals", "Sneakers", "Heels", "Boots", "All Shoes", "Sneakers", "Heels", "Boots", "All Shoes"]
-  //       },
-  //       {
-  //         "name": "CLOTHING",
-  //         "children": ["Dresses", "Tops", "Pants", "Coats", "All Clothing"]
-  //       },
-  //       {
-  //         "name": "ACCESSORIES",
-  //         "children": ["Sunglasses", "Scarves", "Jewelry", "Belts", "All Accessories"]
-  //       },
-  //       {
-  //         "name": "ACCESSORIES",
-  //         "children": ["Sunglasses", "Scarves", "Jewelry", "Belts", "All Accessories"]
-  //       }
-  //     ]
-  //   },
-  //   {
-  //     "name": "MEN",
-  //     "children": [
-  //       {
-  //         "name": "BAGS",
-  //         "children": ["Wallets", "Briefcases", "Suitcases", "Backpacks", "All Bags"]
-  //       },
-  //       {
-  //         "name": "SHOES",
-  //         "children": ["Sneakers", "Sandals", "Loafers", "Boots", "All Shoes"]
-  //       },
-  //       {
-  //         "name": "ACCESSORIES",
-  //         "children": ["Belts", "Sunglasses", "Ties", "All Accessories"]
-  //       }
-  //     ]
-  //   },
-  //   { "name": "HANDBAGS" },
-  //   { "name": "WATCHES" },
-  //   { "name": "NEW ARRIVALS" },
-  //   { "name": "CLEARANCE" },
-  //   { "name": "DESIGNERS" },
-  //   { "name": "VIDEO SHOPPING" },
-  //   { "name": "MAGAZINE" },
-  //   { "name": "AUTHENTICITY" },
-  // ];
+  //Redux state
+  const { items: navbarData,loading ,error} = useSelector((state) => state.category)
 
-
-
-   useEffect(() => {
-     const fetchCategories = async () => {
-       try {
-         const res = await axios.get(`${backendURL}/api/category`);
-         setNavbarData(res.data);
-       } catch (error) {
-         console.error("Failed to fetch categories", error);
-       }
-     };
-     fetchCategories();
-   })
+  //Fetch categories via redux 
+  useEffect(() => {
+    dispatch(fetchCategories());
+  },[dispatch])
   
   const handleMouseEnter = (index) => {
     setActiveCategory(index);
@@ -93,7 +32,10 @@ export default function DesignerNavbar() {
         <div className="container mx-auto">
           <div className="flex justify-between items-center">
             <div className="flex-1 flex flex-wrap justify-between uppercase">
-              {navbarData.map((category, index) => (
+
+              {loading && <div>Loading...</div>}
+              {error && <div className="text-red-500">Error loading categories</div>}
+              {!loading && navbarData.map((category, index) => (
                 <div
                   key={index}
                   className="relative"

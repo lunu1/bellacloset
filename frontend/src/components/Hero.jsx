@@ -12,6 +12,8 @@ const Hero = () => {
           axios.get("http://localhost:4000/api/banner/hero"),
           axios.get("http://localhost:4000/api/banner/promo")
         ]);
+      
+        
 
         if (heroRes.data?.imageUrl) setHeroBanner(heroRes.data.imageUrl);
         if (promoRes.data?.imageUrl) setPromoBanner(promoRes.data.imageUrl);

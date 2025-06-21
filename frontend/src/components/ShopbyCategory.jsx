@@ -1,70 +1,122 @@
-import axios from "axios"
-import { useEffect, useState } from "react"
+// import axios from "axios"
+// import { useEffect, useState } from "react"
 
-export default function ShopbyCategory() {
+// export default function ShopbyCategory() {
 
-    const [categories, setCategories] = useState([]);
+//     const [categories, setCategories] = useState([]);
 
-    const categorySlugs = [
-        "handbags",
-        "shoes",
-        "watches",
-        "accessories",
-        "jewelery",
-        "clothing",
-    ];
+//     const categorySlugs = [
+//         "handbags",
+//         "shoes",
+//         "watches",
+//         "accessories",
+//         "jewelery",
+//         "clothing",
+//     ];
 
-  //function to fetch categories
-   useEffect(() => {
-       const fetchCategories = async () => {
-           try {
-            const request = categorySlugs.map(async (slug) =>{
-               const res = await axios.get(`http://localhost:4000/api/banner/${slug}`);
-               return {
-                id: res.data._id,
-                name:res.data.section.toUpperCase(),
-                image:res.data.imageUrl,
-                alt:`${res.data.section} banner`
-               }
+//   //function to fetch categories
+//    useEffect(() => {
+//        const fetchCategories = async () => {
+//            try {
+//             const request = categorySlugs.map(async (slug) =>{
+//                const res = await axios.get(`http://localhost:4000/api/banner/${slug}`);
+//                return {
+//                 id: res.data._id,
+//                 name:res.data.section.toUpperCase(),
+//                 image:res.data.imageUrl,
+//                 alt:`${res.data.section} banner`
+//                }
 
-               });
-               const results = await Promise.all(request);
-               setCategories(results);
+//                });
+//                const results = await Promise.all(request);
+//                setCategories(results);
 
      
-           }catch (error) {
-               console.error("Failed to fetch categories", error);
-           }
-       };
-       fetchCategories();
-   }, []); 
+//            }catch (error) {
+//                console.error("Failed to fetch categories", error);
+//            }
+//        };
+//        fetchCategories();
+//    }, []); 
 
-    return (
-        <div className="container mx-auto py-8">
+//     return (
+//         <div className="container mx-auto py-8">
 
-            <div className="bg-gray-100 py-2 mb-8">
-            <h2 className="text-center text-sm font-normal text-gray-800">SHOP BY CATEGORIES</h2>
+//             <div className="bg-gray-100 py-2 mb-8">
+//             <h2 className="text-center text-sm font-normal text-gray-800">SHOP BY CATEGORIES</h2>
+//             </div>
+
+//             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+
+//        {categories.map((category) =>(
+//         <div key={category.id} className="relative group cursor-pointer">
+//             <div className="relative overflow-hidden bg-gray-200">
+//                 <img 
+//                 src={category.image} 
+//                 alt={category.alt} 
+//                 className="w-full h-full object-cover"
+//                 />
+//             </div>
+//         </div>
+//     )
+
+//     )
+// }
+//             </div>
+
+//         </div>
+//     )
+// }
+
+
+
+
+// import axios from "axios";
+import { useEffect } from "react";
+import { useDispatch , useSelector } from "react-redux";
+import { fetchCategories } from "../redux/categorySlice";
+
+export default function ShopbyCategory() {
+ const dispatch = useDispatch();
+ const { items: categories, loading, error} = useSelector((state) => state.category);
+
+  useEffect(()=> {
+    dispatch(fetchCategories());
+  }, [dispatch]);
+        
+        const topLevelCategories = categories.map((cat) => ({
+          id: cat._id,
+          name: cat.label.toUpperCase(),
+          image: cat.image || "https://via.placeholder.com/300x200?text=No+Image",
+          alt: `${cat.label} banner`,
+        }));
+
+       
+
+  return (
+    <div className="container mx-auto py-8">
+      <div className="bg-gray-100 py-2 mb-8">
+        <h2 className="text-center text-sm font-normal text-gray-800">SHOP BY CATEGORIES</h2>
+      </div>
+
+      {loading && <p>Loading...</p>}
+      {error && <p className="text-red-500">Error: {error}</p>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {topLevelCategories.map((category) => (
+          <div key={category.id} className="relative group cursor-pointer">
+            <div className="relative overflow-hidden bg-gray-200 h-64">
+              <img
+                src={category.image}
+                alt={category.alt}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-
-
-       {categories.map((category) =>(
-        <div key={category.id} className="relative group cursor-pointer">
-            <div className="relative overflow-hidden bg-gray-200">
-                <img 
-                src={category.image} 
-                alt={category.alt} 
-                className="w-full h-full object-cover"
-                />
-            </div>
-        </div>
-    )
-
-    )
-}
-            </div>
-
-        </div>
-    )
+            <h3 className="text-center mt-2 text-base font-semibold text-gray-700">{category.name}</h3>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

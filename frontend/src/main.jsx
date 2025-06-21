@@ -4,9 +4,12 @@ import "./index.css";
 import { BrowserRouter } from "react-router-dom";
 import ShopContextProvider from "./context/ShopContext";
 import { AppContextProvider } from "./context/AppContext.jsx";
+import { Provider } from "react-redux";
+import { store } from "./redux/store";
 
 
 createRoot(document.getElementById("root")).render(
+  <Provider store={store}>
   <BrowserRouter>
     <AppContextProvider>
     <ShopContextProvider>
@@ -14,4 +17,5 @@ createRoot(document.getElementById("root")).render(
     </ShopContextProvider>
     </AppContextProvider>
   </BrowserRouter>
+  </Provider>
 );

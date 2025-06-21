@@ -2,12 +2,17 @@
 import userModel from "../models/userModel.js";
 
 
+
 export const getUserData = async (req, res) => {
     try{
         const userId = req.user?.id;
 
         if (!userId) {
-            return res.status(400).json({ success: false, message: "User ID not found in request" });
+            return res.status(400).json({ 
+                success: false,
+                isAuthenticated: false,
+                userData: null,
+               message: "User not logged in" });
         }
         
         // const user = await userModel.findById(userId);
@@ -15,11 +20,15 @@ export const getUserData = async (req, res) => {
         const user = await userModel.findById(userId).select("name isAccountVerified");
 
         if(!user){
-            return res.status(404).json({ success: false, message: "User not found" });
+            return res.status(404).json({ success: false, 
+                isAuthenticated: false,
+                userData: null,
+                message: "User not found" });
         }
 
         res.json({
             success: true,
+            isAuthenticated: true,
             userData: {
                 name: user.name,
                 isAccountVerified: user.isAccountVerified, 

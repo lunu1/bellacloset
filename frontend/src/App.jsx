@@ -22,8 +22,8 @@ import UserProfile from "./pages/UserProfile";
 
 const App = () => {
   return (
-    <div className="">
-      <ToastContainer />
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      <ToastContainer position="top-right" autoClose={3000}/>
       <Navbar />
       <MegaNavbar/>
       <SearchBox />
@@ -44,8 +44,7 @@ const App = () => {
       </Routes>
       <Footer />
 
-       {/* Toast container globally here */}
-        <ToastContainer position="top-right" autoClose={3000} />
+      
     </div>
   );
 };

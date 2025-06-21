@@ -13,7 +13,8 @@ import bannerRouter from "./routes/bannerRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import ProductRouter from "./routes/productRoutes.js";
 import adminRouter from "./routes/adminRoutes.js";
-
+import couponRouter from "./routes/couponRoutes.js";
+import wishlistRouter from "./routes/wishlistRoutes.js";
 // Connect to MongoDB database
 connectDB();
 
@@ -26,6 +27,7 @@ const debugging = debug("development:app");
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
+  'http://localhost:5175', // ✅ ADD THIS LINE
   'https://your-production-site.com',
   'https://your-admin-site.com'
 ];
@@ -54,6 +56,8 @@ app.use("/api/product", ProductRouter);
 app.use("/api/banner", bannerRouter);
 app.use("/api/category", categoryRoutes);
 app.use("/api/admin", adminRouter);
+app.use('/api/coupon', couponRouter)
+app.use("/api/wishlist", wishlistRouter);
 
 
 app.get("/", (req, res) => {

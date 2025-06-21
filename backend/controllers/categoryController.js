@@ -1,9 +1,13 @@
 import Category from "../models/Category.js";
 
 export const createCategory = async (req, res) => {
-  const { label, parent = null } = req.body;
+  const { label, parent = null} = req.body;
+  //Cloudinary stores the uploaded image and returns the URL in req.file.path
+    const image= req.file? req.file.path: null;
+  
 
   try {
+    
     const existing = await Category.findOne({ label, parent });
     if (existing) {
       return res.status(400).json({
@@ -11,7 +15,10 @@ export const createCategory = async (req, res) => {
         message: "Category with the same title already exists at this level.",
       });
     }
-    const category = await Category.create({ label, parent });
+
+    
+
+    const category = await Category.create({ label, parent, image });
 
     res.status(201).json(category);
   } catch (err) {
@@ -52,9 +59,19 @@ export const updateCategory = async (req, res) => {
       });
     }
 
+    const updateData = {
+      label,
+      parent,
+    };
+
+    // ✅ Add image update if file exists
+    if (req.file) {
+      updateData.image = req.file.path;
+    }
+
     const updated = await Category.findByIdAndUpdate(
       id,
-      { label, parent },
+      updateData,
       { new: true }
     );
 

@@ -1,12 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef} from "react";
 import axios from "axios";
 import { backendURL } from "../config";
+
 
 const Category = () => {
   const [categories, setCategories] = useState([]);
   const [label, setLabel] = useState("");
   const [parentId, setParentId] = useState("");
   const [editId, setEditId] = useState(null);
+  const [imageFile,setImageFile] = useState(null);
+  const [existingImage, setExistingImage] = useState(null);
+  const fileInputRef = useRef(null);
+
+
+  
+  
 
   const fetchCategories = async () => {
     try {
@@ -35,22 +43,40 @@ const Category = () => {
     if (!label.trim()) return alert("Please enter a category name");
 
     try {
+       const formData = new FormData();
+       formData.append("label",label);
+       if (parentId) formData.append("parent", parentId);
+       if (imageFile) formData.append("image", imageFile);
+
+
       if (editId) {
-        await axios.put(`${backendURL}/api/category/${editId}`, {
-          label,
-          parent: parentId || null,
-        });
+        await axios.put(`${backendURL}/api/category/${editId}` ,formData 
+        //   {
+        //   label,
+        //   parent: parentId || null,
+         
+        // }
+            
+      );
         alert("Category updated!");
         setEditId(null);
       } else {
-        await axios.post(`${backendURL}/api/category`, {
-          label,
-          parent: parentId || null,
-        });
+        await axios.post(`${backendURL}/api/category`,formData
+        //    {
+        //   label,
+        //   parent: parentId || null,
+          
+        // }
+        
+        
+      );
         alert("Category created!");
       }
       setLabel("");
       setParentId("");
+      setImageFile(null);
+      setExistingImage(null);
+      fileInputRef.current.value = "";  // ✅ CLEAR file input
       fetchCategories();
     } catch (err) {
       alert(err.response?.data?.message || "Something went wrong");
@@ -61,6 +87,9 @@ const Category = () => {
     setEditId(cat._id);
     setLabel(cat.label);
     setParentId(cat.parent || "");
+    setImageFile(null);
+    setExistingImage(cat.image || null);
+    fileInputRef.current.value = ""; // clear the actual input field
   };
 
   const handleDelete = async (id) => {
@@ -74,30 +103,83 @@ const Category = () => {
     }
   };
 
-  const renderCategoryList = (items, level = 0) => {
-    return items.map((cat) => (
-      <div key={cat._id} className="ml-4 my-1">
-        <span>{"—".repeat(level)} {cat.label}</span>
-        <button
-          className="ml-2 text-blue-600"
-          onClick={() => handleEdit(cat)}
-        >
-          Edit
-        </button>
-        <button
-          className="ml-2 text-red-600"
-          onClick={() => handleDelete(cat._id)}
-        >
-          Delete
-        </button>
-        {cat.children && cat.children.length > 0 && (
-          <div className="ml-4">
-            {renderCategoryList(cat.children, level + 1)}
-          </div>
-        )}
+  // const renderCategoryList = (items, level = 0) => {
+  //   return items.map((cat) => (
+  //     <div key={cat._id} className="ml-4 my-1">
+        
+  //       <span>{"—".repeat(level)} {cat.label}</span>
+  //        {/* Image showing here  */}
+         
+  //        {cat.image && (
+  //               <img
+  //                 src={cat.image}
+  //                 alt={cat.label}
+  //                 className="w-10 h-10 object-cover rounded"
+  //               />
+  //             )}
+              
+  //       <button
+  //         className="ml-2 text-blue-600"
+  //         onClick={() => handleEdit(cat)}
+  //       >
+  //         Edit
+  //       </button>
+  //       <button
+  //         className="ml-2 text-red-600"
+  //         onClick={() => handleDelete(cat._id)}
+  //       >
+  //         Delete
+  //       </button>
+  //       {cat.children && cat.children.length > 0 && (
+  //         <div className="ml-4">
+  //           {renderCategoryList(cat.children, level + 1)}
+  //         </div>
+  //       )}
+  //     </div>
+  //   ));
+  // };
+const renderCategoryList = (items, level = 0) => {
+  return items.map((cat) => (
+    <div key={cat._id} className={`mb-2 ${level > 0 ? 'ml-6' : ''}`}>
+      <div className="flex items-center justify-between p-3 bg-white border rounded">
+        <div  className="flex items-center gap-3">
+           {/* <span>{"—".repeat(level)}</span> */}
+          {cat.image && (
+            <img
+              src={cat.image}
+              alt={cat.label}
+              className="w-8 h-8 object-cover rounded"
+            />
+          )}
+          <span>{cat.label}</span>
+        </div>
+        
+        <div >
+          <button
+            className="px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
+            onClick={() => handleEdit(cat)}
+          >
+            Edit
+          </button>
+          <button
+            className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+            onClick={() => handleDelete(cat._id)}
+          >
+            Delete
+          </button>
+        </div>
       </div>
-    ));
-  };
+      
+      {cat.children && cat.children.length > 0 && (
+        <div className="mt-1">
+          {renderCategoryList(cat.children, level + 1)}
+        </div>
+      )}
+    </div>
+  ));
+};
+  
+  
 
   return (
     <div className="max-w-xl mx-auto mt-10 p-6 border rounded shadow">
@@ -122,6 +204,29 @@ const Category = () => {
           {renderOptions(categories)}
         </select>
 
+        {/* Image upload Field */}
+        <input 
+         type="file"
+         accept="image/*"
+         ref={fileInputRef}
+         onChange={(e) => setImageFile (e.target.files[0])}
+         className="w-full p-2 border rounded"
+         
+         />
+
+         {/* ✅ Preview the existing image during edit (if no new file chosen) */}
+        {existingImage && !imageFile && (
+          <div>
+            <p className="text-sm text-gray-500">Current Image:</p>
+            <img
+              src={existingImage}
+              alt="Existing"
+              className="w-24 h-24 object-cover rounded mt-2"
+            />
+          </div>
+        )}
+
+
         <button
           type="submit"
           className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
@@ -136,6 +241,9 @@ const Category = () => {
               setEditId(null);
               setLabel("");
               setParentId("");
+              setImageFile(null);
+              setExistingImage(null);
+             fileInputRef.current.value = '';
             }}
             className="ml-2 text-sm text-gray-500 underline"
           >
