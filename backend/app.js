@@ -11,10 +11,12 @@ import authRouter from "./routes/authRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 import bannerRouter from "./routes/bannerRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
-import ProductRouter from "./routes/productRoutes.js";
+import productRoutes from "./routes/product.route.js";
 import adminRouter from "./routes/adminRoutes.js";
 import couponRouter from "./routes/couponRoutes.js";
 import wishlistRouter from "./routes/wishlistRoutes.js";
+import varitantRoute from "./routes/variant.routes.js";  
+import uploadRoutes from './routes/uploadRoutes.js';
 // Connect to MongoDB database
 connectDB();
 
@@ -52,12 +54,14 @@ app.use(express.urlencoded({ extended: true }));
 // API Endpoints
 app.use('/api/auth',authRouter);
 app.use("/api/user", userRouter);
-app.use("/api/product", ProductRouter);
 app.use("/api/banner", bannerRouter);
 app.use("/api/category", categoryRoutes);
 app.use("/api/admin", adminRouter);
 app.use('/api/coupon', couponRouter)
 app.use("/api/wishlist", wishlistRouter);
+app.use("/api/products", productRoutes);
+app.use("api/variants", varitantRoute);
+app.use("/api/upload", uploadRoutes);
 
 
 app.get("/", (req, res) => {
