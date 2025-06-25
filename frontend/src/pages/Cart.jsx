@@ -1,29 +1,28 @@
-import { useContext, useEffect, useState } from "react";
-import { ShopContext } from "../context/ShopContext";
+import { useEffect, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import Title from "../components/Title";
 import { assets } from "../assets/assets";
 import CartTotal from "../components/CartTotal";
+import { updateQuantity, removeFromCart } from "../features/cart/cartSlice";
+
+
 
 function Cart() {
-  const { products, currency, cartItems, updateQuantity, navigate } =
-    useContext(ShopContext);
+  const dispatch = useDispatch();
+const navigate = useNavigate();
+
+const products = useSelector((state) => state.products.items);
+const cartItems = useSelector((state) => state.cart.items);
+const currency = "₹"; // or get it from global store if set
+
   const [cartData, setCartData] = useState([]);
 
-  useEffect(() => {
-    const tempData = [];
-    for (const items in cartItems) {
-      for (const item in cartItems[items]) {
-        if (cartItems[items][item] > 0) {
-          tempData.push({
-            _id: items,
-            size: item,
-            quantity: cartItems[items][item],
-          });
-        }
-      }
-    }
-    setCartData(tempData);
-  }, [cartItems]);
+  
+
+useEffect(() => {
+  setCartData(cartItems);
+}, [cartItems]);
 
   return (
     <div className="border-t pt-14">
@@ -32,55 +31,67 @@ function Cart() {
       </div>
       <div>
         {cartData.map((item, index) => {
-          const productData = products.find(
-            (product) => product._id === item._id
-          );
+          const productData = products.find((product) => product.product._id === item.productId);
+            if (!productData) return null;
+
           return (
-            <div
-              key={index}
-              className="grid py-4 text-gray-500 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4"
-            >
-              <div className="flex items-start gap-6">
-                <img
-                  src={productData.image[0]}
-                  className="w-16 sm:w-20"
-                  alt=""
-                />
-                <div>
-                  <p className="text-xs font-medium sm:text-lg">
-                    {productData.name}
+          <div
+            key={index}
+            className="grid py-4 text-gray-500 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4"
+          >
+            <div className="flex items-start gap-6">
+              <img
+                src={productData.product.images?.[0]}
+                className="w-16 sm:w-20"
+                alt=""
+              />
+              <div>
+                <p className="text-xs font-medium sm:text-lg">
+                  {productData.product.name}
+                </p>
+                <div className="flex items-center gap-5 mt-2">
+                  <p>
+                    {currency}
+                    {productData.variants[0]?.price || "N/A"}
                   </p>
-                  <div className="flex items-center gap-5 mt-2">
-                    <p>
-                      {currency}
-                      {productData.price}
-                    </p>
-                    <p className="px-2 border sm:px-3 sm:py-1 bg-slate-50">
-                      {item.size}
-                    </p>
-                  </div>
+                  <p className="px-2 border sm:px-3 sm:py-1 bg-slate-50">
+                    {item.size}
+                  </p>
                 </div>
               </div>
+            </div>
+
+
+
+
               <input
                 type="number"
                 min={1}
                 defaultValue={item.quantity}
                 className="px-1 py-1 border max-w-10 sm:max-w-20 sm:px-2"
-                onChange={(e) =>
-                  e.target.value === "" || e.target.value === 0
-                    ? null
-                    : updateQuantity(
-                        item._id,
-                        item.size,
-                        Number(e.target.value)
-                      )
-                }
+                onChange={(e) => {
+                  const qty = Number(e.target.value);
+                  if (qty > 0) {
+                    dispatch(updateQuantity({ 
+                      productId: item.productId, 
+                      size: item.size, 
+                      color: item.color, 
+                      quantity: qty 
+                    }));
+                  }
+                }}
+
               />
               <img
                 src={assets.bin_icon}
                 className="w-4 mr-4 cursor-pointer sm:w-5"
                 alt=""
-                onClick={() => updateQuantity(item._id, item.size, 0)}
+                onClick={() => dispatch(removeFromCart({ 
+                productId: item.productId, 
+                size: item.size, 
+                color: item.color 
+              }))}
+
               />
             </div>
           );

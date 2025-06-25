@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 // import { ChevronDown } from 'lucide-react';
 import { useDispatch , useSelector } from 'react-redux';
-import { fetchCategories } from '../redux/categorySlice';
+import { fetchCategories } from '../features/category/categorySlice';
 
 
 

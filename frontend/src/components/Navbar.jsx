@@ -1,18 +1,23 @@
 import { useContext, useState, useEffect } from "react";
 import { assets } from "../assets/assets";
-import { Link, useNavigate, NavLink } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShopContext } from "../context/ShopContext";
 import { useLocation } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+
 
 const Navbar = () => {
   const [visible, setVisible] = useState(false);
-  const { setShowSearch, getCartCount, search, setSearch, showSearch } = useContext(ShopContext);
+  const { setShowSearch, search, setSearch, showSearch } = useContext(ShopContext);
   const { userData, backendUrl, setisLoggedin, setuserData } = useContext(AppContext);
   const location = useLocation();
   const navigate = useNavigate();
+  const wishlistCount = useSelector((state) => state.wishlist?.items?.length || 0);
+  const cartlistCount = useSelector((state) => state.cart?.items?.length || 0);
+
 
   useEffect(() => {
     if (!location.pathname.includes("collection")) {
@@ -121,11 +126,21 @@ const Navbar = () => {
           
         </div>
 
+        {/* Wishlist Icon */}
+        <Link to="/wishlist" className="relative">
+          <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
+          {/* Optional: Wishlist count badge */}
+            <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]">
+              {wishlistCount}
+            </p>
+          </Link>
+          
+
         {/* Cart Icon */}
         <Link to="/cart" className="relative">
           <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
           <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]">
-            {getCartCount()}
+            {cartlistCount}
           </p>
         </Link>
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Route, Routes, Navigate } from "react-router-dom";
+import { Route, Routes} from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 
@@ -11,14 +11,11 @@ import Orders from "./pages/Orders";
 import Banner from "./pages/Banner";
 import Category from "./pages/Category";
 import UserList from "./pages/UserList";
-<<<<<<< HEAD
-import Login from "./components/Login";
-import Admin from "./pages/Admin";
+
+
 import Cookies from "js-cookie";
 import CouponCreation from "./pages/CouponCreation";
 
-=======
->>>>>>> origin/master
 
 // 🆕 Product Management
 import AddProduct from "../../admin/src/pages/AddProduct";          
@@ -26,7 +23,6 @@ import Products from "./pages/productlisting";
 
 //import ProductList from "./pages/ProductList";      
 
-import Cookies from "js-cookie";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -51,19 +47,6 @@ const App = () => {
           } mx-auto my-8 text-gray-800 text-base`}
         >
           <Routes>
-<<<<<<< HEAD
-            <Route path="/" element= { <Admin /> }></Route>
-            <Route path="/add" element={<Add token={token} />}></Route>
-            <Route path="/list" element={<List token={token} />}></Route>
-            <Route path="/orders" element={<Orders token={token} />}></Route>
-            <Route path="/banner" element={<Banner token={token} />}></Route>
-            <Route path="/category" element={<Category token={token} /> }></Route>
-            <Route path="/users" element= { <UserList token={token} />}></Route>
-            <Route path="/login" element={<Login setToken={setToken} /> }></Route>
-            <Route path="/coupons" element={<CouponCreation />}></Route>
-=======
-            <Route path="/login" element={<Login setToken={setToken} />} />
-
             {isAuthenticated ? (
               <>
                 <Route path="/" element={<Admin />} />
@@ -73,6 +56,9 @@ const App = () => {
                 <Route path="/banner" element={<Banner token={token} />} />
                 <Route path="/category" element={<Category token={token} />} />
                 <Route path="/users" element={<UserList token={token} />} />
+                <Route path="/login" element={<Login setToken={setToken} /> }></Route>
+                <Route path="/coupons" element={<CouponCreation />}></Route>
+                {/* <Route path="/login" element={<Login setToken={setToken} />} /> */}
 
                 {/* 🆕 Product Routes */}
                 <Route path="/products/add" element={<AddProduct />} />
@@ -80,9 +66,9 @@ const App = () => {
                 
               </>
             ) : (
-              <Route path="*" element={<Navigate to="/login" />} />
+              <Route path="/login" element={<Login setToken={setToken} />} />
+              // <Route path="/login" element={<Navigate to="/login" />} />
             )}
->>>>>>> origin/master
           </Routes>
         </div>
       </div>

@@ -1,9 +1,12 @@
 // === FRONTEND === //
 
 // components/ProductForm.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import VariantBuilder from './VariantBuilder';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCategories } from '../redux/categorySlice';
+import { toast } from 'react-toastify'; 
 
 const AVAILABLE_OPTIONS = ["Color", "Size", "Material"];
 
@@ -18,6 +21,14 @@ const ProductForm = ({ onSubmit }) => {
   const [defaultPrice, setDefaultPrice] = useState('');
   const [defaultStock, setDefaultStock] = useState('');
   const [variants, setVariants] = useState([]);
+
+ const dispatch = useDispatch();
+ const { items: categories, loading } = useSelector(state => state.category)
+
+ useEffect(() => {
+  dispatch(fetchCategories());
+}, [dispatch]);
+ 
 
   const handleChange = (e) => setProduct({ ...product, [e.target.name]: e.target.value });
 
@@ -37,8 +48,10 @@ const ProductForm = ({ onSubmit }) => {
     try {
       const res = await axios.post("http://localhost:4000/api/upload/images", formData);
       setDefaultImages(prev => [...prev, ...res.data.urls]);
+      toast.success("Images uploaded successfully!");
     } catch (err) {
       console.error("Image upload failed", err);
+      toast.error("Failed to upload images.")
     } finally {
       setUploadingDefault(false);
     }
@@ -70,7 +83,20 @@ const ProductForm = ({ onSubmit }) => {
 
       <input name="name" placeholder="Product Name" className="border p-2 w-full" value={product.name} onChange={handleChange} />
       <input name="brand" placeholder="Brand" className="border p-2 w-full" value={product.brand} onChange={handleChange} />
-      <input name="category" placeholder="Category ID" className="border p-2 w-full" value={product.category} onChange={handleChange} />
+      {/* <input name="category" placeholder="Category ID" className="border p-2 w-full" value={product.category} onChange={handleChange} /> */}
+      <select 
+      name='category'
+      className='border p-2 w-full'
+      value={product.category}
+      onChange={handleChange}
+      >
+        <option value=" ">Select Category</option>
+        {categories.map(cat => (
+          <option key={cat._id} value={cat._id}>
+            {cat.label}
+          </option>
+        ))}
+      </select>
       <textarea name="description" placeholder="Description" className="border p-2 w-full" value={product.description} onChange={handleChange} />
       <input name="tags" placeholder="Tags (comma separated)" className="border p-2 w-full" value={product.tags} onChange={handleChange} />
 

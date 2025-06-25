@@ -17,6 +17,8 @@ import couponRouter from "./routes/couponRoutes.js";
 import wishlistRouter from "./routes/wishlistRoutes.js";
 import varitantRoute from "./routes/variant.routes.js";  
 import uploadRoutes from './routes/uploadRoutes.js';
+import cartRoutes from './routes/cartRoutes.js';
+
 // Connect to MongoDB database
 connectDB();
 
@@ -62,6 +64,7 @@ app.use("/api/wishlist", wishlistRouter);
 app.use("/api/products", productRoutes);
 app.use("api/variants", varitantRoute);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/cart", cartRoutes)
 
 
 app.get("/", (req, res) => {

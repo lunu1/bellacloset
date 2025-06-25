@@ -1,5 +1,6 @@
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useState} from "react";
+import { Link } from "react-router-dom";
 
 const Hero = () => {
   const [heroBanner, setHeroBanner] = useState("");
@@ -30,6 +31,15 @@ const Hero = () => {
       {heroBanner && (
         <img src={heroBanner} alt="Hero Banner" className="w-full object-cover my-4" />
       )}
+
+      <div className="text-center mt-8">
+  <Link to="/shop">
+    <button className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800">
+      View All Products
+    </button>
+  </Link>
+</div>
+
       {promoBanner && (
         <img src={promoBanner} alt="Promo Banner" className="w-full object-cover my-4" />
       )}

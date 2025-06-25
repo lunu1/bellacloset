@@ -20,6 +20,8 @@ import MegaNavbar from "./components/MegaNavbar";
 
 
 import UserProfile from "./pages/UserProfile";
+import ProductShowcase from "./pages/ProductShowcase/ProductShowcase.jsx";
+import WishlistPage from "./pages/wishlistPage.jsx";
 
 const App = () => {
   return (
@@ -42,6 +44,8 @@ const App = () => {
         <Route path="/email-verify" element={<EmailVerify />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/profile" element={<UserProfile />} />
+        <Route path="/shop" element={<ProductShowcase />} />
+        <Route path="/wishlist" element= { <WishlistPage />} />
       </Routes>
       <Footer />
 

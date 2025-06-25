@@ -75,7 +75,7 @@
 // import axios from "axios";
 import { useEffect } from "react";
 import { useDispatch , useSelector } from "react-redux";
-import { fetchCategories } from "../redux/categorySlice";
+import { fetchCategories } from "../features/category/categorySlice";
 
 export default function ShopbyCategory() {
  const dispatch = useDispatch();

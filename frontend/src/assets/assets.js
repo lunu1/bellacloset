@@ -1,4 +1,4 @@
-import p_img1 from "./p_img1.png";
+// import p_img1 from "./p_img1.png";
 import p_img2_1 from "./p_img2_1.png";
 import p_img2_2 from "./p_img2_2.png";
 import p_img2_3 from "./p_img2_3.png";
@@ -72,7 +72,7 @@ import contact_img from "./contact_img.webp";
 import razorpay_logo from "./razorpay_logo.png";
 import stripe_logo from "./stripe_logo.png";
 import cross_icon from "./cross_icon.png";
-
+import heart_icon from "./heart_icon.png";
 export const assets = {
   logo,
   hero_img,
@@ -92,6 +92,7 @@ export const assets = {
   razorpay_logo,
   stripe_logo,
   cross_icon,
+  heart_icon
 };
 
 // export const products = [
