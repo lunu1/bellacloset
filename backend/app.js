@@ -18,6 +18,7 @@ import wishlistRouter from "./routes/wishlistRoutes.js";
 import varitantRoute from "./routes/variant.routes.js";  
 import uploadRoutes from './routes/uploadRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
 
 // Connect to MongoDB database
 connectDB();
@@ -62,9 +63,10 @@ app.use("/api/admin", adminRouter);
 app.use('/api/coupon', couponRouter)
 app.use("/api/wishlist", wishlistRouter);
 app.use("/api/products", productRoutes);
-app.use("api/variants", varitantRoute);
+app.use("/api/variants", varitantRoute);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/cart", cartRoutes)
+app.use("/api/orders", orderRoutes)
 
 
 app.get("/", (req, res) => {

@@ -100,7 +100,7 @@ const Navbar = () => {
           {/* Dropdown Menu */}
           
           {userData && (
-            <div className="absolute right-0 top-full mt-2 hidden group-hover:block z-10">
+            <div className="absolute right-0 pt-4 hidden group-hover:block dropdown-menu z-10">
               <div className="flex flex-col gap-2 px-5 py-3 text-gray-500 rounded w-36 bg-slate-100">
                 {!userData?.isAccountVerified && (
                   <button onClick={SendVerificationOtp}>
@@ -112,7 +112,7 @@ const Navbar = () => {
                 <Link to="/profile" className="cursor-pointer hover:text-gray-700">
                   My Profile
                 </Link>
-                <p className="cursor-pointer hover:text-gray-700">Orders</p>
+                <Link to="/orders" className="cursor-pointer hover:text-gray-700">Orders</Link>
                 <button
                   onClick={handleLogout}
                   className="cursor-pointer hover:text-gray-700 text-left"
@@ -130,9 +130,11 @@ const Navbar = () => {
         <Link to="/wishlist" className="relative">
           <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
           {/* Optional: Wishlist count badge */}
-            <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]">
-              {wishlistCount}
-            </p>
+            {wishlistCount > 0 && (
+              <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]">
+                {wishlistCount}
+              </p>
+            )}
           </Link>
           
 

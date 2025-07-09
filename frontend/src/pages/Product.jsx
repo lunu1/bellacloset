@@ -1,27 +1,33 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-
 import { assets } from "../assets/assets";
 import RelatedProducts from "../components/RelatedProducts";
 import { getAllProducts } from "../features/product/productSlice";
 import { toast } from "react-toastify";
-import { Share, Heart } from 'lucide-react'
+import { Share, Heart } from 'lucide-react';
 import { addToWishlist, removeFromWishlist } from "../features/wishlist/wishlistSlice";
 import { addToCart } from "../features/cart/cartSlice";
+import { getVariantsByProduct } from "../features/variants/variantSlice";
+
+
 
 const Product = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const { items: products = [], loading } = useSelector((state) => state.products);
-  // Get wishlist from Redux store
   const wishlistItems = useSelector((state) => state.wishlist.items);
   const [isInWishlist, setIsInWishlist] = useState(false);
+  const { items: variants = [], loading: variantLoading } = useSelector((state) => state.variants);
 
-  const  currency = "₹"
+  
 
+  const currency = "₹";
+  const [stockLimitReached, setStockLimitReached] = useState(false);
   const [productData, setProductData] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
   const [color, setColor] = useState("");
@@ -30,75 +36,172 @@ const Product = () => {
   const [reviews, setReviews] = useState([]);
   const [showZoom, setShowZoom] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
-  const [stockStatus, setStockStatus] = useState("in-stock");
-  // const [deliveryInfo, setDeliveryInfo] = useState(null);
-  // const [pincode, setPincode] = useState("");
-  
 
+  // Load products on component mount
   useEffect(() => {
     if (products.length === 0) {
       dispatch(getAllProducts());
     }
   }, [dispatch, products.length]);
 
+  // Find and set product data when products or id changes
   useEffect(() => {
-    const selectedProduct = products.find((p) => p.product._id === id);
-    if (selectedProduct) {
-      setProductData(selectedProduct);
-      setImage(selectedProduct.product.images?.[0] || "");
+    if (products.length > 0 && id) {
+      console.log('Looking for product with ID:', id);
+      console.log('Available products:', products);
       
+      const selectedProduct = products.find((p) => p.product._id === id);
+      console.log('Found product:', selectedProduct);
+      
+      if (selectedProduct) {
+        setProductData(selectedProduct);
 
-      const inWishlist = wishlistItems.some(
-      (item) => item.product._id === selectedProduct.product._id
-    );
-    setIsInWishlist(inWishlist);
-      
-      // Set initial color if available
-      if (selectedProduct.product.options?.includes("Color")) {
-        const firstVariant = selectedProduct.variants[0];
-        setColor(firstVariant?.optionValues?.Color || "");
-      }
-      
-      // Mock reviews data (replace with actual API call)
-      setReviews([
-        {
-          id: 1,
-          user: "John Doe",
-          rating: 5,
-          comment: "Excellent product! Great quality and fast delivery.",
-          date: "2024-01-15",
-          verified: true
-        },
-        {
-          id: 2,
-          user: "Jane Smith",
-          rating: 4,
-          comment: "Good product, but sizing runs a bit small.",
-          date: "2024-01-10",
-          verified: true
+        // Set initial color if available
+        if (selectedProduct.product.options?.includes("Color")) {
+          const firstColorVariant = variants.find(v => v.optionValues?.Color);
+
+          setColor(firstColorVariant?.optionValues?.Color || "");
         }
-      ]);
+
+        // Set initial image
+        const firstVariantWithImages = variants.find(v => v.images?.length > 0);
+
+        setImage(firstVariantWithImages?.images?.[0] || selectedProduct.product.images?.[0] || "");
+
+        const inWishlist = wishlistItems.some(
+              (item) => item?.product?._id === selectedProduct.product._id
+            );
+            setIsInWishlist(inWishlist);
+
+        // Mock reviews
+        setReviews([
+          {
+            id: 1,
+            user: "John Doe",
+            rating: 5,
+            comment: "Excellent product! Great quality and fast delivery.",
+            date: "2024-01-15",
+            verified: true
+          },
+          {
+            id: 2,
+            user: "Jane Smith",
+            rating: 4,
+            comment: "Good product, but sizing runs a bit small.",
+            date: "2024-01-10",
+            verified: true
+          }
+        ]);
+      } else {
+        console.log('Product not found in products array');
+        setProductData(null);
+      }
     }
-  }, [id, products, wishlistItems]);
+  }, [id, products, wishlistItems,variants]);
+
+  // Load variants when product is found
+  useEffect(() => {
+    if (productData?.product?._id) {
+      dispatch(getVariantsByProduct(productData.product._id));
+    }
+  }, [dispatch, productData]);
+
+  // Update selected variant when color/size changes
+  useEffect(() => {
+    if (productData && variants.length > 0 && (color || size)) {
+      const matchedVariant = variants.find(
+        (v) =>
+          (!color || v.optionValues?.Color === color) &&
+          (!size || v.optionValues?.Size === size)
+      );
+
+      if (matchedVariant) {
+        setSelectedVariant(matchedVariant);
+      }
+    }
+  }, [color, size, productData, variants]);
 
  
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Mock delivery check function
-  // const checkDelivery = async () => {
-  //   if (pincode.length !== 6) {
-  //     toast.error("Please enter a valid 6-digit pincode");
-  //     return;
+  // Show not found state
+  if (!loading && products.length > 0 && !productData) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
+          <p className="text-gray-600 mb-4">The product you are looking for doesnot exist.</p>
+          <button 
+            onClick={() => window.history.back()} 
+            className="bg-black text-white px-6 py-2 rounded hover:bg-gray-800 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if still loading or no product data
+  if (!productData) {
+    return null;
+  }
+
+  const { product } = productData;
+ 
+
+
+  const variantStock = selectedVariant?.stock ?? 0;
+  
+  const originalPrice = selectedVariant?.originalPrice || selectedVariant?.price;
+  const currentPrice = selectedVariant?.price;
+  const discountPercent = originalPrice > currentPrice ?
+    Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
+
+  // const getImagesByColor = () => {
+  //   if (!productData) return {};
+  //   const colorImageMap = {};
+  //   const { product} = productData;
+
+  //   if (product.images?.length > 0) {
+  //     colorImageMap['default'] = [...product.images];
   //   }
-    
-  //   // Mock delivery info
-  //   setDeliveryInfo({
-  //     available: true,
-  //     estimatedDays: "3-5",
-  //     charges: pincode.startsWith("1") ? 0 : 50
+
+  //   variants.forEach(variant => {
+  //     const variantColor = variant.optionValues?.Color;
+  //     if (variantColor && variant.images?.length > 0) {
+  //       if (!colorImageMap[variantColor]) {
+  //         colorImageMap[variantColor] = [];
+  //       }
+  //       variant.images.forEach(img => {
+  //         if (!colorImageMap[variantColor].includes(img)) {
+  //           colorImageMap[variantColor].push(img);
+  //         }
+  //       });
+  //     }
   //   });
+
+  //   return colorImageMap;
   // };
 
-  // Image zoom handlers
+ const getDisplayImages = () => {
+  if (selectedVariant?.images?.length > 0) return selectedVariant.images;
+  return product.images || [];
+};
+
+
+
+
   const handleMouseMove = (e) => {
     if (!showZoom) return;
     const rect = e.target.getBoundingClientRect();
@@ -107,75 +210,75 @@ const Product = () => {
     setZoomPosition({ x, y });
   };
 
-  // Handle toggle
-const handleToggleWishlist = async () => {
-  try {
-    if (isInWishlist) {
-      await dispatch(removeFromWishlist(productData.product._id)).unwrap();
-      toast.success("Removed from wishlist");
-    } else {
-      await dispatch(addToWishlist(productData.product._id)).unwrap();
-      toast.success("Added to wishlist");
+  const handleToggleWishlist = async () => {
+    try {
+      if (isInWishlist) {
+        await dispatch(removeFromWishlist(productData.product._id)).unwrap();
+        toast.success("Removed from wishlist");
+      } else {
+        await dispatch(addToWishlist(productData.product._id)).unwrap();
+        toast.success("Added to wishlist");
+      }
+      setIsInWishlist(!isInWishlist);
+    } catch (err) {
+      if (err.response?.data?.message === "Product already in wishlist.") {
+        toast.info("Already in wishlist");
+      } else {
+        toast.error("Something went wrong while updating wishlist");
+      }
     }
-    setIsInWishlist(!isInWishlist);
-  } catch (err) {
-    if (err.response?.data?.message === "Product already in wishlist.") {
-      toast.info("Already in wishlist");
-    } else {
-      toast.error("Something went wrong while updating wishlist");
-    }
-  }
-};
+  };
+
+  const availableColors = variants
+  .filter(v => v.optionValues?.Color)
+  .reduce((unique, v) => {
+    const exists = unique.some(u => u.optionValues.Color === v.optionValues.Color);
+    return exists ? unique : [...unique, v];
+  }, []);
 
 
-  if (loading) return <div className="p-10 text-center">Loading...</div>;
-  if (!productData) return <div className="p-10 text-center">Product not found</div>;
-
-  const { product, variants } = productData;
-  const selectedVariant = variants.find((v) => 
-    (!size || v.optionValues?.Size === size) && 
-    (!color || v.optionValues?.Color === color)
-  ) || variants[0];
-
-  // Calculate discount percentage
-  const originalPrice = selectedVariant?.originalPrice || selectedVariant?.price;
-  const currentPrice = selectedVariant?.price;
-  const discountPercent = originalPrice > currentPrice ? 
-    Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0;
-
-  // Get unique colors and sizes
-  const availableColors = [...new Set(variants.map(v => v.optionValues?.Color).filter(Boolean))];
   const availableSizes = [...new Set(variants.map(v => v.optionValues?.Size).filter(Boolean))];
 
   return (
     <div className="pt-10 transition-opacity duration-500 ease-in border-t-2 opacity-100">
-      
       {/* Product Data */}
       <div className="flex flex-col gap-12 sm:gap-12 sm:flex-row">
         {/* Product Images */}
         <div className="flex flex-col-reverse flex-1 gap-3 sm:flex-row">
+          
+          {/* Thumbnail Images */}
           <div className="flex sm:flex-col justify-between overflow-x-auto sm:overflow-y-scroll sm:justify-normal sm:w-[18.7%] w-full">
-            {product.images?.map((item, index) => (
+            {getDisplayImages().map((imageUrl, index) => (
               <img
-                onClick={() => setImage(item)}
-                src={item}
-                alt={`View of ${product.name} - ${index + 1}`}
-                key={index}
+                onClick={() => setImage(imageUrl)}
+                src={imageUrl}
+                alt={`${product.name}${color ? ` in ${color}` : ''} - View ${index + 1}`}
+                key={`${color || 'default'}-${index}`}
                 className={`w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer border-2 ${
-                  image === item ? 'border-black' : 'border-transparent'
-                } hover:border-gray-300`}
+                  image === imageUrl ? 'border-black' : 'border-transparent'
+                } hover:border-gray-300 transition-all duration-200`}
               />
             ))}
+            
+            {color && getDisplayImages().length === 0 && (
+              <div className="text-center text-gray-500 text-sm p-4">
+                No images available for {color} color
+              </div>
+            )}
           </div>
+          
+          {/* Main Image Display */}
           <div className="w-full sm:w-[80%] relative">
             <img 
               src={image} 
-              alt={product.name} 
+              alt={`${product.name}${color ? ` in ${color}` : ''}`} 
               className="w-full h-auto cursor-zoom-in"
               onMouseEnter={() => setShowZoom(true)}
               onMouseLeave={() => setShowZoom(false)}
               onMouseMove={handleMouseMove}
             />
+            
+            {/* Zoom overlay */}
             {showZoom && (
               <div 
                 className="absolute top-0 left-full ml-4 w-96 h-96 border border-gray-300 bg-white shadow-lg pointer-events-none hidden lg:block"
@@ -187,18 +290,18 @@ const handleToggleWishlist = async () => {
                 }}
               />
             )}
+            
             {/* Wishlist & Share buttons */}
             <div className="absolute top-4 right-4 flex flex-col gap-2">
-          <button
-                  onClick={handleToggleWishlist}
-                  className={`p-2 rounded-full shadow-md ${
-                    isInWishlist ? 'bg-red-500 text-white' : 'bg-white text-gray-600'
-                  } hover:scale-110 transition-transform`}
-                  title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
-                >
+              <button
+                onClick={handleToggleWishlist}
+                className={`p-2 rounded-full shadow-md ${
+                  isInWishlist ? 'bg-red-500 text-white' : 'bg-white text-gray-600'
+                } hover:scale-110 transition-transform`}
+                title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
+              >
                 <Heart className={`w-5 h-5 ${isInWishlist ? 'text-white' : 'text-gray-600'}`} />  
-          </button>
-
+              </button>
               <button className="p-2 bg-white text-gray-600 rounded-full shadow-md hover:scale-110 transition-transform">
                 <Share className="w-5 h-5" />
               </button>
@@ -249,57 +352,76 @@ const handleToggleWishlist = async () => {
             )}
           </div>
 
-          {/* Stock Status */}
-          <div className="mt-3">
-            <span className={`text-sm px-2 py-1 rounded ${
-              stockStatus === 'in-stock' ? 'bg-green-100 text-green-800' :
-              stockStatus === 'low-stock' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
-              {stockStatus === 'in-stock' ? '✓ In Stock' :
-               stockStatus === 'low-stock' ? '⚠ Low Stock' :
-               '✗ Out of Stock'}
-            </span>
-          </div>
-
           <p className="mt-5 text-gray-600 md:w-4/5 leading-relaxed">{product.description}</p>
 
           {/* Color Selector */}
-          {availableColors.length > 0 && (
-            <div className="flex flex-col gap-3 my-6">
-              <p className="font-medium">Color: <span className="font-normal text-gray-600">{color}</span></p>
-              <div className="flex gap-2">
-                
+{availableColors.length > 0 && (
+  <div className="flex flex-col gap-3 my-6">
+    <div className="flex items-center justify-between">
+      <p className="font-medium">
+        Color: <span className="font-normal text-gray-600">{color || 'Select a color'}</span>
+      </p>
+    </div>
 
-                {availableColors.map((c) => {
-                    const safeColor = c?.toLowerCase(); // ensure it's a valid string
-                    return (
-                      <button
-                        key={c}
-                        className={`w-8 h-8 rounded-full border-2 ${
-                          c === color ? "border-gray-800 scale-110" : "border-gray-300"
-                        } transition-all`}
-                        style={{ backgroundColor: safeColor || "#ccc" }} // fallback if color is invalid
-                        onClick={() => setColor(c)}
-                        title={c}
-                      />
-                    );
-                  })}
+    <div className="flex gap-2 flex-wrap">
+      {availableColors.map((variant) => {
+        const vColor = variant.optionValues.Color;
+        const isSelected = selectedVariant?._id === variant._id;
+        const previewImage = variant.images?.[0] || product.images?.[0];
 
-              </div>
-            </div>
+        return (
+          <button
+            key={variant._id}
+            className={`w-14 h-14 rounded overflow-hidden border-2 relative ${
+              isSelected ? "border-orange-500 scale-110 shadow-lg" : "border-gray-300"
+            } transition-all hover:border-gray-500 hover:scale-105`}
+           onClick={() => {
+  // console.log("Selected color:", vColor);
+  // console.log("Variant ID:", variant._id);
+  // console.log("Variant images:", variant.images);
+
+  setColor(vColor);
+  setSelectedVariant(variant);
+
+  const variantImages = variant.images;
+  const fallbackImages = product.images || [];
+
+  if (variantImages?.length > 0) {
+    setImage(variantImages[0]);
+  } else if (fallbackImages.length > 0) {
+    setImage(fallbackImages[0]);
+  } else {
+    setImage("");
+  }
+}}
 
 
+            title={`Select ${vColor}`}
+          >
+            <img
+              src={previewImage}
+              alt={`${product.name} in ${vColor}`}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        );
+      })}
+    </div>
 
+    {selectedVariant?.images?.length > 0 && (
+      <p className="text-sm text-gray-500">
+        {selectedVariant.images.length} image{selectedVariant.images.length !== 1 ? 's' : ''} available for {color}
+      </p>
+    )}
+  </div>
+)}
 
-          )}
 
           {/* Size Selector */}
           {availableSizes.length > 0 && (
             <div className="flex flex-col gap-3 my-6">
               <div className="flex items-center justify-between">
                 <p className="font-medium">Size: <span className="font-normal text-gray-600">{size}</span></p>
-                {/* <button className="text-sm text-blue-600 hover:underline">Size Guide</button> */}
               </div>
               <div className="flex gap-2 flex-wrap">
                 {availableSizes.map((s) => (
@@ -324,24 +446,43 @@ const handleToggleWishlist = async () => {
             <p className="font-medium">Quantity:</p>
             <div className="flex items-center border border-gray-300 rounded">
               <button 
-                onClick={() => setQuantity(q => Math.max(1, q - 1))} 
+               onClick={() => {
+                  setQuantity(q => {
+                    const newQty = Math.max(1, q - 1);
+                    setStockLimitReached(false);
+                    return newQty;
+                  });
+                }} 
                 className="px-3 py-2 hover:bg-gray-100 transition-colors"
               >
                 -
               </button>
               <span className="px-4 py-2 border-x border-gray-300 min-w-[3rem] text-center">{quantity}</span>
               <button 
-                onClick={() => setQuantity(q => q + 1)} 
+                 onClick={() => {
+                  setQuantity(q => {
+                    const newQty = Math.min(variantStock, q + 1);
+                    setStockLimitReached(newQty === variantStock);
+                    return newQty;
+                  });
+                }} 
                 className="px-3 py-2 hover:bg-gray-100 transition-colors"
+                disabled={quantity >= variantStock}
               >
                 +
               </button>
             </div>
           </div>
 
+          {stockLimitReached && (
+            <p className="text-sm text-red-600  my-2">
+             Only {variantStock} item(s) available in stock.
+            </p>
+          )}
+ 
           {/* Action Buttons */}
-          <div className="flex  sm:flex-row gap-3 mb-6">
-             <button
+          <div className="flex sm:flex-row gap-3 mb-6">
+            <button
               className="flex-1 bg-black text-white py-3 rounded hover:bg-gray-800 transition-colors"
               onClick={() => {
                 if (!size && availableSizes.length > 0) {
@@ -349,7 +490,7 @@ const handleToggleWishlist = async () => {
                 } else if (!color && availableColors.length > 0) {
                   toast.error("Please select a color");
                 } else {
-                  dispatch(addToCart({ productId: product._id, size, quantity, color }));
+                  dispatch(addToCart({ productId: product._id,variantId: selectedVariant?._id, size, color,quantity,price: selectedVariant?.price, name: product.name, thumbnail: image || product.images?.[0]}));
                   toast.success("Added to cart");
                 }
               }}
@@ -357,57 +498,33 @@ const handleToggleWishlist = async () => {
               Add to Cart
             </button>
 
-            <button
-              className="flex-1  border border-black py-3 rounded  transition-colors"
-              onClick={() => {
-                if (!size && availableSizes.length > 0) {
-                  toast.error("Please select a size");
-                } else if (!color && availableColors.length > 0) {
-                  toast.error("Please select a color");
-                } else {
-                  dispatch(addToCart({ productId: product._id, size, quantity, color }));
-                  toast.success("Redirecting to checkout...");
-                  window.location.href = "/checkout";
-                }
-              }}
-            >
-              Buy Now
-            </button>
-          </div>
+          <button
+  className="flex-1 border border-black py-3 rounded transition-colors"
+  onClick={() => {
+    if (!size && availableSizes.length > 0) {
+      toast.error("Please select a size");
+    } else if (!color && availableColors.length > 0) {
+      toast.error("Please select a color");
+    } else {
+      navigate("/place-order", {
+        state: {
+          productId: product._id,
+          variantId: selectedVariant?._id,
+          size,
+          color,
+          quantity,
+          productName: product.name,
+          price: selectedVariant?.price,
+          thumbnail:  product.images?.[0] 
+        }
+      });
+    }
+  }}
+>
+  Buy Now
+</button>
 
-          {/* Delivery Check */}
-          {/* <div className="border border-gray-200 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold mb-3">Delivery Options</h3>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                placeholder="Enter pincode"
-                value={pincode}
-                onChange={(e) => setPincode(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded"
-                maxLength={6}
-              />
-              <button
-                onClick={checkDelivery}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Check
-              </button>
-            </div>
-            {deliveryInfo && (
-              <div className="text-sm text-gray-600">
-                {deliveryInfo.available ? (
-                  <div>
-                    <p className="text-green-600">✓ Delivery available</p>
-                    <p>Estimated delivery: {deliveryInfo.estimatedDays} business days</p>
-                    <p>Delivery charges: {deliveryInfo.charges === 0 ? 'Free' : `${currency}${deliveryInfo.charges}`}</p>
-                  </div>
-                ) : (
-                  <p className="text-red-600">✗ Delivery not available to this pincode</p>
-                )}
-              </div>
-            )}
-          </div> */}
+          </div>
 
           <hr className="mt-8 sm:w-4/5" />
           <div className="flex flex-col gap-2 mt-5 text-sm text-gray-600">
@@ -431,7 +548,7 @@ const handleToggleWishlist = async () => {
         </div>
       </div>
 
-      {/* Enhanced Description & Reviews */}
+      {/* Description & Reviews */}
       <div className="mt-20">
         <div className="flex border-b">
           <button

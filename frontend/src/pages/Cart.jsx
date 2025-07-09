@@ -104,8 +104,29 @@ useEffect(() => {
             <button
               className="px-8 py-3 my-8 text-sm text-white bg-black"
               onClick={() => {
-                navigate("/place-order");
+                if (cartItems.length === 0) return;
+                
+                const item = cartItems[0];
+                const productData = products.find(
+                  (product) => product.product._id === item.productId
+                );
+
+                if (!productData) return;
+
+                navigate("/place-order", {
+                  state: {
+                    productId: item.productId,
+                    variantId: productData.variants?.[0]?._id,
+                    productName: productData.product.name,
+                    thumbnail: productData.product.images?.[0],
+                    price: productData.variants?.[0]?.price,
+                    size: item.size,
+                    color: item.color,
+                    quantity: item.quantity
+                  }
+                });
               }}
+
             >
               PROCEED TO CHECKOUT
             </button>

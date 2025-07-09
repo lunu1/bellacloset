@@ -1,7 +1,7 @@
 // === FRONTEND === //
 
 // components/ProductForm.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import VariantBuilder from './VariantBuilder';
 import { useDispatch, useSelector } from 'react-redux';

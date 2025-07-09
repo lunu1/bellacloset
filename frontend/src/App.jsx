@@ -22,6 +22,7 @@ import MegaNavbar from "./components/MegaNavbar";
 import UserProfile from "./pages/UserProfile";
 import ProductShowcase from "./pages/ProductShowcase/ProductShowcase.jsx";
 import WishlistPage from "./pages/wishlistPage.jsx";
+import OrderPage from "./pages/OrderPage";
 
 const App = () => {
   return (
@@ -46,6 +47,7 @@ const App = () => {
         <Route path="/profile" element={<UserProfile />} />
         <Route path="/shop" element={<ProductShowcase />} />
         <Route path="/wishlist" element= { <WishlistPage />} />
+         {/* <Route path="/orders" element={<OrderPage />} /> */}
       </Routes>
       <Footer />
 

@@ -1,5 +1,5 @@
 // components/VariantBuilder.jsx
-import React, { useEffect, useState } from 'react';
+import  { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const VariantBuilder = ({ options, onVariantsChange, defaultPrice, defaultStock }) => {
@@ -19,7 +19,7 @@ const VariantBuilder = ({ options, onVariantsChange, defaultPrice, defaultStock 
     try {
       const res = await axios.post("http://localhost:4000/api/upload/images", formData);
       setVariantImages(prev => ({ ...prev, [index]: [...(prev[index] || []), ...res.data.urls] }));
-    } catch (err) {
+     } catch (err) {
       console.error("Variant image upload failed", err);
     }
   };
@@ -43,6 +43,7 @@ const VariantBuilder = ({ options, onVariantsChange, defaultPrice, defaultStock 
         price: defaultPrice,
         stock: defaultStock,
         images: variantImages[idx] || []
+        
       };
     });
     setCombinations(finalVariants);

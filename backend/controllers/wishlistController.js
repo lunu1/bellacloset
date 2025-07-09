@@ -3,13 +3,13 @@ import Wishlist from "../models/Wishlist.js"
 export const addToWishlist = async (req, res) => {
     try {
         const {productId} = req.body;
-        console.log("Received body:", req.body);
+        
 
         if (!productId) {
       return res.status(400).json({ message: "Product ID is required." });
     }
             const userId = req.user._id;
-            console.log("User from token:", req.user);
+            
 
         // Check if the product is already in the wishlist
         const exists= await Wishlist.findOne({ user: userId, product: productId });

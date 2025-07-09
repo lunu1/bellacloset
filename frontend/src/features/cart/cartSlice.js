@@ -2,6 +2,9 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   items: [], // Each item: { productId, size, color, quantity }
+  subtotal: 0,
+  total: 0,
+  discount: 0, 
 };
 
 const cartSlice = createSlice({
@@ -9,7 +12,7 @@ const cartSlice = createSlice({
   initialState,
   reducers: {
     addToCart: (state, action) => {
-      const { productId, size, color, quantity } = action.payload;
+      const { productId, variantId, size, color, quantity, price, name, thumbnail }  = action.payload;
       const existingItem = state.items.find(
         item =>
           item.productId === productId &&
@@ -20,7 +23,7 @@ const cartSlice = createSlice({
       if (existingItem) {
         existingItem.quantity += quantity;
       } else {
-        state.items.push({ productId, size, color, quantity });
+        state.items.push({ productId, variantId, size, color, quantity, price, name, thumbnail } );
       }
     },
 
@@ -51,9 +54,25 @@ const cartSlice = createSlice({
 
     clearCart: (state) => {
       state.items = [];
-    }
-  }
+      state.subtotal = 0;
+      state.total = 0;
+      state.discount = 0;
+    },
+
+    computeTotals: (state) => {
+  let subtotal = 0;
+  state.items.forEach(item => {
+    subtotal += item.price * item.quantity;
+  });
+
+  state.subtotal = subtotal;
+  state.discount = 0; 
+  state.total = subtotal; 
+}
+
+
+      }
 });
 
-export const { addToCart, removeFromCart, updateQuantity, clearCart } = cartSlice.actions;
+export const { addToCart, removeFromCart, updateQuantity, clearCart, computeTotals } = cartSlice.actions;
 export default cartSlice.reducer;

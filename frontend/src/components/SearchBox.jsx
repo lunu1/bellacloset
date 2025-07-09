@@ -21,27 +21,25 @@ const SearchBox = () => {
   // }, [location]);
 
   return showSearch ? (
-    <div className="text-center">
-      <div className="inline-flex items-center justify-center w-3/4 px-5 py-2 mx-3 my-5 border border-gray-400 rounded-full sm:w-1/2">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-          }}
-          placeholder="Search"
-          className="flex-1 text-sm outline-none bg-inherit"
-        />
-        <img
-          src={assets.cross_icon}
-          alt=""
-          className="inline w-3 cursor-pointer"
-          onClick={(e) => {
-            setShowSearch(false);
-          }}
-        />
-      </div>
+    <div className="w-full px-4 sm:px-6">
+  <div className="flex justify-center mt-5">
+    <div className="flex w-full max-w-lg items-center border border-gray-400 rounded-full px-4 py-2">
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search"
+        className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-500"
+      />
+      <img
+        src={assets.cross_icon}
+        alt="Close"
+        className="w-4 h-4 ml-2 cursor-pointer"
+        onClick={() => setShowSearch(false)}
+      />
     </div>
+  </div>
+</div>
   ) : null;
 };
 
