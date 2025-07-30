@@ -3,7 +3,7 @@ import { useState } from "react";
 import { backendURL } from "../config";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import Cookies from "js-cookie";// Import Cookies
+
 
 const Login = ({ setToken }) => {
   const [email, setEmail] = useState("");
@@ -12,33 +12,24 @@ const Login = ({ setToken }) => {
 
   // Login
   const onSubmitHandler = async (e) => {
-     e.preventDefault();
-    try {
-     
-      const response = await axios.post(`${backendURL}/api/admin/login`, {
-        email,
-        password,
-      });
-       console.log("Response:", response.data); 
-    if (response.data.token)
- {       
-         
-         toast.success(response.data.message);
-         Cookies.set("token", response.data.token);// Set the token in a cookie
-         setToken(response.data.token);// Update the token state
-         navigate('/')//  Redirect to the home page
-        
-       
-      } else {
-       
-        toast.error(response.data.message);
-      }
-    } catch (error) {
-  console.error("Login error:", error);
-  toast.error(error.response?.data?.message || "Something went wrong. Please try again.");
-}
+  e.preventDefault();
+  try {
+    const response = await axios.post(`${backendURL}/api/admin/login`, {
+      email,
+      password,
+    }, {
+      withCredentials: true 
+    });
 
-  };
+    toast.success(response.data.message);
+    setToken("verified"); 
+    navigate("/");
+
+  } catch (error) {
+    console.error("Login error:", error);
+    toast.error(error.response?.data?.message || "Something went wrong");
+  }
+};
 
   return (
     <div className="flex items-center justify-center min-h-screen ">

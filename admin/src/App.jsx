@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Route, Routes} from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
@@ -13,7 +13,8 @@ import Category from "./pages/Category";
 import UserList from "./pages/UserList";
 
 
-import Cookies from "js-cookie";
+
+// import Cookies from "js-cookie";
 import CouponCreation from "./pages/CouponCreation";
 
 
@@ -25,12 +26,47 @@ import Products from "./pages/productlisting";
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { backendURL } from "./config";
+import axios from "axios";
 
 export let currency = "PKR. ";
 
 const App = () => {
-  const [token, setToken] = useState(Cookies.get("token") || "");
+  // const [token, setToken] = useState(Cookies.get("token") || "");
+  const [token, setToken] = useState("");
+  const [loading, setLoading] = useState(true);
   const isAuthenticated = !!token;
+
+  useEffect(() => {
+  const checkAuth = async () => {
+    try {
+      await axios.get(`${backendURL}/api/admin/verify`, {
+        withCredentials: true
+      });
+      setToken("verified"); // just a dummy non-empty value
+    } catch (err) {
+      setToken("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  checkAuth();
+}, []);
+
+
+
+
+
+  // ✅ Prevent rendering until auth check finishes
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen text-xl">
+        Checking authentication...
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">

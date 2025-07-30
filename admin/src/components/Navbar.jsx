@@ -2,17 +2,17 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { backendURL } from "../config"; // make sure this is correct
 import { toast } from "react-toastify";
-import Cookies from "js-cookie";  
+
 
 function Navbar({ token, setToken }) {
   const navigate = useNavigate();
   
   const handleLogout = async () => {
     try {
-      await axios.post(`${backendURL}/api/admin/logout`);
+      await axios.post(`${backendURL}/api/admin/logout`, {}, { withCredentials: true });
 
       toast.success("Logged out successfully");
-      Cookies.remove("token")
+      // Cookies.remove("token")
       setToken(""); 
       navigate("/login"); 
     } catch (error) {

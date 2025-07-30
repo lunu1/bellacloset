@@ -43,7 +43,10 @@ const debugging = debug("development:middleware:adminAuth");
 
 const adminAuth = async (req, res, next) => {
   try {
-    const { token } = req.headers;
+    // const { token } = req.headers;
+
+  // ✅ Get token from cookies, not headers
+    const token = req.cookies.token;
 
     if (!token) {
       return res.status(401).json({
@@ -52,10 +55,10 @@ const adminAuth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "moretogo");
 
     const admin = await adminModel.findById(decoded.id);
-    if (!admin || !admin.isAdmin) {
+    if (!admin || admin.role !== "admin") {
       return res.status(401).json({
         success: false,
         message: "Unauthorized access. Admin only.",

@@ -1,6 +1,6 @@
 // routes/adminDashboard.js
 import express from "express";
-import adminAuth from "../middleware/adminAuth.js";
+import admin from "../middleware/adminAuth.js";
 
 const router = express.Router();
 

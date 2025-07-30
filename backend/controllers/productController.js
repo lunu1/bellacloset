@@ -150,3 +150,51 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ message: "Failed to delete product", error });
   }
 };
+
+// Search products by name, brand, or description
+export const searchProducts = async (req, res) => {
+  try {
+    const query = req.query.q?.trim();
+
+    if (!query) {
+      return res.status(400).json({ success: false, message: "Search query is required" });
+    }
+
+    // Convert to case-insensitive partial regex
+    const regex = new RegExp(query, 'i'); // partial + case-insensitive match
+
+    const results = await Product.find({
+      $or: [
+        { name: regex },
+        { brand: regex },
+        { description: regex },
+      ],
+    }).limit(30);
+
+    res.status(200).json({ success: true, results });
+  } catch (error) {
+    console.error("❌ Search error:", error);
+    res.status(500).json({ success: false, message: "Failed to perform search", error: error.message });
+  }
+};
+
+
+// Search for suggestions
+export const getSearchSuggestions = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 1) return res.json({ suggestions: [] });
+
+    const regex = new RegExp(`^${q}`, 'i'); // starts with q, case-insensitive
+
+    const suggestions = await Product.find({ name: { $regex: regex } })
+      .limit(8)
+      .select('name _id');
+
+    res.json({ suggestions: suggestions.map(p => p.name) });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching suggestions", error: error.message });
+  }
+};
+
+
