@@ -50,6 +50,17 @@ app.use(cors({
   credentials: true,
 }));
 
+
+
+
+// app.use(
+//   cors({
+//     origin: "http://localhost:5175", // 👈 your frontend
+//     credentials: true,               // ✅ allow cookies
+//   })
+// );
+
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

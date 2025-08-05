@@ -1,41 +1,54 @@
 import axios from "axios";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { backendURL } from "../config";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { AdminContext } from "../context/AdminContext";
 
-
-const Login = ({ setToken }) => {
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
-  // Login
+  const { setIsAdminLoggedIn, getAdminData } = useContext(AdminContext);
+
   const onSubmitHandler = async (e) => {
   e.preventDefault();
+
   try {
-    const response = await axios.post(`${backendURL}/api/admin/login`, {
-      email,
-      password,
-    }, {
-      withCredentials: true 
-    });
+    const response = await axios.post(
+      `${backendURL}/api/admin/login`,
+      { email, password },
+      { withCredentials: true } //  Send and receive cookies
+    );
 
-    toast.success(response.data.message);
-    setToken("verified"); 
-    navigate("/");
+    if (response.data.success) {
+      toast.success(response.data.message);
 
+      
+      setIsAdminLoggedIn(true);
+
+     
+      navigate("/");
+
+      
+      setTimeout(() => {
+        getAdminData();
+      }, 300); 
+    } else {
+      toast.error(response.data.message || "Login failed");
+    }
   } catch (error) {
-    console.error("Login error:", error);
-    toast.error(error.response?.data?.message || "Something went wrong");
+    toast.error(error.response?.data?.message || "Login failed");
   }
 };
 
+
   return (
-    <div className="flex items-center justify-center min-h-screen ">
+    <div className="flex items-center justify-center min-h-screen">
       <div className="max-w-md px-8 py-6 mb-4 bg-white rounded-lg shadow-md">
         <h1 className="mb-4 text-2xl font-bold">Admin Panel</h1>
-        <form action="" onSubmit={onSubmitHandler}>
+        <form onSubmit={onSubmitHandler}>
           <div className="mb-3 min-w-72">
             <p className="mb-2 text-sm font-medium text-gray-700">
               Email Address

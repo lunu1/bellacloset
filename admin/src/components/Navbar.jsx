@@ -2,21 +2,23 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { backendURL } from "../config"; // make sure this is correct
 import { toast } from "react-toastify";
+import { useContext } from "react";
+import { AdminContext } from "../context/AdminContext";
 
 
 function Navbar({ token, setToken }) {
   const navigate = useNavigate();
+  const { isAdminLoggedIn, setIsAdminLoggedIn, setAdminData } = useContext(AdminContext);
   
   const handleLogout = async () => {
     try {
       await axios.post(`${backendURL}/api/admin/logout`, {}, { withCredentials: true });
 
       toast.success("Logged out successfully");
-      // Cookies.remove("token")
-      setToken(""); 
-      navigate("/login"); 
+      setIsAdminLoggedIn(false);
+      setAdminData(null);
+      navigate("/login");
     } catch (error) {
-      console.error("Logout error:", error);
       toast.error(error.response?.data?.message || "Logout failed");
     }
   };
@@ -27,7 +29,7 @@ function Navbar({ token, setToken }) {
         <h1 className="bodoni-moda-heading text-2xl uppercase">Bella Closet</h1>
       </Link>
    
-   {token ? (
+   {isAdminLoggedIn ?(
       <button
         onClick={handleLogout}
         className="px-5 py-2 text-xs text-white bg-gray-600 rounded-full sm:px-7 sm:py-2 sm:text-sm"
