@@ -41,7 +41,14 @@ const wishlistSlice = createSlice({
         error: null,
         status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
     },
-    reducers :{},
+    reducers :{
+        clearWishlist(state) {
+      state.items = [];
+      state.loading = false;
+      state.error = null;
+      state.status = "idle";
+    },
+},
     extraReducers: (builder) => {
         builder
             .addCase(getWishlist.pending, (state) => {
@@ -83,5 +90,7 @@ const wishlistSlice = createSlice({
             });
     }
 });
+
+export const { clearWishlist } = wishlistSlice.actions;
 
 export default wishlistSlice.reducer;

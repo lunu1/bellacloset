@@ -46,7 +46,7 @@ const adminAuth = async (req, res, next) => {
     // const { token } = req.headers;
 
   // ✅ Get token from cookies, not headers
-    const token = req.cookies.token;
+    const token =  req.cookies.admin_token;
 
     if (!token) {
       return res.status(401).json({
@@ -55,17 +55,18 @@ const adminAuth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "moretogo");
+    // const decoded = jwt.verify(token, process.env.JWT_SECRET || "moretogo");
+ const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const admin = await adminModel.findById(decoded.id);
-    if (!admin || admin.role !== "admin") {
+    if (!admin || (admin.role !== 'admin' && !admin.isAdmin)) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized access. Admin only.",
       });
     }
-
-    req.user = decoded; // optionally pass info to route
+    req.admin = admin;   // hydrate for controllers
+    // req.user = decoded; // optionally pass info to route
     next();
   } catch (error) {
     debugging(error);

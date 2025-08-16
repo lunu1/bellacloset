@@ -24,17 +24,10 @@ const Login = () => {
 
     if (response.data.success) {
       toast.success(response.data.message);
-
-      
       setIsAdminLoggedIn(true);
-
-     
       navigate("/");
-
+      getAdminData();
       
-      setTimeout(() => {
-        getAdminData();
-      }, 300); 
     } else {
       toast.error(response.data.message || "Login failed");
     }

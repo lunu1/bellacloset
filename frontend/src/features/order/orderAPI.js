@@ -1,36 +1,33 @@
-import axios from 'axios';
+// src/features/order/orderAPI.js
+import { api } from "../../api/http";
 
-const BASE_URL = 'http://localhost:4000/api/orders';
+// If you use header-based auth:
+const auth = () => {
+  const t = localStorage.getItem("token");
+  return t ? { headers: { Authorization: `Bearer ${t}` } } : {};
+};
 
-// Helper to get token from local storage
-const getToken = () => localStorage.getItem('token');
-
-// 1. Place Order
+// 1) Place Order -> POST /api/order/place
 export const placeOrderAPI = async (orderData) => {
-  const res = await axios.post(BASE_URL, orderData, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-    },
-  });
-  return res.data;
+  const { data } = await api.post("/order/place", orderData, auth());
+  return data;
 };
 
-// 2. Get User Orders
+// 2) Get User Orders -> GET /api/order
 export const getUserOrdersAPI = async () => {
-  const res = await axios.get(BASE_URL, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-    },
-  });
-  return res.data;
+  const { data } = await api.get("/order", auth());
+  return data;
 };
 
-// 3. Cancel Order
+// 3) Get Order By Id -> GET /api/order/:orderId
+export const getOrderByIdAPI = async (orderId) => {
+  const { data } = await api.get(`/order/${orderId}`, auth());
+  return data;
+};
+
+// 4) Cancel Order -> PUT /api/order/cancel/:orderId
 export const cancelOrderAPI = async (orderId) => {
-  const res = await axios.patch(`${BASE_URL}/${orderId}/cancel`, null, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-    },
-  });
-  return res.data.order;
+  const { data } = await api.put(`/order/cancel/${orderId}`, null, auth());
+  // backend returns { message, order: <updated> }
+  return data.order || data;
 };

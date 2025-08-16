@@ -9,6 +9,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { LuPlus } from "react-icons/lu";
 import { PiPencilSimpleLineDuotone } from "react-icons/pi";
+import { useSelector } from "react-redux";
 
 
 function PlaceOrder() {
@@ -17,15 +18,19 @@ function PlaceOrder() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const [savedAddresses, setSavedAddresses] = useState([]);
-
- const [selectedAddress, setSelectedAddress] = useState(null);
+ const [selectedAddressId, setSelectedAddressId] = useState(null);
+ const cartItems = useSelector((state) => state.cart.items);
+ 
+//  const [selectedAddress, setSelectedAddress] = useState(null);
 
   const [useNewAddress, setUseNewAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({
     street: '', city: '', state: '', zip: '', country: ''
   });
  
-
+// const chosenAddress = useNewAddress
+//   ? newAddress
+//   : savedAddresses.find(a => (a._id || a.id) === selectedAddressId) || null;
 
 
   useEffect(() => {
@@ -42,71 +47,128 @@ function PlaceOrder() {
   fetchDefaultAddress();
 }, [backendUrl]);
 
+
+const itemsForCheckout = state?.productId
+    ? [{
+        productId: state.productId,
+        variantId: state.variantId,
+        name: state.productName,
+        price: Number(state.price) || 0,
+        quantity: Number(state.quantity) || 1,
+        thumbnail: state.thumbnail,
+        size: state.size,
+        color: state.color,
+      }]
+    : cartItems;
+
+
   const handlePlaceOrder = async () => {
-    const selectedAddress = useNewAddress ? newAddress : selectedAddress;
+    const selectedAddress = useNewAddress ? newAddress :  savedAddresses.find(a => (a._id || a.id) === selectedAddressId);
 
     if (!selectedAddress || !selectedAddress.street) {
       toast.error("Please provide a valid delivery address.");
       return;
     }
 
+    //new code - archana
+
+    if (!itemsForCheckout?.length) {
+    toast.error("No items to checkout.");
+    return;
+  }
+
+    const products = itemsForCheckout.map(it => ({
+      productId: it.productId,
+      variantId: it.variantId,
+      size: it.size,
+      color: it.color,
+      quantity: it.quantity,
+    }));
+
+    const totalAmount = itemsForCheckout.reduce(
+      (sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0),
+      0
+    );
+
     const orderData = {
-      products: [
-        {
-          productId: state?.productId,
-          variantId: state?.variantId,
-          size: state?.size,
-          color: state?.color,
-          quantity: state?.quantity,
-        }
-      ],
-      totalAmount: state?.price * state?.quantity,
+      products,
+      totalAmount,
       address: selectedAddress,
-      paymentMethod: method
+      paymentMethod: method,
+      codConfirmed: method === 'cod'
     };
 
     try {
-      await axios.post(`${backendUrl}/api/order/place`, orderData);
+      const {data : created } = await axios.post(`${backendUrl}/api/order/place`, orderData, { withCredentials: true });
+      toast.dismiss();
       toast.success("Order placed successfully!");
-      navigate("/orders");
+      navigate(`/order-success/${created._id}`, { state: { justPlaced: true } });
+      // await axios.post(`${backendUrl}/api/order/place`, orderData);
+      // toast.success("Order placed successfully!");
+      // navigate("/orders");
     } catch (err) {
       toast.error("Failed to place order");
       console.error(err);
     }
   };
 
-  const handleSaveAddress = async () => {
-    const { street, city, state, zip, country } = newAddress;
-    if (!street || !city || !state || !zip || !country){
-      toast.error("Please fill in all address fields. ");
-      return;
-    }
+  // const handleSaveAddress = async () => {
+  //   const { street, city, state, zip, country } = newAddress;
+  //   if (!street || !city || !state || !zip || !country){
+  //     toast.error("Please fill in all address fields. ");
+  //     return;
+  //   }
 
-    try {
-      const res = await axios.post(`${backendUrl}/api/user/address`, newAddress);
+  //   try {
+  //     const res = await axios.post(`${backendUrl}/api/user/address`, newAddress);
       
-      const saved = res.data.addresses;
+  //     const saved = res.data.addresses;
 
-      // Add to saved Address List
-      setSavedAddresses(prev => [...prev, saved]);
-      setSelectedAddress(saved); // auto-select newly added address
+  //     // Add to saved Address List
+  //     setSavedAddresses(prev => [...prev, saved]);
+  //     setSelectedAddress(saved); // auto-select newly added address
 
-      // Set as default if none exist yet
-      // if (!) {
-      //   setDefaultAddress(saved);
-      // }
+  //     // Set as default if none exist yet
+  //     // if (!) {
+  //     //   setDefaultAddress(saved);
+  //     // }
 
-      //Reset form and toggle view
-      setUseNewAddress(false);
-      setNewAddress({
-        street: '', city: '', state: '', zip: '', country: ''
-      });
-      toast.success("Address saved successfully!");
-     } catch (err) {
-      toast.error("Failed to save address");
-      console.error(err);
-    }
-  } 
+  //     //Reset form and toggle view
+  //     setUseNewAddress(false);
+  //     setNewAddress({
+  //       street: '', city: '', state: '', zip: '', country: ''
+  //     });
+  //     toast.success("Address saved successfully!");
+  //    } catch (err) {
+  //     toast.error("Failed to save address");
+  //     console.error(err);
+  //   }
+  // } 
+
+  const handleSaveAddress = async () => {
+  const { street, city, state, zip, country } = newAddress;
+  if (!street || !city || !state || !zip || !country) {
+    toast.error("Please fill in all address fields.");
+    return;
+  }
+
+  try {
+    const res = await axios.post(`${backendUrl}/api/user/address`, newAddress);
+    // assume API returns the created address as `address`
+    const created = res.data.address; // <-- adjust to your API response
+
+    setSavedAddresses(prev => [...prev, created]);
+    setSelectedAddressId(created._id || created.id); // auto-select
+    setUseNewAddress(false);
+    setNewAddress({ street:'', city:'', state:'', zip:'', country:'' });
+    toast.success("Address saved successfully!");
+  } catch (err) {
+    toast.error("Failed to save address");
+    console.error(err);
+  }
+};
+
+
 
   return (
     <div className="flex flex-col justify-between gap-4 pt-5 sm:flex-row sm:pt-14 min-h-[80vh] border-t">
@@ -130,7 +192,7 @@ function PlaceOrder() {
          {/* Address Cards */}
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* If using saved addresses */}
-          { savedAddresses.map((address, index) => (
+          {/* { savedAddresses.map((address, index) => (
             <div 
                key={index}
                onClick={() => {
@@ -148,7 +210,41 @@ function PlaceOrder() {
                
                 </div>
           ))}
-          </div>
+          </div> */}
+
+          {savedAddresses.map((address) => {
+    const id = address._id || address.id; // support either key
+    const checked = selectedAddressId === id;
+
+    return (
+      <label
+        key={id}
+        className={`p-4 border rounded shadow-sm cursor-pointer flex gap-3 ${
+          checked ? "border-gray-400 bg-gray-200" : "border-gray-300"
+        }`}
+      >
+        <input
+          type="radio"
+          name="shippingAddress"
+          value={id}
+          checked={checked}
+          onChange={() => {
+            setSelectedAddressId(id);
+            setUseNewAddress(false);
+          }}
+          className="mt-1"
+        />
+        <div>
+          <p className="font-semibold">{address.street}</p>
+          <p className="text-sm text-gray-700">{address.city}</p>
+          <p className="text-sm text-gray-700">{address.state}</p>
+          <p className="text-sm text-gray-700">{address.zip}</p>
+          <p className="text-sm text-gray-700">{address.country}</p>
+        </div>
+      </label>
+    );
+  })}
+</div>
 
           {/* If user choose to add new address */}
            {useNewAddress && (
@@ -207,37 +303,62 @@ function PlaceOrder() {
        {/* Right Section: Order Summary */}
   <div className="w-full sm:max-w-[45%] mt-8">
   {/* Product Detail Summary */}
-  <div className="border border-gray-200 rounded p-4 mb-6 shadow-sm bg-white">
-    <div className="flex items-center gap-4">
+
+  {/* <div className="border border-gray-200 rounded p-4 mb-6 shadow-sm bg-white">
+    <div className="flex items-center gap-4"> */}
       {/* Product Image */}
-      <img
+      {/* <img
         src={state?.thumbnail}
         alt="product"
         className="w-20 h-28 object-cover rounded"
-      />
+      /> */}
 
       {/* Product Details */}
-      <div className="flex-1 mt-4">
+      {/* <div className="flex-1 mt-4">
         <h2 className="text-lg font-semibold">{state?.productName}</h2>
-        <p className="text-sm">Size: {state?.size}</p>
+        <p className="text-sm">Size: {state?.size}</p> */}
          {/* <p className="text-sm">Color: <span className="inline-block w-4 h-4 rounded-full" style={{ background: state?.color }} /></p> */}
-        <p className="text-sm">Quantity: {state?.quantity}</p>
-      </div>
+        {/* <p className="text-sm">Quantity: {state?.quantity}</p>
+      </div> */}
 
       {/* Edit Icon */}
-      <div className="text-gray-500 hover:text-black cursor-pointer"
+      {/* <div className="text-gray-500 hover:text-black cursor-pointer"
       onClick={() => navigate(`/product/${state?.productId}`)}>
-        <PiPencilSimpleLineDuotone size={20} />
+        <PiPencilSimpleLineDuotone size={20} /> */}
         {/* Optional: wrap in button if needed */}
         {/* <button onClick={handleEdit}>Edit</button> */}
+      {/* </div>
+    </div> */}
+{/* </div> */}
+
+{/* new code - archana */}
+
+<div className="border border-gray-200 rounded p-4 mb-6 shadow-sm bg-white">
+  {itemsForCheckout.map((it, i) => (
+    <div key={i} className="flex items-center gap-4 mb-3">
+      <img src={it.thumbnail} alt="product" className="w-20 h-28 object-cover rounded" />
+      <div className="flex-1">
+        <h2 className="text-lg font-semibold">{it.name}</h2>
+        {it.size && <p className="text-sm">Size: {it.size}</p>}
+        {it.color && <p className="text-sm">Color: {it.color}</p>}
+        <p className="text-sm">Quantity: {it.quantity}</p>
       </div>
+      <button
+        className="text-gray-500 hover:text-black"
+        onClick={() => navigate(`/product/${it.productId}`)}
+        title="Edit"
+      >
+        <PiPencilSimpleLineDuotone size={20} />
+      </button>
     </div>
-  </div>
+  ))}
+</div>
+
 
 
 
     {/* Cart Total Section */}
-    <CartTotal />
+    <CartTotal items={itemsForCheckout}/>
 
     {/* Payment Method */}
     <div className="mt-10">
@@ -259,6 +380,7 @@ function PlaceOrder() {
         <button
           className="px-16 py-3 my-8 text-sm text-white bg-black"
           onClick={handlePlaceOrder}
+          disabled={!useNewAddress && !selectedAddressId}
         >
           PLACE ORDER
         </button>

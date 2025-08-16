@@ -3,131 +3,90 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Admin from '../models/adminModel.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || "moretogo";
+const JWT_SECRET = process.env.JWT_SECRET;
 
-
-// Register admin
-export const registerAdmin = async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body;
-        const existingAdmin = await Admin.findOne({ email });
-        if (existingAdmin) return res.status(400).json({ message: 'Admin already exists' });
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const newAdmin = await Admin.create({
-            name,
-            email,
-            password: hashedPassword,
-            role
-        });
-
-        res.status(201).json({ message: 'Admin registered successfully', admin: newAdmin });
-    } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
-    }
+// Cookie options (dev: lax/http, prod: none/https)
+const isProd = process.env.NODE_ENV === 'production';
+const cookieOpts = {
+  httpOnly: true,
+  sameSite: isProd ? 'none' : 'lax',
+  secure: isProd,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/',
 };
 
-// get Admin
-export const getAdminData = async (req, res) => {
+// Register admin (no auto-login by default)
+export const registerAdmin = async (req, res) => {
   try {
-    const token = req.cookies.token;
-    if (!token) return res.status(401).json({ success: false, message: "Unauthorized" });
+    const { name, email, password, role } = req.body;
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const admin = await Admin.findById(decoded.id).select("-password");
+    const existing = await Admin.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Admin already exists' });
+    }
 
-    if (!admin) return res.status(404).json({ success: false, message: "Admin not found" });
+    const hashed = await bcrypt.hash(password, 10);
+    const admin = await Admin.create({
+      name,
+      email,
+      password: hashed,
+      role: role || 'admin',
+    });
 
-    res.status(200).json({ success: true, admin });
-  } catch (error) {
-    res.status(401).json({ success: false, message: "Invalid token" });
+    const { password: _pw, ...safe } = admin.toObject();
+    return res.status(201).json({ success: true, message: 'Admin registered successfully', admin: safe });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
 
-
-
-// Login admin
-// export const loginAdmin = async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     const admin = await Admin.findOne({ email });
-//     if (!admin) return res.status(400).json({ message: 'Invalid credentials' });
-
-//     const isMatch = await bcrypt.compare(password, admin.password);
-//     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
-
-//     const token = jwt.sign({ id: admin._id, role: admin.role }, JWT_SECRET, { expiresIn: '1h' });
-
-//     // ✅ Set token as HTTP-only cookie
-//     res
-//       .cookie("token", token, {
-//         httpOnly: true,
-//         secure: false, // set to true if using HTTPS
-//         sameSite: "lax", // or "strict"
-//         maxAge: 3600000, // 1 hour
-//       })
-//       .status(200)
-//       .json({ message: 'Login successful', admin });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Server error', error: err.message });
-//   }
-// };
-
+// ✅ Login admin (sets admin_token)
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const admin = await Admin.findOne({ email });
+
+    const admin = await Admin.findOne({ email }).select('+password');
     if (!admin) return res.status(400).json({ success: false, message: 'Invalid credentials' });
+
+    if (admin.role !== 'admin' && !admin.isAdmin) {
+      return res.status(403).json({ success: false, message: 'Admins only' });
+    }
 
     const isMatch = await bcrypt.compare(password, admin.password);
     if (!isMatch) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: admin._id, role: admin.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: admin._id, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    res
-      .cookie("token", token, {
-        httpOnly: true,
-        secure: false, // true in production with HTTPS
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000, 
-      })
+    const { password: _pw, ...safe } = admin.toObject();
+
+    return res
+      .cookie('admin_token', token, cookieOpts)    // <— separate cookie
       .status(200)
-      .json({
-        success: true,                      
-        message: 'Login successful',
-        admin,
-      });
+      .json({ success: true, message: 'Login successful', admin: safe });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
 
-
-// export const verifyAdmin = (req, res) => {
-//   try {
-//     const token = req.headers.authorization?.split(' ')[1]; // read from header
-//     if (!token) return res.status(401).json({ message: 'No token' });
-
-//     const decoded = jwt.verify(token, JWT_SECRET);
-//     res.status(200).json({ message: 'Token verified', adminId: decoded.id });
-//   } catch (error) {
-//     res.status(401).json({ message: 'Invalid token' });
-//   }
-// };
-
-
-
-
-
-// Logout admin (client-side should handle token deletion)
-// export const logoutAdmin = (req, res) => {
-//     res.status(200).json({ message: 'Logout successful' });
-// };
-
-// ✅ backend/controllers/adminController.js
-// Logout admin
+// ✅ Logout admin (clears admin_token)
 export const logoutAdmin = (req, res) => {
-  res.clearCookie('token');
-  res.status(200).json({ message: 'Logout successful' });
+  try {
+    res.clearCookie('admin_token', { ...cookieOpts, maxAge: undefined });
+    return res.status(200).json({ success: true, message: 'Logout successful' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};
+
+// ✅ Current admin data (requires adminAuth which sets req.admin)
+export const getAdminData = async (req, res) => {
+  try {
+    if (!req.admin) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    const { password, ...safe } = req.admin.toObject();
+    return res.status(200).json({ success: true, admin: safe });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
 };

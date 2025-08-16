@@ -22,7 +22,7 @@ export const uploadBanner = async (req, res) => {
       banner.imageUrl = imageUrl;
       await banner.save();
     } else {
-      await Banner.create({ section, imageUrl }); // ✅ corrected here
+      await Banner.create({ section, imageUrl }); 
     }
 
     res

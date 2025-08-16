@@ -1,56 +1,65 @@
 import { useContext, useState, useEffect } from "react";
-import { assets } from "../assets/assets";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { AppContext } from "../context/AppContext";
-import axios from "axios";
-import { toast } from "react-toastify";
 import { useSelector, useDispatch } from "react-redux";
+import { toast } from "react-toastify";
+import axios from "axios";
+
+import { assets } from "../assets/assets";
+import { AppContext } from "../context/AppContext";
+
 import {
   setQuery,
-  fetchSearchResults,
   fetchSearchSuggestions,
   clearResults,
 } from "../features/search/searchSlice";
 
+// ✅ import wishlist + cart actions
+import { getWishlist, clearWishlist } from "../features/wishlist/wishlistSlice";
+import { clearCart } from "../features/cart/cartSlice";
+
 const Navbar = () => {
   const [visible, setVisible] = useState(false);
   const dispatch = useDispatch();
-  const search = useSelector((state) => state.search.query);
-  const suggestions = useSelector((state) => state.search.suggestions);
-  const { userData, backendUrl, setisLoggedin, setuserData } = useContext(AppContext);
+  const search = useSelector((s) => s.search.query);
+  const suggestions = useSelector((s) => s.search.suggestions);
+
+  const { userData, backendUrl, setisLoggedin, setuserData, authLoading } =
+    useContext(AppContext);
+
   const location = useLocation();
   const navigate = useNavigate();
-  const wishlistCount = useSelector((state) => state.wishlist?.items?.length || 0);
-  const cartlistCount = useSelector((state) => state.cart?.items?.length || 0);
 
-  // Clear results on page change
+  const wishlistCount = useSelector((s) => s.wishlist?.items?.length || 0);
+  const cartlistCount = useSelector((s) => s.cart?.items?.length || 0);
+
+  // Clear search suggestions when leaving /search
   useEffect(() => {
     if (!location.pathname.includes("/search")) {
       dispatch(clearResults());
     }
-  }, [location.pathname]);
+  }, [location.pathname, dispatch]);
+
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (search.trim()) {
-      navigate(`/search?q=${encodeURIComponent(search.trim())}`);
-    }
+    if (search.trim()) navigate(`/search?q=${encodeURIComponent(search.trim())}`);
   };
 
   const handleSuggestionClick = (name) => {
     dispatch(setQuery(name));
     navigate(`/search?q=${encodeURIComponent(name)}`);
-    dispatch(clearResults()); // close suggestions
+    dispatch(clearResults());
   };
 
   const handleLogout = async () => {
     try {
       axios.defaults.withCredentials = true;
-      const { data } = await axios.post(backendUrl + "/api/auth/logout");
-
+      const { data } = await axios.post(`${backendUrl}/api/auth/logout`);
       if (data.success) {
         setisLoggedin(false);
         setuserData(null);
+        dispatch(clearWishlist());
+        dispatch(clearCart());
         navigate("/");
         toast.success(data.message);
       } else {
@@ -64,8 +73,7 @@ const Navbar = () => {
   const SendVerificationOtp = async () => {
     try {
       axios.defaults.withCredentials = true;
-      const { data } = await axios.post(backendUrl + "/api/auth/send-otp");
-
+      const { data } = await axios.post(`${backendUrl}/api/auth/send-otp`);
       if (data.success) {
         toast.success(data.message);
         navigate("/email-verify");
@@ -73,7 +81,9 @@ const Navbar = () => {
         toast.error(data.message);
       }
     } catch (error) {
-      toast.error("Error sending OTP: " + (error?.response?.data?.message || error.message));
+      toast.error(
+        "Error sending OTP: " + (error?.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -83,7 +93,7 @@ const Navbar = () => {
         <h1 className="bodoni-moda-heading text-2xl uppercase">Bella Closet</h1>
       </Link>
 
-      {/* Search Bar with Suggestions */}
+      {/* Search */}
       <div className="text-center w-[48vw] relative">
         <form
           onSubmit={handleSearch}
@@ -93,13 +103,10 @@ const Navbar = () => {
             type="text"
             value={search}
             onChange={(e) => {
-              const value = e.target.value;
-              dispatch(setQuery(value));
-              if (value.trim()) {
-                dispatch(fetchSearchSuggestions(value));
-              } else {
-                dispatch(clearResults());
-              }
+              const v = e.target.value;
+              dispatch(setQuery(v));
+              if (v.trim()) dispatch(fetchSearchSuggestions(v));
+              else dispatch(clearResults());
             }}
             placeholder="What are you looking for?"
             className="flex-1 text-md outline-none bg-inherit"
@@ -112,14 +119,11 @@ const Navbar = () => {
           />
         </form>
 
-        {/* 🔍 Suggestions Dropdown */}
         {search && suggestions.length > 0 && (
-          <>
-          {console.log("Suggestions:", suggestions)}
           <ul className="absolute z-50 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto shadow">
-            {suggestions.map((sugg, index) => (
+            {suggestions.map((sugg, i) => (
               <li
-                key={index} // ✅ use index since sugg is a string
+                key={i}
                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
                 onClick={() => handleSuggestionClick(sugg)}
               >
@@ -127,11 +131,10 @@ const Navbar = () => {
               </li>
             ))}
           </ul>
-          </>
         )}
       </div>
 
-      {/* Right Side Icons */}
+      {/* Right side */}
       <div className="flex items-center gap-6">
         <h1>{userData?.name}</h1>
 
@@ -150,8 +153,12 @@ const Navbar = () => {
                     </Link>
                   </button>
                 )}
-                <Link to="/profile" className="cursor-pointer hover:text-gray-700">My Profile</Link>
-                <Link to="/orders" className="cursor-pointer hover:text-gray-700">Orders</Link>
+                <Link to="/profile" className="cursor-pointer hover:text-gray-700">
+                  My Profile
+                </Link>
+                <Link to="/orders" className="cursor-pointer hover:text-gray-700">
+                  Orders
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="cursor-pointer hover:text-gray-700 text-left"

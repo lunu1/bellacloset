@@ -1,16 +1,36 @@
-import { useEffect } from "react";
+import { useEffect, useContext } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { getUserOrders } from "../features/order/orderSlice.js";
+import axios from "axios";
+import { toast } from "react-toastify";
 import Title from "../components/Title";
+import { AppContext } from "../context/AppContext";
+import { Link } from "react-router-dom";
 
+import { getUserOrders } from "../features/order/orderSlice.js";
 
 function Orders() {
   const dispatch = useDispatch();
+  const { backendUrl } = useContext(AppContext);
   const { orders, loading, error } = useSelector((state) => state.order);
 
   useEffect(() => {
     dispatch(getUserOrders());
   }, [dispatch]);
+
+  const handleCancel = async (orderId) => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    try {
+      await axios.put(
+        `${backendUrl}/api/order/cancel/${orderId}`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success("Order cancelled");
+      dispatch(getUserOrders());
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Failed to cancel order");
+    }
+  };
 
   return (
     <div className="pt-16 border-t">
@@ -26,59 +46,126 @@ function Orders() {
 
       <div>
         {Array.isArray(orders) && orders.length > 0 ? (
-  orders.map((order) => (
-    <div
-      key={order._id}
-      className="flex flex-col gap-4 py-4 text-gray-700 border-t border-b md:flex-row md:items-center md:justify-between"
-    >
-      {Array.isArray(order.products) && order.products.length > 0 ? (
-        <div className="flex items-start gap-6 text-sm">
-          <img
-            src={order.products[0]?.productId?.images?.[0] || "/placeholder.jpg"}
-            className="w-16 sm:w-20"
-            alt="Product"
-          />
-          <div>
-            <p className="font-medium sm:text-base">
-              {order.products[0]?.productId?.name || "Product Name"}
-            </p>
-            <div className="flex items-center gap-3 mt-2 text-base text-gray-700">
-              <p className="text-lg">₹{order.totalAmount}</p>
-              <p>Quantity: {order.products[0]?.quantity}</p>
-              <p>Size: {order.products[0]?.size}</p>
-            </div>
-            <p className="mt-2">
-              Date:{" "}
-              <span className="text-gray-400">
-                {new Date(order.createdAt).toLocaleDateString()}
-              </span>
-            </p>
-          </div>
-        </div>
-      ) : (
-        <p className="text-red-500 text-sm">Product info not available</p>
-      )}
+          orders.map((order) => {
+            const first = order.products?.[0];
+            const img =
+              first?.variantId?.images?.[0] ||
+              first?.productId?.images?.[0] ||
+              "/placeholder.jpg";
 
-      <div className="flex justify-between md:w-1/2">
-        <div className="flex items-center gap-2">
-          <p
-            className={`h-2 rounded-full min-w-2 ${
-              order.status === "Cancelled" ? "bg-red-500" : "bg-green-500"
-            }`}
-          ></p>
-          <p className="text-sm md:text-base">{order.status}</p>
-        </div>
-        <button className="px-4 py-2 text-sm font-medium border rounded-sm">
-          Track Order
-        </button>
-      </div>
-    </div>
-  ))
-) : (
-  <p className="text-gray-500 p-4">No orders found.</p>
-)}
+            const moreCount = Math.max(0, (order.products?.length || 0) - 1);
 
+            const canTrack =
+              order.status === "Shipped" || order.status === "Delivered";
+            const canCancel = order.status === "Pending";
 
+            return (
+              <div
+                key={order._id}
+                className="flex flex-col gap-4 py-4 text-gray-700 border-t border-b md:flex-row md:items-center md:justify-between"
+              >
+                {/* Left: product summary */}
+                <div className="flex items-start gap-6 text-sm">
+                  <img
+                    src={img}
+                    className="w-16 sm:w-20 rounded object-cover"
+                    alt="Product"
+                  />
+                  <div>
+                    {/* <p className="font-medium sm:text-base">
+                      {first?.productId?.name || "Product Name"}
+                      {moreCount > 0 && (
+                        <span className="ml-2 text-gray-500">
+                          +{moreCount} more
+                        </span>
+                      )}
+                    </p> */}
+
+                    <Link
+                      to={`/orders/${order._id}`}
+                      className="font-medium sm:text-base hover:underline"
+                    >
+                      {first?.productId?.name || "Product Name"}
+                    </Link>
+                    {moreCount > 0 && <span className="ml-2 text-gray-500">+{moreCount} more</span>}
+
+                    {/* Order ID + placed date */}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Order #{order._id} •{" "}
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+
+                    {/* Payment info */}
+                    {(order.paymentMethod || order.paymentStatus) && (
+                      <p className="mt-1 text-xs text-gray-600">
+                        Payment: {order.paymentMethod || "-"} ·{" "}
+                        {order.paymentStatus || "-"}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-3 mt-2 text-base text-gray-700">
+                      <p className="text-lg">₹{order.totalAmount}</p>
+                      <p>Quantity: {first?.quantity}</p>
+                      {first?.size && <p>Size: {first.size}</p>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: status + actions */}
+                <div className="flex justify-between md:w-1/2">
+                  <div className="flex items-center gap-2">
+                    <p
+                      className={`h-2 rounded-full min-w-2 ${
+                        order.status === "Cancelled"
+                          ? "bg-red-500"
+                          : order.status === "Shipped"
+                          ? "bg-blue-500"
+                          : order.status === "Delivered"
+                          ? "bg-green-600"
+                          : "bg-yellow-500"
+                      }`}
+                    />
+                    <p className="text-sm md:text-base">{order.status}</p>
+                  </div>
+
+                  <div className="flex gap-2">
+
+                    <Link
+                      to={`/orders/${order._id}`}
+                      className="px-4 py-2 text-sm font-medium border rounded-sm hover:bg-gray-50"
+                    >
+                      View Details
+                    </Link>
+
+                    <button
+                      className={`px-4 py-2 text-sm font-medium border rounded-sm ${
+                        canTrack ? "" : "opacity-50 cursor-not-allowed"
+                      }`}
+                      disabled={!canTrack}
+                      onClick={() => {
+                        if (!canTrack) return;
+                        // TODO: open tracking modal or navigate to /orders/:id
+                      }}
+                    >
+                      Track Order
+                    </button>
+
+                    {canCancel && (
+                      <button
+                        className="px-4 py-2 text-sm font-medium border rounded-sm hover:bg-gray-50"
+                        onClick={() => handleCancel(order._id)}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <p className="text-gray-500 p-4">No orders found.</p>
+        )}
       </div>
     </div>
   );

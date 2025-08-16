@@ -19,6 +19,7 @@ import varitantRoute from "./routes/variant.routes.js";
 import uploadRoutes from './routes/uploadRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import adminOrderRoutes from './routes/adminOrderRoutes.js';
 
 // Connect to MongoDB database
 connectDB();
@@ -77,7 +78,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/variants", varitantRoute);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/cart", cartRoutes)
-app.use("/api/orders", orderRoutes)
+app.use("/api/order", orderRoutes)
+app.use("/api/admin/orders", adminOrderRoutes)
 
 
 app.get("/", (req, res) => {

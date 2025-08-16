@@ -17,13 +17,16 @@ import SignUp from "./pages/Signup";
 import EmailVerify from "./pages/EmailVerify";
 import ResetPassword from "./pages/ResetPassword";
 import MegaNavbar from "./components/MegaNavbar";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 
 import UserProfile from "./pages/UserProfile";
 import ProductShowcase from "./pages/ProductShowcase/ProductShowcase.jsx";
 import WishlistPage from "./pages/wishlistPage.jsx";
-// import OrderPage from "./pages/OrderPage";
+import OrderPage from "./pages/OrderPage";
 import SearchResults from "./pages/SearchResults.jsx";
+import OrderDetails from "./pages/OrderDetails.jsx";
+import OrderSuccess from "./pages/OrderSuccess.jsx";
 
 const App = () => {
   return (
@@ -38,7 +41,18 @@ const App = () => {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/product/:id" element={<Product />} />
-        <Route path="/cart" element={<Cart />} />
+        {/* Protected Pages */}
+       <Route path="/cart" element={
+        <ProtectedRoute> 
+          <Cart />
+        </ProtectedRoute>} />
+
+        <Route path="/wishlist" element= { 
+        <ProtectedRoute>
+        <WishlistPage />
+        </ProtectedRoute>} />
+
+
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/place-order" element={<PlaceOrder />} />
@@ -47,7 +61,8 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/profile" element={<UserProfile />} />
         <Route path="/shop" element={<ProductShowcase />} />
-        <Route path="/wishlist" element= { <WishlistPage />} />
+        <Route path="/orders/:orderId" element={<OrderDetails />} />
+        <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/search" element={<SearchResults/>}/>
          {/* <Route path="/orders" element={<OrderPage />} /> */}
       </Routes>

@@ -25,7 +25,7 @@ const AdminBannerUpload = () => {
         "Upload failed: " + (error.response?.data?.message || error.message)
       );
     }
-  };
+  }
 
   return (
     <div className="max-w-md p-4 mx-auto mt-10 border rounded">
