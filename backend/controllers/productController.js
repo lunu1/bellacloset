@@ -1,8 +1,7 @@
 import Product from "../models/Product.js";
 import Variant from "../models/Variants.js";
 import slugify from "slugify";
-import mongoose from 'mongoose';
-
+import mongoose from "mongoose";
 
 // Create product with variants
 export const createProduct = async (req, res) => {
@@ -18,12 +17,15 @@ export const createProduct = async (req, res) => {
       variants = [],
       defaultImages = [],
       defaultPrice,
-      defaultStock
+      compareAtPrice,
+      defaultStock,
     } = req.body;
 
     // 1. Validate Required Fields
     if (!name || !category) {
-      return res.status(400).json({ message: "Missing required product fields" });
+      return res
+        .status(400)
+        .json({ message: "Missing required product fields" });
     }
 
     if (!mongoose.Types.ObjectId.isValid(category)) {
@@ -43,6 +45,12 @@ export const createProduct = async (req, res) => {
       category,
       tags,
       options,
+      defaultPrice:
+        variants.length === 0 ? parseFloat(defaultPrice || 0) : undefined,
+      compareAtPrice:
+        variants.length === 0 ? parseFloat(compareAtPrice || 0) : undefined,
+      defaultStock:
+        variants.length === 0 ? parseInt(defaultStock || 0) : undefined,
       images: [],
       isActive: true,
       isFeatured: false,
@@ -57,15 +65,26 @@ export const createProduct = async (req, res) => {
 
       createdVariants = await Promise.all(
         variants
-          .filter(v => v.attributes && Object.values(v.attributes).some(val => val && val.trim() !== ''))
+          .filter(
+            (v) =>
+              v.attributes &&
+              Object.values(v.attributes).some(
+                (val) => val && val.trim() !== ""
+              )
+          )
           .map(async (v) => {
             const attrs = v.attributes || {};
             const valuesArr = Object.values(attrs);
-            const values = valuesArr.join('-').toLowerCase();
-            const variantSlug = slugify(`${finalSlug}-${values}`, { lower: true });
-            const sku = `${finalSlug.toUpperCase()}-${values.toUpperCase().replace(/\s+/g, '-')}`;
+            const values = valuesArr.join("-").toLowerCase();
+            const variantSlug = slugify(`${finalSlug}-${values}`, {
+              lower: true,
+            });
+            const sku = `${finalSlug.toUpperCase()}-${values
+              .toUpperCase()
+              .replace(/\s+/g, "-")}`;
 
-            if (usedSkus.has(sku)) throw new Error("Duplicate variant SKU generated.");
+            if (usedSkus.has(sku))
+              throw new Error("Duplicate variant SKU generated.");
             usedSkus.add(sku);
 
             return Variant.create({
@@ -74,6 +93,9 @@ export const createProduct = async (req, res) => {
               slug: variantSlug,
               sku,
               price: parseFloat(v.price || defaultPrice || 0),
+              compareAtPrice: parseFloat(
+                v.compareAtPrice || compareAtPrice || 0
+              ),
               stock: parseInt(v.stock || defaultStock || 0),
               images: Array.isArray(v.images) ? v.images.slice(0, 4) : [],
             });
@@ -82,21 +104,24 @@ export const createProduct = async (req, res) => {
     }
 
     // 5. Assign Default Images to Product
-    const hasColorOption = options.includes('Color');
-    const defaultVariantImages = createdVariants.find(v => v.images.length)?.images || [];
+    const hasColorOption = options.includes("Color");
+    const defaultVariantImages =
+      createdVariants.find((v) => v.images.length)?.images || [];
 
-    product.images = createdVariants.length > 0 && hasColorOption
-      ? defaultVariantImages.slice(0, 4)
-      : defaultImages.slice(0, 4);
+    product.images =
+      createdVariants.length > 0 && hasColorOption
+        ? defaultVariantImages.slice(0, 4)
+        : defaultImages.slice(0, 4);
 
     await product.save();
 
     // 6. Done
     res.status(201).json({ product, variants: createdVariants });
-
   } catch (error) {
-    console.error('❌ Product creation error:', error);
-    res.status(500).json({ message: "Failed to create product", error: error.message });
+    console.error("❌ Product creation error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to create product", error: error.message });
   }
 };
 
@@ -114,10 +139,11 @@ export const getAllProducts = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch products', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch products", error: error.message });
   }
 };
-
 
 // Get single product with variants
 export const getProductById = async (req, res) => {
@@ -133,7 +159,11 @@ export const getProductById = async (req, res) => {
 // Update product
 export const updateProduct = async (req, res) => {
   try {
-    const updatedProduct = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
     res.json(updatedProduct);
   } catch (error) {
     res.status(500).json({ message: "Failed to update product", error });
@@ -157,27 +187,30 @@ export const searchProducts = async (req, res) => {
     const query = req.query.q?.trim();
 
     if (!query) {
-      return res.status(400).json({ success: false, message: "Search query is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Search query is required" });
     }
 
     // Convert to case-insensitive partial regex
-    const regex = new RegExp(query, 'i'); // partial + case-insensitive match
+    const regex = new RegExp(query, "i"); // partial + case-insensitive match
 
     const results = await Product.find({
-      $or: [
-        { name: regex },
-        { brand: regex },
-        { description: regex },
-      ],
+      $or: [{ name: regex }, { brand: regex }, { description: regex }],
     }).limit(30);
 
     res.status(200).json({ success: true, results });
   } catch (error) {
     console.error("❌ Search error:", error);
-    res.status(500).json({ success: false, message: "Failed to perform search", error: error.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to perform search",
+        error: error.message,
+      });
   }
 };
-
 
 // Search for suggestions
 export const getSearchSuggestions = async (req, res) => {
@@ -185,16 +218,16 @@ export const getSearchSuggestions = async (req, res) => {
     const { q } = req.query;
     if (!q || q.length < 1) return res.json({ suggestions: [] });
 
-    const regex = new RegExp(`^${q}`, 'i'); // starts with q, case-insensitive
+    const regex = new RegExp(`^${q}`, "i"); // starts with q, case-insensitive
 
     const suggestions = await Product.find({ name: { $regex: regex } })
       .limit(8)
-      .select('name _id');
+      .select("name _id");
 
-    res.json({ suggestions: suggestions.map(p => p.name) });
+    res.json({ suggestions: suggestions.map((p) => p.name) });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching suggestions", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error fetching suggestions", error: error.message });
   }
 };
-
-

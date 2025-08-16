@@ -17,7 +17,7 @@ const ProductShowcase = () => {
   if (error) return <div className="p-6 text-red-500">{error}</div>;
 
   return (
-    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
       {items.map(({ product, variants }) => (
         <ProductCard key={product._id} product={product} variants={variants} />
       ))}
