@@ -1,54 +1,55 @@
-// components/VariantBuilder.jsx
-import  { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const VariantBuilder = ({ options, onVariantsChange, defaultPrice, defaultStock }) => {
-  const [optionValues, setOptionValues] = useState({});
-  const [combinations, setCombinations] = useState([]);
-  const [variantImages, setVariantImages] = useState({});
+  // Limit to only Color and Size
+  const allowedOptions = options.filter(opt => opt === 'Color' || opt === 'Size');
 
-  const handleOptionValueChange = (option, value) => {
-    setOptionValues(prev => ({ ...prev, [option]: value.split(',').map(v => v.trim()) }));
+  const [optionValues, setOptionValues] = useState({});
+  const [tempInputs, setTempInputs] = useState({});
+  const [combinations, setCombinations] = useState([]);
+  const [variantImages, setVariantImages] = useState({}); // Only for color-based variants
+
+  const handleValueInput = (option, value) => {
+    setTempInputs(prev => ({ ...prev, [option]: value }));
   };
 
-  const handleImageUpload = async (e, index) => {
-    const files = Array.from(e.target.files).slice(0, 4);
-    const formData = new FormData();
-    files.forEach(file => formData.append("images", file));
-
-    try {
-      const res = await axios.post("http://localhost:4000/api/upload/images", formData);
-      setVariantImages(prev => ({ ...prev, [index]: [...(prev[index] || []), ...res.data.urls] }));
-     } catch (err) {
-      console.error("Variant image upload failed", err);
-    }
+  const applyOptionValues = (option) => {
+    const raw = tempInputs[option] || '';
+    const parsed = raw.split(',').map(v => v.trim()).filter(Boolean);
+    setOptionValues(prev => ({ ...prev, [option]: parsed }));
   };
 
   const cartesianProduct = (arrays) => {
     if (arrays.length === 0) return [[]];
-    return arrays.reduce((acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])));
+    return arrays.reduce((acc, curr) =>
+      acc.flatMap(a => curr.map(b => [...a, b])), [[]]);
   };
 
   useEffect(() => {
-    const valueArrays = options.map(opt => Array.isArray(optionValues[opt]) ? optionValues[opt] : []);
+    const valueArrays = allowedOptions.map(opt => optionValues[opt] || []);
     if (valueArrays.some(arr => arr.length === 0)) return;
+
     const rawCombos = cartesianProduct(valueArrays);
-    const finalVariants = rawCombos.map((combo, idx) => {
+    const newVariants = rawCombos.map((combo, idx) => {
       const attributes = {};
-      if (Array.isArray(combo)) {
-        combo.forEach((val, i) => attributes[options[i]] = val);
-      }
+      combo.forEach((val, i) => {
+        attributes[allowedOptions[i]] = val;
+      });
+
+      // Use Color as the key for image mapping
+      const colorKey = attributes.Color || '';
       return {
         attributes,
         price: defaultPrice,
         stock: defaultStock,
-        images: variantImages[idx] || []
-        
+        images: variantImages[colorKey] || [],
       };
     });
-    setCombinations(finalVariants);
-    onVariantsChange(finalVariants);
-  }, [optionValues, variantImages, options, defaultPrice, defaultStock]);
+
+    setCombinations(newVariants);
+    onVariantsChange(newVariants);
+  }, [optionValues, variantImages, defaultPrice, defaultStock]);
 
   const handleVariantUpdate = (index, key, value) => {
     const updated = [...combinations];
@@ -57,44 +58,110 @@ const VariantBuilder = ({ options, onVariantsChange, defaultPrice, defaultStock 
     onVariantsChange(updated);
   };
 
+  const handleImageUpload = async (e, colorKey) => {
+    const files = Array.from(e.target.files).slice(0, 4);
+    const formData = new FormData();
+    files.forEach(file => formData.append("images", file));
+
+    try {
+      const res = await axios.post("http://localhost:4000/api/upload/images", formData);
+      setVariantImages(prev => ({
+        ...prev,
+        [colorKey]: [...(prev[colorKey] || []), ...res.data.urls],
+      }));
+    } catch (err) {
+      console.error("Variant image upload failed", err);
+    }
+  };
+
+  const handleImageDelete = (colorKey, imgUrl) => {
+    setVariantImages(prev => ({
+      ...prev,
+      [colorKey]: prev[colorKey].filter(img => img !== imgUrl),
+    }));
+  };
+
   return (
     <div className="mt-6">
-      <h3 className="font-semibold">Variant Options</h3>
-      {options.map(option => (
-        <div key={option} className="mt-2">
-          <label>{option} values:</label>
-          <input placeholder={`Enter ${option}s (comma separated)`} className="border p-2 w-full" onChange={e => handleOptionValueChange(option, e.target.value)} />
+      <h3 className="font-semibold text-lg">Variant Options</h3>
+
+      {allowedOptions.map((option) => (
+        <div key={option} className="mt-4">
+          <label className="font-medium">{option} values</label>
+          <div className="flex gap-2 mt-1">
+            <input
+              type="text"
+              className="border p-2 w-full"
+              placeholder={`Enter comma-separated ${option}s`}
+              value={tempInputs[option] || ''}
+              onChange={(e) => handleValueInput(option, e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => applyOptionValues(option)}
+              className="bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Apply
+            </button>
+          </div>
         </div>
       ))}
 
+      {/* 📦 Generated Variant List */}
       {combinations.length > 0 && (
-        <div className="mt-4">
-          <h4 className="font-bold mb-2">Generated Variants:</h4>
-          {combinations.map((variant, idx) => (
-            <div key={idx} className="border p-3 mb-4 rounded space-y-2">
-              <p className="text-sm text-gray-700">{Object.entries(variant.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')}</p>
-              <div className="flex items-center gap-4">
-                <input type="number" placeholder="Price" className="border p-1" value={variant.price} onChange={e => handleVariantUpdate(idx, 'price', e.target.value)} />
-                <input type="number" placeholder="Stock" className="border p-1" value={variant.stock} onChange={e => handleVariantUpdate(idx, 'stock', e.target.value)} />
-              </div>
-              <div className="border border-dashed border-gray-300 p-3 rounded-md">
-                <p className="text-sm font-medium mb-2">Variant Media</p>
-                <div className="flex items-center gap-4">
-                  <label className="cursor-pointer px-4 py-2 border rounded-md bg-white shadow text-sm font-medium">
-                    Add files
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, idx)} />
-                  </label>
-                  <button type="button" className="text-blue-600 text-sm">Add from URL</button>
+        <div className="mt-6">
+          <h4 className="font-semibold text-md mb-2">Generated Variants</h4>
+          {combinations.map((variant, idx) => {
+            const colorKey = variant.attributes.Color || '';
+
+            return (
+              <div key={idx} className="border p-4 mb-4 rounded space-y-3 bg-gray-50">
+                <p className="text-sm text-gray-800">
+                  {Object.entries(variant.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                </p>
+
+                <div className="flex gap-3">
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    className="border p-2 w-32"
+                    value={variant.price}
+                    onChange={(e) => handleVariantUpdate(idx, 'price', e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Stock"
+                    className="border p-2 w-32"
+                    value={variant.stock}
+                    onChange={(e) => handleVariantUpdate(idx, 'stock', e.target.value)}
+                  />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Accepts images, videos, or 3D models</p>
-                <div className="flex gap-2 mt-4">
-                  {(variantImages[idx] || []).map((img, i) => (
-                    <img key={i} src={img} className="w-16 h-16 object-cover rounded" alt="Variant preview" />
-                  ))}
-                </div>
+
+                {/* 🖼 Image Upload Only for Color */}
+                {allowedOptions.includes('Color') && variant.attributes.Color && (
+                  <div className="border border-dashed p-3 rounded-md bg-white">
+                    <p className="text-sm font-medium mb-2">Media for Color: {colorKey}</p>
+                    <label className="cursor-pointer text-blue-600 underline text-sm">
+                      Upload Images
+                      <input type="file" multiple accept="image/*" hidden onChange={(e) => handleImageUpload(e, colorKey)} />
+                    </label>
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      {(variantImages[colorKey] || []).map((img, i) => (
+                        <div key={i} className="relative group">
+                          <img src={img} alt="preview" className="w-16 h-16 object-cover rounded" />
+                          <button
+                            type="button"
+                            onClick={() => handleImageDelete(colorKey, img)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs hidden group-hover:block"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -29,7 +29,7 @@ export const createCategory = async (req, res) => {
 // Get all categories with nested children
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find().lean();
+    const categories = await Category.find().sort({ position: 1 }).lean();
 
     const buildTree = (parentId = null) =>
       categories
@@ -44,6 +44,27 @@ export const getCategories = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+//reorder the category
+export const reorderCategories = async (req, res) => {
+  try {
+    const { orderedIds } = req.body;
+
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ message: "orderedIds must be an array" });
+    }
+
+    // Update each category's position
+    for (let i = 0; i < orderedIds.length; i++) {
+      await Category.findByIdAndUpdate(orderedIds[i], { position: i });
+    }
+
+    res.status(200).json({ message: "Categories reordered successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Reordering failed", error: err.message });
+  }
+};
+
 
 // Update a category
 export const updateCategory = async (req, res) => {

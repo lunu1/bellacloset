@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
    slug: { type: String, required: true, unique: true, trim: true },
@@ -14,6 +13,9 @@ const productSchema = new mongoose.Schema({
   tags: [String],
   options: [String], 
   images: [String],
+    defaultPrice: Number,
+  compareAtPrice: Number,
+  defaultStock: Number,
   isActive: { type: Boolean, default: true },
   isFeatured: { type: Boolean, default: false },
   seo: {

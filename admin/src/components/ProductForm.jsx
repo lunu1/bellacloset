@@ -7,6 +7,7 @@ import VariantBuilder from './VariantBuilder';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchCategories } from '../redux/categorySlice';
 import { toast } from 'react-toastify'; 
+import VariantBuilderGrouped from './VariantBuilderGrouped';
 
 const AVAILABLE_OPTIONS = ["Color", "Size", "Material"];
 
@@ -19,8 +20,12 @@ const ProductForm = ({ onSubmit }) => {
   const [defaultImages, setDefaultImages] = useState([]);
   const [uploadingDefault, setUploadingDefault] = useState(false);
   const [defaultPrice, setDefaultPrice] = useState('');
+  const [compareAtPrice, setDefaultcomparePrice] = useState('');
   const [defaultStock, setDefaultStock] = useState('');
   const [variants, setVariants] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasVariants, setHasVariants] = useState(false);
+
 
  const dispatch = useDispatch();
  const { items: categories, loading } = useSelector(state => state.category)
@@ -57,28 +62,66 @@ const ProductForm = ({ onSubmit }) => {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const tagsArray = product.tags.split(',').map(t => t.trim());
-    const finalVariants = variants.map(v => ({
-      ...v,
-      price: v.price || defaultPrice,
-      stock: v.stock || defaultStock,
-    }));
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  console.log("Variants at submission:", variants); // <-- ADD THIS
+  setIsSubmitting(true);
 
-    const payload = {
-      ...product,
-      tags: tagsArray,
-      variants: finalVariants,
-      defaultImages,
-      defaultPrice,
-      defaultStock
-    };
-    onSubmit(payload);
+  const tagsArray = product.tags.split(',').map(t => t.trim());
+  const finalVariants = variants.map(v => ({
+    ...v,
+    price: v.price || defaultPrice,
+    stock: v.stock || defaultStock,
+    compareAtPrice: v.compareAtPrice || compareAtPrice,
+  }));
+
+  const payload = {
+    ...product,
+    tags: tagsArray,
+    variants: finalVariants,
+    defaultImages,
+    defaultPrice,
+    defaultStock,
+    compareAtPrice,
   };
+
+  try {
+    await onSubmit(payload);
+    toast.success("✅ Product created successfully!");
+
+    // Reset form
+    setProduct({ name: '', brand: '', category: '', tags: '', description: '', options: [] });
+    setDefaultImages([]);
+    setDefaultPrice('');
+    setDefaultcomparePrice('');
+    setDefaultStock('');
+    setVariants([]);
+  } catch (error) {
+    toast.error("❌ Failed to create product");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+//test
+useEffect(() => {
+  console.log("Updated variants in ProductForm:", variants);
+}, [variants]);
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center gap-2">
+  <input
+    type="checkbox"
+    id="hasVariants"
+    checked={hasVariants}
+    onChange={() => setHasVariants(prev => !prev)}
+  />
+  <label htmlFor="hasVariants" className="text-sm font-medium">
+    This product has variants
+  </label>
+</div>
       <h2 className="text-xl font-semibold">Add New Product</h2>
 
       <input name="name" placeholder="Product Name" className="border p-2 w-full" value={product.name} onChange={handleChange} />
@@ -100,39 +143,76 @@ const ProductForm = ({ onSubmit }) => {
       <textarea name="description" placeholder="Description" className="border p-2 w-full" value={product.description} onChange={handleChange} />
       <input name="tags" placeholder="Tags (comma separated)" className="border p-2 w-full" value={product.tags} onChange={handleChange} />
 
-      <input type="number" placeholder="Default Price" className="border p-2 w-full" value={defaultPrice} onChange={e => setDefaultPrice(e.target.value)} />
-      <input type="number" placeholder="Default Stock" className="border p-2 w-full" value={defaultStock} onChange={e => setDefaultStock(e.target.value)} />
+      {!hasVariants && (
+  <>
+    <input
+      type="number"
+      placeholder="Price"
+      className="border p-2 w-full"
+      value={defaultPrice}
+      onChange={e => setDefaultPrice(e.target.value)}
+    />
+    <input
+      type="number"
+      placeholder="Comparison Price"
+      className="border p-2 w-full"
+      value={compareAtPrice}
+      onChange={e => setDefaultcomparePrice(e.target.value)}
+    />
+    <input
+      type="number"
+      placeholder="Stock"
+      className="border p-2 w-full"
+      value={defaultStock}
+      onChange={e => setDefaultStock(e.target.value)}
+    />
+  </>
+)}
 
-      <div className="flex gap-2">
-        <select value={optionInput} onChange={e => setOptionInput(e.target.value)} className="border p-2">
-          <option value="">Select Option</option>
-          {AVAILABLE_OPTIONS.filter(opt => !product.options.includes(opt)).map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
-        <button type="button" className="bg-blue-500 text-white px-4 py-2" onClick={handleAddOption}>Add Option</button>
-      </div>
 
-      <div className="border border-dashed border-gray-300 p-4 rounded-md">
-        <p className="text-sm font-medium mb-2">Media</p>
-        <div className="flex items-center gap-4">
-          <label className="cursor-pointer px-4 py-2 border rounded-md bg-white shadow text-sm font-medium">
-            Add files
-            <input type="file" multiple accept="image/*" className="hidden" onChange={handleDefaultImageUpload} />
-          </label>
-          <button type="button" className="text-blue-600 text-sm">Add from URL</button>
+
+
+     {!hasVariants && (
+  <div className="border border-dashed border-gray-300 p-4 rounded-md">
+    <p className="text-sm font-medium mb-2"> Image</p>
+    <div className="flex items-center gap-4">
+      <label className="cursor-pointer px-4 py-2 border rounded-md bg-white shadow text-sm font-medium">
+        Add files
+        <input type="file" multiple accept="image/*" className="hidden" onChange={handleDefaultImageUpload} />
+      </label>
+    </div>
+    <p className="text-xs text-gray-500 mt-2">Accepts images, videos, or 3D models</p>
+    <div className="flex gap-2 mt-4">
+      {defaultImages.map((img, i) => (
+        <div key={i} className="relative group">
+          <img src={img} className="w-16 h-16 object-cover rounded" alt="Default preview" />
+          <button
+            type="button"
+            className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 text-xs hidden group-hover:block"
+            onClick={() => setDefaultImages(prev => prev.filter((_, idx) => idx !== i))}
+          >
+            ×
+          </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">Accepts images, videos, or 3D models</p>
-        <div className="flex gap-2 mt-4">
-          {defaultImages.map((img, i) => (
-            <img key={i} src={img} className="w-16 h-16 object-cover rounded" alt="Default preview" />
-          ))}
-        </div>
-      </div>
+      ))}
+    </div>
+  </div>
+)}
 
-      <VariantBuilder options={product.options} onVariantsChange={setVariants} defaultPrice={defaultPrice} defaultStock={defaultStock} />
+{hasVariants && (<VariantBuilderGrouped
+  onVariantsChange={setVariants}
+  defaultPrice={defaultPrice}
+  defaultStock={defaultStock}
+/>)}
 
-      <button type="submit" className="bg-green-600 text-white px-6 py-2">Save Product</button>
+
+<button
+  type="submit"
+  className={`px-6 py-2 text-white rounded ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600'}`}
+  disabled={isSubmitting}
+>
+  {isSubmitting ? 'Saving...' : 'Save Product'}
+</button>
     </form>
   );
 };
