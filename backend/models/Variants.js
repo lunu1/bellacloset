@@ -20,4 +20,6 @@ const variantSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+
+variantSchema.index({ product: 1 });
 export default mongoose.models.Variant || mongoose.model('Variant', variantSchema);

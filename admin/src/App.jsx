@@ -13,12 +13,13 @@ import Category from "./pages/Category";
 import UserList from "./pages/UserList";
 import CouponCreation from "./pages/CouponCreation";
 import AddProduct from "./pages/AddProduct";
-import Products from "./pages/productlisting";
+import Products from "./pages/admin/ProductList";
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import { AdminContext } from "./context/AdminContext";
+import ProductEdit from "./pages/admin/ProductEdit";
 
 export let currency = "PKR. ";
 
@@ -63,6 +64,9 @@ const App = () => {
                 <Route path="/products" element={<Products />} />
                 <Route path="/login" element={<Navigate to="/" />} />
                 <Route path="*" element={<Navigate to="/" />} />
+              
+<Route path="/admin/products/edit/:id" element={<ProductEdit />} />
+
               </>
             ) : (
               <>

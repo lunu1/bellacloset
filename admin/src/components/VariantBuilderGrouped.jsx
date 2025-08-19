@@ -6,6 +6,7 @@ const VariantBuilderGrouped = ({
   defaultPrice,
   defaultStock,
   defaultCompareAtPrice,
+    initialVariants = [], 
 }) => {
   const [colors, setColors] = useState([]);
   const [sizes, setSizes] = useState([]);
@@ -17,6 +18,64 @@ const VariantBuilderGrouped = ({
   const [defaultCompareAtPriceLocal, setDefaultCompareAtPriceLocal] =
     useState("");
   const [defaultStockLocal, setDefaultStockLocal] = useState("");
+
+   useEffect(() => {
+    if (!Array.isArray(initialVariants) || initialVariants.length === 0) return;
+
+    // extract colors & sizes from server variants
+    const colorSet = new Set();
+    const sizeSet = new Set();
+
+    const preData = {}; // { [color]: { images: [], sizes: { [size||default]: { price,stock,compareAtPrice } } } }
+
+    for (const v of initialVariants) {
+      const color = v?.optionValues?.Color || null;
+      const size = v?.optionValues?.Size || null;
+
+      const price = v?.price ?? "";
+      const stock = v?.stock ?? "";
+      const compareAt = v?.compareAtPrice ?? "";
+
+      if (color) {
+        colorSet.add(color);
+        if (!preData[color]) {
+          preData[color] = {
+            images: Array.isArray(v.images) ? Array.from(new Set(v.images)).slice(0, 4) : [],
+            sizes: {},
+          };
+        }
+        const key = size || "default";
+        preData[color].sizes[key] = {
+          price,
+          stock,
+          compareAtPrice: compareAt,
+          // keep a reference to _id so caller can upsert (optional)
+          _id: v?._id,
+        };
+
+        if (Array.isArray(v.images) && v.images.length) {
+          // union images for that color
+          const existing = new Set(preData[color].images);
+          for (const url of v.images) existing.add(url);
+          preData[color].images = Array.from(existing).slice(0, 4);
+        }
+      } else if (size) {
+        sizeSet.add(size);
+        // only-size variants mode
+        preData[size] = {
+          price,
+          stock,
+          compareAtPrice: compareAt,
+          _id: v?._id,
+        };
+      }
+    }
+
+    setColors(Array.from(colorSet));
+    setSizes(Array.from(sizeSet));
+    setVariantData(preData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialVariants]);
 
   useEffect(() => {
     const data = {};

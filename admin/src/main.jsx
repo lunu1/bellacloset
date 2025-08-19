@@ -4,7 +4,7 @@ import "./index.css";
 import { BrowserRouter } from "react-router-dom";
 import { AdminProvider } from "./context/AdminContext.jsx";
 import { Provider } from "react-redux";
-import store from "./redux/store"; // adjust this path to your actual store file
+import { store } from "./store";
 
 createRoot(document.getElementById("root")).render(
   <Provider store={store}>

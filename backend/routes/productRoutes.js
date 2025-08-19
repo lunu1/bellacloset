@@ -1,12 +1,36 @@
-// routes/productRoutes.js
-
 import express from "express";
-import { createProduct } from "../controllers/productController.js";
-import userAuth from "../middlewares/userAuth.js";
-import adminOnly from "../middlewares/adminOnly.js";
+import {
+  createProduct,
+  getAllProducts,
+  getProductById,
+  updateProduct,
+  deleteProduct,
+  searchProducts,
+  getSearchSuggestions,
+  getVariantsByProduct,  // ⬅️ new
+} from "../controllers/productController.js";
 
-const ProductRouter = express.Router();
+const router = express.Router();
 
-ProductRouter.post("/", userAuth, adminOnly, createProduct); //admin only product creation route
+// Create: keep your existing and add an alias (helps when clients POST /products)
+router.post("/create", createProduct);
+router.post("/", createProduct); // alias (optional but handy)
 
-export default ProductRouter;
+// Search & suggestions
+router.get("/search", searchProducts);
+router.get("/suggestions", getSearchSuggestions);
+
+// Paginated list with filters/sort/search
+router.get("/all", getAllProducts);
+
+// Variants by product
+router.get("/:id/variants", getVariantsByProduct);
+
+// Single item
+router.get("/:id", getProductById);
+
+// Update & delete
+router.put("/:id", updateProduct);
+router.delete("/:id", deleteProduct);
+
+export default router;

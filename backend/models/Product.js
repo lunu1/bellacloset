@@ -26,4 +26,8 @@ const productSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+productSchema.index({ name: "text", brand: "text", description: "text" }); // if you plan to use $text
+productSchema.index({ category: 1 });
+productSchema.index({ createdAt: -1 });
+
 export default mongoose.models.Product || mongoose.model('Product', productSchema);
