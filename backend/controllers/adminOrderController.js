@@ -1,4 +1,6 @@
 import Order from "../models/Order.js";
+import mongoose from "mongoose";
+import { restock  } from "../utils/stock.util.js";
 
 export const adminListOrders = async (req, res) => {
   try {
@@ -57,24 +59,72 @@ export const adminGetOrder = async (req, res) => {
   }
 };
 
+// export const adminUpdateStatus = async (req, res) => {
+//   try {
+//     const { status, note } = req.body;
+//     const order = await Order.findById(req.params.orderId);
+//     if (!order) return res.status(404).json({ message: "Order not found" });
+
+//     order.status = status;
+//     order.statusHistory = order.statusHistory || [];
+//     order.statusHistory.push({ status, note });
+
+//     // auto mark COD as Paid on Delivered (optional)
+//     if (order.paymentMethod === "COD" && status === "Delivered") {
+//       order.paymentStatus = "Paid";
+//     }
+
+//     await order.save();
+//     res.json({ message: "Status updated", order });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+
+//new code - archana
+
 export const adminUpdateStatus = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const { status, note } = req.body;
     const order = await Order.findById(req.params.orderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    order.status = status;
-    order.statusHistory = order.statusHistory || [];
-    order.statusHistory.push({ status, note });
+    const prevStatus = order.status;
 
-    // auto mark COD as Paid on Delivered (optional)
-    if (order.paymentMethod === "COD" && status === "Delivered") {
-      order.paymentStatus = "Paid";
+    let updated;
+    if (status === "Cancelled" && prevStatus === "Pending") {
+      // do a transactional restock + cancel
+      try {
+        await session.withTransaction(async () => {
+          await restock(order.products, session);
+          order.status = "Cancelled";
+          order.cancelledAt = new Date();
+          order.statusHistory = order.statusHistory || [];
+          order.statusHistory.push({ status, note });
+          updated = await order.save({ session });
+        });
+      } catch (e) {
+        return res.status(500).json({ message: e.message });
+      } finally {
+        session.endSession();
+      }
+    } else {
+      // normal status change
+      order.status = status;
+      order.statusHistory = order.statusHistory || [];
+      order.statusHistory.push({ status, note });
+
+      if (order.paymentMethod === "COD" && status === "Delivered") {
+        order.paymentStatus = "Paid";
+      }
+      updated = await order.save();
     }
 
-    await order.save();
-    res.json({ message: "Status updated", order });
+    res.json({ message: "Status updated", order: updated });
   } catch (err) {
+    session.endSession();
     res.status(500).json({ message: err.message });
   }
 };

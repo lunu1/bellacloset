@@ -14,7 +14,7 @@ const cookieOpts = {
   sameSite: isProd ? "none" : "lax",
   secure: isProd,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: "/",
+
 };
 
 // Register + auto-login user

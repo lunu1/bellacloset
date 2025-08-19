@@ -1,96 +1,117 @@
+// src/features/wishlist/wishlistSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getWishlistAPI,addToWishlistAPI, removeFromWishlistAPI } from "./wishlistAPI"; 
-import { toast } from "react-toastify";
+import {
+  getWishlistAPI,
+  addToWishlistAPI,
+  removeFromWishlistAPI,
+} from "./wishlistAPI";
 
-// Async function to fetch wishlist
-export const getWishlist = createAsyncThunk('wishlist/fetch', async () => {
-    const response = await getWishlistAPI();
-    return response.data;
+
+// Fetch
+export const getWishlist = createAsyncThunk("wishlist/fetch", async () => {
+  return await getWishlistAPI();
 });
 
+// Add (payload can include variant/size/color)
+// wishlistSlice.js
 export const addToWishlist = createAsyncThunk(
   "wishlist/add",
-  async (productId, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const response = await addToWishlistAPI(productId);
-      toast.success("Added to wishlist");
-      return response.data;
+      const body =
+        typeof payload === "string" ? { productId: payload } : payload;
+      const data = await addToWishlistAPI(body);
+      return data.item || data;
     } catch (err) {
-      // If product already exists
-      if (err.response?.data?.message === "Product already in wishlist.") {
-        toast.info("Already in wishlist");
+      const msg = err?.response?.data?.message;
+      if (msg === "Product already in wishlist.") {
         return rejectWithValue("Already in wishlist");
       }
-      toast.error("Failed to add to wishlist");
-      return rejectWithValue(err.response?.data?.message || err.message);
+      return rejectWithValue(msg || err.message);
     }
   }
 );
 
-export const removeFromWishlist = createAsyncThunk('wishlist/remove', async (productId) => {
- await removeFromWishlistAPI(productId);
-    return productId;
-});
 
-// Redux "State Handler"
+// Remove (by productId)
+export const removeFromWishlist = createAsyncThunk(
+  "wishlist/remove",
+  async (productId) => {
+    await removeFromWishlistAPI(productId);
+    return productId;
+  }
+);
+
 const wishlistSlice = createSlice({
-    name : "wishlist",
-    initialState : {
-        items: [], // This will hold the list of wishlist items
-        loading: false,
-        error: null,
-        status: 'idle', // 'idle' | 'loading' | 'succeeded' | 'failed'
-    },
-    reducers :{
-        clearWishlist(state) {
+  name: "wishlist",
+  initialState: {
+    items: [],
+    loading: false,
+    error: null,
+    status: "idle",
+  },
+  reducers: {
+    clearWishlist(state) {
       state.items = [];
       state.loading = false;
       state.error = null;
       state.status = "idle";
     },
-},
-    extraReducers: (builder) => {
-        builder
-            .addCase(getWishlist.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(getWishlist.fulfilled, (state, action) => {
-                state.loading = false;
-                state.items = action.payload;
-                state.status = 'succeeded';
-            })
-            .addCase(getWishlist.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message;
-                state.status = 'failed';
-            })
-            .addCase(addToWishlist.pending, (state) => {
-                state.loading = true;
-            })
-            .addCase(addToWishlist.fulfilled, (state, action) => {
-                state.loading = false;
-                state.items.push(action.payload);
-            })
-            .addCase(addToWishlist.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message;
-            })
-            .addCase(removeFromWishlist.pending, (state) => {
-                state.loading = true;
-            })
-            .addCase(removeFromWishlist.fulfilled, (state, action) => {
-                state.loading = false;
-                const productId = action.payload;
-                state.items = state.items.filter(item => item.product._id !== productId)
-            })
-            .addCase(removeFromWishlist.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message;
-            });
-    }
+  },
+  extraReducers: (builder) => {
+    builder
+      // fetch
+      .addCase(getWishlist.pending, (s) => {
+        s.loading = true; s.error = null;
+      })
+      .addCase(getWishlist.fulfilled, (s, a) => {
+        s.loading = false;
+        s.items = Array.isArray(a.payload) ? a.payload : [];
+        s.status = "succeeded";
+      })
+      .addCase(getWishlist.rejected, (s, a) => {
+        s.loading = false; s.error = a.error.message; s.status = "failed";
+      })
+
+      // add
+      .addCase(addToWishlist.pending, (s) => { s.loading = true; })
+      .addCase(addToWishlist.fulfilled, (s, a) => {
+        s.loading = false;
+        const item = a.payload;
+
+        // If backend returned the full list, replace
+        if (Array.isArray(item)) {
+          s.items = item;
+          return;
+        }
+
+        // Otherwise, push single item if not duplicate
+        const exists = s.items.some((x) =>
+          String(x.product?._id || x.productId) === String(item.product?._id || item.productId) &&
+          String(x.variantId || "") === String(item.variantId || "") &&
+          String(x.size || "") === String(item.size || "") &&
+          String(x.color || "") === String(item.color || "")
+        );
+        if (!exists) s.items.push(item);
+      })
+      .addCase(addToWishlist.rejected, (s, a) => {
+        s.loading = false; s.error = a.payload || a.error.message;
+      })
+
+      // remove
+      .addCase(removeFromWishlist.pending, (s) => { s.loading = true; })
+      .addCase(removeFromWishlist.fulfilled, (s, a) => {
+        s.loading = false;
+        const productId = a.payload;
+        s.items = s.items.filter(
+          (it) => String(it.product?._id || it.productId) !== String(productId)
+        );
+      })
+      .addCase(removeFromWishlist.rejected, (s, a) => {
+        s.loading = false; s.error = a.error.message;
+      });
+  },
 });
 
 export const { clearWishlist } = wishlistSlice.actions;
-
 export default wishlistSlice.reducer;

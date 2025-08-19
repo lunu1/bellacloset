@@ -5,7 +5,6 @@ import { toast } from "react-toastify";
 import Title from "../components/Title";
 import { AppContext } from "../context/AppContext";
 import { Link } from "react-router-dom";
-
 import { getUserOrders } from "../features/order/orderSlice.js";
 
 function Orders() {
@@ -72,30 +71,21 @@ function Orders() {
                     alt="Product"
                   />
                   <div>
-                    {/* <p className="font-medium sm:text-base">
-                      {first?.productId?.name || "Product Name"}
-                      {moreCount > 0 && (
-                        <span className="ml-2 text-gray-500">
-                          +{moreCount} more
-                        </span>
-                      )}
-                    </p> */}
-
                     <Link
                       to={`/orders/${order._id}`}
                       className="font-medium sm:text-base hover:underline"
                     >
                       {first?.productId?.name || "Product Name"}
                     </Link>
-                    {moreCount > 0 && <span className="ml-2 text-gray-500">+{moreCount} more</span>}
+                    {moreCount > 0 && (
+                      <span className="ml-2 text-gray-500">+{moreCount} more</span>
+                    )}
 
-                    {/* Order ID + placed date */}
                     <p className="mt-1 text-xs text-gray-500">
                       Order #{order._id} •{" "}
                       {new Date(order.createdAt).toLocaleDateString()}
                     </p>
 
-                    {/* Payment info */}
                     {(order.paymentMethod || order.paymentStatus) && (
                       <p className="mt-1 text-xs text-gray-600">
                         Payment: {order.paymentMethod || "-"} ·{" "}
@@ -129,7 +119,6 @@ function Orders() {
                   </div>
 
                   <div className="flex gap-2">
-
                     <Link
                       to={`/orders/${order._id}`}
                       className="px-4 py-2 text-sm font-medium border rounded-sm hover:bg-gray-50"
@@ -137,18 +126,15 @@ function Orders() {
                       View Details
                     </Link>
 
-                    <button
-                      className={`px-4 py-2 text-sm font-medium border rounded-sm ${
-                        canTrack ? "" : "opacity-50 cursor-not-allowed"
-                      }`}
-                      disabled={!canTrack}
-                      onClick={() => {
-                        if (!canTrack) return;
-                        // TODO: open tracking modal or navigate to /orders/:id
-                      }}
-                    >
-                      Track Order
-                    </button>
+                    {/* HIDE Track Order unless trackable */}
+                    {canTrack && (
+                      <Link
+                        to={`/orders/${order._id}`}
+                        className="px-4 py-2 text-sm font-medium border rounded-sm hover:bg-gray-50"
+                      >
+                        Track Order
+                      </Link>
+                    )}
 
                     {canCancel && (
                       <button

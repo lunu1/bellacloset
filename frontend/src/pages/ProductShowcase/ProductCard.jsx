@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToWishlist, removeFromWishlist } from '../../features/wishlist/wishlistSlice';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const ProductCard = ({ product, variants = [] }) => {
   const dispatch = useDispatch();
@@ -11,10 +12,22 @@ const ProductCard = ({ product, variants = [] }) => {
   const isWishlisted = wishlistItems.some((item) => item.product._id === product._id);
 
   const toggleWishlist = (e) => {
-    e.preventDefault(); // prevent navigation
-    if (isWishlisted) dispatch(removeFromWishlist(product._id));
-    else dispatch(addToWishlist(product._id));
-  };
+  e.preventDefault();
+  const action = isWishlisted
+    ? removeFromWishlist(product._id)
+    : addToWishlist({ productId: product._id });
+
+  dispatch(action)
+    .unwrap()
+    .then(() => {
+      toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
+    })
+    .catch((err) => {
+      if (err === "Already in wishlist") toast.info("Already in wishlist");
+      else toast.error(err || "Failed to update wishlist");
+    });
+};
+
 
   // ---- Variant-first display logic ----
   const hasVariants = Array.isArray(variants) && variants.length > 0;

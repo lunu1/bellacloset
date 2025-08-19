@@ -1,9 +1,9 @@
-// === FRONTEND === //
+
 
 // components/ProductForm.jsx
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import VariantBuilder from './VariantBuilder';
+
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchCategories } from '../redux/categorySlice';
 import { toast } from 'react-toastify'; 

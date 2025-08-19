@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import Title from "../components/Title";
-import { assets } from "../assets/assets";
 import CartTotal from "../components/CartTotal";
+import { assets } from "../assets/assets";
 import { updateQuantity, removeFromCart } from "../features/cart/cartSlice";
+import { addToWishlist } from "../features/wishlist/wishlistSlice";
+import { toast } from "react-toastify";
+import ActionModal from "../components/ActionModal";
 
 function Cart() {
   const dispatch = useDispatch();
@@ -12,34 +15,40 @@ function Cart() {
 
   const products = useSelector((state) => state.products.items);
   const cartItems = useSelector((state) => state.cart.items);
+
   const currency = "₹";
 
   const [cartData, setCartData] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedLine, setSelectedLine] = useState(null);
 
   useEffect(() => {
     setCartData(cartItems);
   }, [cartItems]);
 
-  // --- helpers ---------------------------------------------------------------
   const norm = (v) => (v ?? "").toString().trim().toLowerCase();
 
   const resolveVariant = (productData, item) => {
     const variants = productData?.variants || [];
-    const hasVariants = variants.length > 0;
 
-    if (!hasVariants) {
+    if (variants.length === 0) {
       const stock =
         typeof productData?.product?.stock === "number"
           ? productData.product.stock
           : 0;
+
       const price =
         typeof productData?.product?.price === "number"
           ? productData.product.price
-          : productData?.variants?.[0]?.price ?? 0; // graceful fallback if your price is on variant sometimes
-      return { hasVariants, variant: null, stock, price, variantId: null };
+          : typeof productData?.product?.defaultPrice === "number"
+          ? productData.product.defaultPrice
+          : typeof productData?.variants?.[0]?.price === "number"
+          ? productData.variants[0].price
+          : 0;
+
+      return { stock, price, variantId: null };
     }
 
-    // Try to match by attributes OR optionValues (supports both shapes)
     const found = variants.find((v) => {
       const a = v.attributes || v.optionValues || {};
       const vColor = norm(a.Color ?? a.color);
@@ -49,49 +58,89 @@ function Cart() {
       return okColor && okSize;
     });
 
-    if (!found) {
-      // If product has variants but none match the cart selection -> treat as 0 stock
-      return { hasVariants, variant: null, stock: 0, price: 0, variantId: null };
-    }
-
-    const stock = typeof found.stock === "number" ? found.stock : 0;
-    const price = typeof found.price === "number" ? found.price : 0;
-    return { hasVariants, variant: found, stock, price, variantId: found._id };
+    if (!found) return { stock: 0, price: 0, variantId: null };
+    return {
+      stock: typeof found.stock === "number" ? found.stock : 0,
+      price: typeof found.price === "number" ? found.price : 0,
+      variantId: found._id,
+    };
   };
 
-  // Resolve each cart line with stock/price/variantId
   const resolvedLines = useMemo(() => {
     return cartData.map((item) => {
       const productData = products.find(
-        (p) => p.product?._id === item.productId
+        (p) => p?.product?._id === item.productId
       );
       if (!productData) {
-        return {
-          item,
-          productData: null,
-          stock: 0,
-          price: 0,
-          variantId: null,
-          status: "missing",
-        };
+        return { item, productData: null, stock: 0, price: 0, variantId: null };
       }
       const { stock, price, variantId } = resolveVariant(productData, item);
-      return {
-        item,
-        productData,
-        stock,
-        price,
-        variantId,
-        status: stock === 0 ? "oos" : "ok",
-      };
+      return { item, productData, stock, price, variantId };
     });
   }, [cartData, products]);
 
-  // Block checkout if any line exceeds available stock or cart empty
   const hasInsufficient = resolvedLines.some(
     (line) => line.item.quantity > (line.stock ?? 0)
   );
   const canCheckout = cartItems.length > 0 && !hasInsufficient;
+
+  const moveThenRemove = async (line) => {
+    const pid = line?.productData?.product?._id || line?.item?.productId;
+    try {
+      await dispatch(
+        addToWishlist({
+          productId: pid,
+          variantId: line.variantId ?? null,
+          size: line.item.size,
+          color: line.item.color,
+        })
+      ).unwrap();
+
+      toast.success("Moved to wishlist");
+
+      dispatch(
+        removeFromCart({
+          productId: line.item.productId,
+          size: line.item.size,
+          color: line.item.color,
+        })
+      );
+    } catch (e) {
+      toast.info(
+        typeof e === "string" ? e : e?.message || "Already in wishlist"
+      );
+      // if you *don’t* want to remove when duplicate, just return here:
+      // return;
+    } finally {
+      setModalOpen(false);
+      setSelectedLine(null);
+    }
+  };
+
+  const removeOnly = (line) => {
+    dispatch(
+      removeFromCart({
+        productId: line.item.productId,
+        size: line.item.size,
+        color: line.item.color,
+      })
+    );
+    toast.success("Removed from cart");
+    setModalOpen(false);
+    setSelectedLine(null);
+  };
+
+  const handleQtyChange = (line, value) => {
+    const qty = Math.max(1, Number(value) || 1);
+    dispatch(
+      updateQuantity({
+        productId: line.item.productId,
+        size: line.item.size,
+        color: line.item.color,
+        quantity: qty,
+      })
+    );
+  };
 
   return (
     <div className="border-t pt-14">
@@ -105,18 +154,20 @@ function Cart() {
           if (!productData) return null;
 
           const effectiveStock = stock ?? 0;
-          const lowStock = effectiveStock > 0 && effectiveStock <= 5;
           const qtyExceeds = item.quantity > effectiveStock;
+          const lowStock =
+            effectiveStock > 0 && effectiveStock <= 5 && !qtyExceeds;
 
           return (
             <div
-              key={index}
+              key={`${item.productId}-${item.size || ""}-${item.color || ""}-${index}`}
               className="grid py-4 text-gray-500 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4"
             >
+              {/* product */}
               <div className="flex items-start gap-6">
                 <img
                   src={productData.product.images?.[0]}
-                  className="w-16 sm:w-20"
+                  className="w-16 sm:w-20 object-cover rounded"
                   alt=""
                 />
                 <div>
@@ -137,7 +188,6 @@ function Cart() {
                     )}
                   </div>
 
-                  {/* Stock badge/message */}
                   <div className="mt-2 text-xs">
                     {effectiveStock === 0 ? (
                       <span className="text-red-600">❌ Out of stock</span>
@@ -156,64 +206,43 @@ function Cart() {
                 </div>
               </div>
 
+              {/* qty */}
               <input
                 type="number"
                 min={1}
-                max={effectiveStock || undefined}
-                defaultValue={item.quantity}
+                value={item.quantity}
                 className={`px-1 py-1 border max-w-10 sm:max-w-20 sm:px-2 ${
                   qtyExceeds ? "border-red-500" : ""
                 }`}
-                onChange={(e) => {
-                  const raw = Number(e.target.value);
-                  const qty = isNaN(raw) || raw < 1 ? 1 : raw;
-
-                  // Optionally clamp to stock if you prefer:
-                  // const nextQty = effectiveStock ? Math.min(qty, effectiveStock) : qty;
-                  const nextQty = qty;
-
-                  dispatch(
-                    updateQuantity({
-                      productId: item.productId,
-                      size: item.size,
-                      color: item.color,
-                      quantity: nextQty,
-                    })
-                  );
-                }}
+                onChange={(e) => handleQtyChange(line, e.target.value)}
               />
 
-              <img
-                src={assets.bin_icon}
-                className="w-4 mr-4 cursor-pointer sm:w-5"
-                alt=""
-                onClick={() =>
-                  dispatch(
-                    removeFromCart({
-                      productId: item.productId,
-                      size: item.size,
-                      color: item.color,
-                    })
-                  )
-                }
-              />
+              {/* bin -> open modal */}
+              <div className="ml-auto">
+                <button
+                  title="Delete / Move to wishlist"
+                  className="p-2 rounded hover:bg-gray-100"
+                  onClick={() => {
+                    setSelectedLine(line);
+                    setModalOpen(true);
+                  }}
+                >
+                  <img
+                    src={assets.bin_icon}
+                    className="w-4 h-4 sm:w-5 sm:h-5"
+                    alt="Remove"
+                  />
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
 
+      {/* Summary + Checkout */}
       <div className="flex justify-end my-20">
         <div className="w-full sm:w-[450px]">
           <CartTotal />
-
-          {/* Checkout disabled notice */}
-          {!canCheckout && cartItems.length > 0 && (
-            <p className="text-sm text-red-600 text-right">
-              Some items exceed available stock. Please adjust quantities before
-              checkout.
-            </p>
-          )}
-
           <div className="w-full text-end">
             <button
               className={`px-8 py-3 my-8 text-sm text-white ${
@@ -221,12 +250,9 @@ function Cart() {
               }`}
               disabled={!canCheckout}
               onClick={() => {
-                if (!canCheckout) return; // hard guard
-
-                // If your place-order page expects the first item (as in your original code):
+                if (!canCheckout) return;
                 const first = resolvedLines[0];
                 if (!first?.productData) return;
-
                 navigate("/place-order", {
                   state: {
                     productId: first.item.productId,
@@ -246,8 +272,40 @@ function Cart() {
           </div>
         </div>
       </div>
+
+      {/* The popup */}
+      <ActionModal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setSelectedLine(null);
+        }}
+        title="Remove item"
+        message="What would you like to do with this item?"
+        actions={[
+          {
+            label: "Move to wishlist",
+            variant: "primary",
+            onClick: () => selectedLine && moveThenRemove(selectedLine),
+          },
+          {
+            label: "Delete from cart",
+            variant: "danger",
+            onClick: () => selectedLine && removeOnly(selectedLine),
+          },
+          {
+            label: "Cancel",
+            variant: "secondary",
+            onClick: () => {
+              setModalOpen(false);
+              setSelectedLine(null);
+            },
+          },
+        ]}
+      />
     </div>
   );
 }
 
 export default Cart;
+

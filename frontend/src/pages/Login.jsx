@@ -34,7 +34,7 @@ function Login() {
     if (data.success) {
       setisLoggedin(true);
        getUserData(); // make sure this finishes before navigating
-       navigate("/");
+        navigate("/");
       console.log("✅ User logged in:", data.success);
      toast.success(data.message);
      

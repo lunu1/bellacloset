@@ -1,7 +1,19 @@
-import Order from "../models/Order.js";
+// backend/controllers/orderController.js
 import mongoose from "mongoose";
+import Order from "../models/Order.js";
+import userModel from "../models/userModel.js";
+import { emailOrderCancelled, emailOrderConfirmed } from "../services/email.service.js";
+import { checkAndDecrementStock, restock } from "../utils/stock.util.js";
 
+/**
+ * POST /api/order/place
+ * - Validates payload
+ * - Decrements stock (variant.stock or product.defaultStock)
+ * - Creates order (transaction when available; safe fallback otherwise)
+ * - Sends confirmation email (fire & forget)
+ */
 export const placeOrder = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const userId = req.user._id;
     const { products, totalAmount, address, paymentMethod, codConfirmed } = req.body;
@@ -15,26 +27,96 @@ export const placeOrder = async (req, res) => {
       return res.status(400).json({ message: "COD must be confirmed before placing the order." });
     }
 
-    const order = await Order.create({
-      user: userId,
-      products,
-      totalAmount: Number(totalAmount) || 0,
-      paymentMethod: method,
-      paymentStatus: method === "COD" ? "Pending" : "Paid",
-      cod: {
-        confirmed: method === "COD" ? !!codConfirmed : false,
-        confirmedAt: method === "COD" && codConfirmed ? new Date() : undefined,
-      },
-      status: "Pending",
-      address,
-    });
+    let createdOrder;
 
-    res.status(201).json(order);
+    // Try transactional path first
+    try {
+      await session.withTransaction(async () => {
+        // 1) Atomically check & decrement stock
+        await checkAndDecrementStock(products, session);
+
+        // 2) Create order in the same transaction
+        const [order] = await Order.create(
+          [{
+            user: userId,
+            products,
+            totalAmount: Number(totalAmount) || 0,
+            paymentMethod: method,
+            paymentStatus: method === "COD" ? "Pending" : "Paid",
+            cod: {
+              confirmed: method === "COD" ? !!codConfirmed : false,
+              confirmedAt: method === "COD" && codConfirmed ? new Date() : undefined,
+            },
+            status: "Pending",
+            address,
+            statusHistory: [{ status: "Pending", note: "Order placed" }],
+          }],
+          { session }
+        );
+
+        createdOrder = order;
+      });
+    } catch (trxErr) {
+      // Fallback when local MongoDB has no replica set / transactions
+      const msg = String(trxErr?.message || "");
+      if (msg.includes("Transaction numbers are only allowed") || trxErr?.code === 20) {
+        try {
+          // Safe non-transaction path (helper does manual rollback on failure)
+          await checkAndDecrementStock(products, null);
+
+          createdOrder = await Order.create({
+            user: userId,
+            products,
+            totalAmount: Number(totalAmount) || 0,
+            paymentMethod: method,
+            paymentStatus: method === "COD" ? "Pending" : "Paid",
+            cod: {
+              confirmed: method === "COD" ? !!codConfirmed : false,
+              confirmedAt: method === "COD" && codConfirmed ? new Date() : undefined,
+            },
+            status: "Pending",
+            address,
+            statusHistory: [{ status: "Pending", note: "Order placed" }],
+          });
+        } catch (fallbackErr) {
+          return res.status(fallbackErr.status || 500).json({
+            message: fallbackErr.message || "Order failed",
+            details: fallbackErr.line ? { line: fallbackErr.line } : undefined,
+          });
+        }
+      } else {
+        throw trxErr;
+      }
+    } finally {
+      session.endSession();
+    }
+
+    // Fire-and-forget email (do not block HTTP response)
+    (async () => {
+      try {
+        const user = await userModel.findById(userId).select("name email");
+        if (user?.email) {
+          const orderForEmail = await Order.findById(createdOrder._id)
+            .populate("products.productId", "name price")
+            .populate("products.variantId", "price");
+          await emailOrderConfirmed({ to: user.email, order: orderForEmail, user });
+        }
+      } catch (e) {
+        console.error("Order confirmation email failed:", e?.message);
+      }
+    })();
+
+    return res.status(201).json(createdOrder);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    session.endSession();
+    return res.status(500).json({ message: err.message });
   }
 };
 
+/**
+ * GET /api/order
+ * - Returns the current user's orders (most recent first)
+ */
 export const getUserOrders = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -42,12 +124,17 @@ export const getUserOrders = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate("products.productId")
       .populate("products.variantId");
-    res.status(200).json(orders);
+
+    return res.status(200).json(orders);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
+/**
+ * GET /api/order/:orderId
+ * - Returns one order (owned by the current user)
+ */
 export const getOrderById = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -63,13 +150,19 @@ export const getOrderById = async (req, res) => {
 
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    res.json(order);
+    return res.json(order);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 };
 
+/**
+ * PUT /api/order/cancel/:orderId
+ * - Only Pending orders can be cancelled by the user
+ * - Restocks quantities, updates status/history, emails user
+ */
 export const cancelOrder = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const userId = req.user._id;
     const { orderId } = req.params;
@@ -85,15 +178,49 @@ export const cancelOrder = async (req, res) => {
       return res.status(409).json({ message: "Order cannot be cancelled now." });
     }
 
-    const updated = await Order.findOneAndUpdate(
-      { _id: orderId, user: userId },
-      { $set: { status: "Cancelled", cancelledAt: new Date() } },
-      { new: true, runValidators: true }
-    );
+    let updated;
 
-    res.status(200).json({ message: "Order cancelled.", order: updated }); // <-- return updated
+    // Prefer transactional restock + cancel
+    try {
+      await session.withTransaction(async () => {
+        await restock(order.products, session);
+        updated = await Order.findByIdAndUpdate(
+          order._id,
+          {
+            $set: { status: "Cancelled", cancelledAt: new Date() },
+            $push: { statusHistory: { status: "Cancelled", note: "Cancelled by user" } },
+          },
+          { new: true, session }
+        );
+      });
+    } catch {
+      // Fallback non-transaction path
+      await restock(order.products, null);
+      updated = await Order.findByIdAndUpdate(
+        order._id,
+        {
+          $set: { status: "Cancelled", cancelledAt: new Date() },
+          $push: { statusHistory: { status: "Cancelled", note: "Cancelled by user" } },
+        },
+        { new: true }
+      );
+    } finally {
+      session.endSession();
+    }
+
+    // Fire-and-forget email
+    (async () => {
+      try {
+        const user = await userModel.findById(userId).select("name email");
+        if (user?.email) await emailOrderCancelled({ to: user.email, order: updated, user });
+      } catch (e) {
+        console.error("Cancel email failed:", e?.message);
+      }
+    })();
+
+    return res.status(200).json({ message: "Order cancelled.", order: updated });
   } catch (err) {
-    console.error("Cancel order error:", err);
-    res.status(500).json({ message: err.message });
+    session.endSession();
+    return res.status(500).json({ message: err.message });
   }
 };
