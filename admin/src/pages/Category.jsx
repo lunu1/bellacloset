@@ -117,41 +117,7 @@ const handleDragEnd = (result) => {
     }
   };
 
-  // const renderCategoryList = (items, level = 0) => {
-  //   return items.map((cat) => (
-  //     <div key={cat._id} className="ml-4 my-1">
-        
-  //       <span>{"—".repeat(level)} {cat.label}</span>
-  //        {/* Image showing here  */}
-         
-  //        {cat.image && (
-  //               <img
-  //                 src={cat.image}
-  //                 alt={cat.label}
-  //                 className="w-10 h-10 object-cover rounded"
-  //               />
-  //             )}
-              
-  //       <button
-  //         className="ml-2 text-blue-600"
-  //         onClick={() => handleEdit(cat)}
-  //       >
-  //         Edit
-  //       </button>
-  //       <button
-  //         className="ml-2 text-red-600"
-  //         onClick={() => handleDelete(cat._id)}
-  //       >
-  //         Delete
-  //       </button>
-  //       {cat.children && cat.children.length > 0 && (
-  //         <div className="ml-4">
-  //           {renderCategoryList(cat.children, level + 1)}
-  //         </div>
-  //       )}
-  //     </div>
-  //   ));
-  // };
+
 const renderCategoryList = (items, level = 0) => {
   return items.map((cat) => (
     <div key={cat._id} className={`mb-2 ${level > 0 ? 'ml-6' : ''}`}>
