@@ -26,6 +26,15 @@ const Navbar = () => {
   const { userData, backendUrl, setisLoggedin, setuserData, authLoading } =
     useContext(AppContext);
 
+
+    //fetch wishlist count
+  useEffect(() => {
+    if(!authLoading && userData) {
+      dispatch(getWishlist());
+    }
+  }, [authLoading, userData, dispatch]);
+
+  
   const location = useLocation();
   const navigate = useNavigate();
 

@@ -6,63 +6,58 @@ import { toast } from "react-toastify";
 export const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
-
-   axios.defaults.withCredentials = true;
+  axios.defaults.withCredentials = true;
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const [isLoggedin, setisLoggedin] = useState(false);
   const [userData, setuserData] = useState(null);
-
-
-
-  // const getUserData = async () => {
-  //   try {
-  //     const { data } = await axios.get(backendUrl + "/api/user/data", {
-  //       withCredentials: true, // Ensure credentials (cookies) are included
-  //     });
-  //     data.success ? setuserData(data.userData) : toast.error(data.message);
-  //   //   console.log(userData)
-  //   } catch (error) {
-  //     toast.error(error.data.message);
-  //   }
-  // };
-
+  const [authLoading, setAuthLoading] = useState(true); // ✅ add this
 
   const getUserData = async () => {
     try {
       const { data } = await axios.get(backendUrl + "/api/user/data", {
         withCredentials: true,
       });
-
       if (data.success) {
         setuserData(data.userData);
       } else {
-        toast.error(data.message);
+        // optional toast; avoid spamming on every load
+        // toast.error(data.message);
+        setuserData(null);
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to fetch user data");
+      // optional toast; keep logs quiet on boot
+      // toast.error(error.response?.data?.message || "Failed to fetch user data");
+      setuserData(null);
     }
   };
 
-
-
-
-
   const getAuthState = async () => {
+    setAuthLoading(true); // ✅ start loading before network
     try {
-      const { data } = await axios.get(backendUrl + "/api/auth/is-auth");
+      const { data } = await axios.get(backendUrl + "/api/auth/is-auth", {
+        withCredentials: true,
+      });
       if (data.success) {
         setisLoggedin(true);
         await getUserData();
+      } else {
+        setisLoggedin(false);
+        setuserData(null);
       }
     } catch (error) {
-      toast.error(error.data.message);
+      setisLoggedin(false);
+      setuserData(null);
+      // don’t use error.data; it’s usually error.response.data
+      // toast.error(error.response?.data?.message || "Auth check failed");
+    } finally {
+      setAuthLoading(false); // ✅ stop loading no matter what
     }
   };
 
-  useEffect ( ()=>{
-     getAuthState();
-  }, [])
+  useEffect(() => {
+    getAuthState();
+  }, []);
 
   const value = {
     backendUrl,
@@ -71,12 +66,12 @@ export const AppContextProvider = ({ children }) => {
     userData,
     setuserData,
     getUserData,
+    authLoading,            // ✅ provide it
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-// Add PropTypes validation
 AppContextProvider.propTypes = {
-  children: PropTypes.node.isRequired, // Ensure children is a valid React node
+  children: PropTypes.node.isRequired,
 };
