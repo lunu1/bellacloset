@@ -27,6 +27,7 @@ import OrderPage from "./pages/OrderPage";
 import SearchResults from "./pages/SearchResults.jsx";
 import OrderDetails from "./pages/OrderDetails.jsx";
 import OrderSuccess from "./pages/OrderSuccess.jsx";
+import ProductsBrowsePage from "./pages/ProductsBrowsePage.jsx";
 
 const App = () => {
   return (
@@ -65,6 +66,9 @@ const App = () => {
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/search" element={<SearchResults/>}/>
          {/* <Route path="/orders" element={<OrderPage />} /> */}
+
+         <Route path="/products" element={<ProductsBrowsePage />} />
+        <Route path="/c/:categoryId" element={<ProductsBrowsePage />} />
       </Routes>
       <Footer />
 

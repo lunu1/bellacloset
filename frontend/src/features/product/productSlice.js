@@ -21,9 +21,14 @@ const productSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(getAllProducts.fulfilled, (state, action) => {
+     .addCase(getAllProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload;
+        // state.items = action.payload;
+         state.items = Array.isArray(action.payload?.items)
+    ? action.payload.items      // API shape { items: [...] }
+    : Array.isArray(action.payload)
+    ? action.payload            // API already returns an array
+    : [];
       })
       .addCase(getAllProducts.rejected, (state, action) => {
         state.loading = false;
