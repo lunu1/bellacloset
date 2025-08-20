@@ -33,25 +33,81 @@ export default function AddressPicker({ backendUrl, onChange }) {
     if (useNew) onChange?.(draft);
   }, [useNew, selectedId, addresses, draft, onChange]);
 
+  // const saveNewAddress = async () => {
+  //   const { street, city, state, zip, country } = draft;
+  //   if (!street || !city || !state || !zip || !country) {
+  //     toast.error("Please fill in all address fields.");
+  //     return;
+  //   }
+  //   try {
+  //     const res = await axios.post(`${backendUrl}/api/user/address`, draft, { withCredentials: true });
+
+  //     const created = res.data.address;
+  //     setAddresses(prev => [...prev, created]);
+  //     setSelectedId(created._id || created.id);
+  //     setUseNew(false);
+  //     setDraft({ street: "", city: "", state: "", zip: "", country: "" });
+  //     toast.success("Address saved!");
+  //   } catch (e) {
+  //     toast.error("Failed to save address");
+  //     console.error(e);
+  //   }
+  // };
+
   const saveNewAddress = async () => {
-    const { street, city, state, zip, country } = draft;
-    if (!street || !city || !state || !zip || !country) {
-      toast.error("Please fill in all address fields.");
+  const { street, city, state, zip, country } = draft;
+  if (!street || !city || !state || !zip || !country) {
+    toast.error("Please fill in all address fields.");
+    return;
+  }
+
+  try {
+    const res = await axios.post(
+      `${backendUrl}/api/user/address`,
+      draft,
+      { withCredentials: true }
+    );
+
+    // Be defensive about the response shape
+    const payload = res?.data;
+    // Try common shapes: {address}, {data}, plain object
+    const created =
+      payload?.address ??
+      payload?.data ??
+     (Array.isArray(payload?.addresses) && payload.addresses.length
+        ? payload.addresses[payload.addresses.length - 1]   // assume server appends
+        : null);
+
+    if (!created || (!created._id && !created.id)) {
+      console.error("Unexpected response shape:", payload);
+      toast.error("Address saved, but response was unexpected.");
+      // Still refetch to stay consistent
+      try {
+        const ref = await axios.get(`${backendUrl}/api/user/addresses`, { withCredentials: true });
+        const list = ref.data?.addresses ?? [];
+        setAddresses(list);
+        // Try to pick the last one if we can’t get id
+        if (list.length > 0) setSelectedId(list[list.length - 1]._id || list[list.length - 1].id);
+      } catch (refErr) {
+        console.error("Refetch failed:", refErr);
+      }
+      setUseNew(false);
       return;
     }
-    try {
-      const res = await axios.post(`${backendUrl}/api/user/address`, draft, { withCredentials: true });
-      const created = res.data.address;
-      setAddresses(prev => [...prev, created]);
-      setSelectedId(created._id || created.id);
-      setUseNew(false);
-      setDraft({ street: "", city: "", state: "", zip: "", country: "" });
-      toast.success("Address saved!");
-    } catch (e) {
-      toast.error("Failed to save address");
-      console.error(e);
-    }
-  };
+
+    // Happy path
+    setAddresses(prev => [...prev, created]);
+    setSelectedId(created._id || created.id);
+    setUseNew(false);
+    setDraft({ street: "", city: "", state: "", zip: "", country: "" });
+    toast.success("Address saved!");
+  } catch (e) {
+    console.error(e);
+    const msg = e?.response?.data?.message || "Failed to save address";
+    toast.error(msg);
+  }
+};
+
 
   return (
     <div className="w-full">
