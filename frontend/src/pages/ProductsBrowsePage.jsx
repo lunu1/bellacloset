@@ -6,6 +6,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { fetchCategories } from "../features/category/categorySlice";
 import CategoryTreeSidebar from "../components/product/CategoryTreeSidebar";
 import ProductCard from "../pages/ProductShowcase/ProductCard"
+import { useLocation } from "react-router-dom";
+
 
 const API_BASE = "http://localhost:4000/api";
 
@@ -31,9 +33,9 @@ export default function ProductsBrowsePage() {
   const { categoryId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const { items: categories, loading: catLoading } = useSelector((s) => s.category);
+  const location = useLocation();
 
-  // Filters
-  const [search, setSearch] = useState(searchParams.get("search") || "");
+    const [search, setSearch] = useState(searchParams.get("search") || "");
   const [brand, setBrand] = useState(searchParams.get("brand") || "");
   const [minPrice, setMinPrice] = useState(searchParams.get("min") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("max") || "");
@@ -42,6 +44,33 @@ export default function ProductsBrowsePage() {
   const [sortOrder, setSortOrder] = useState(searchParams.get("sortOrder") || "desc");
   const [limit, setLimit] = useState(Number(searchParams.get("limit") || 24));
   const [page, setPage] = useState(Number(searchParams.get("page") || 1));
+
+  useEffect(() => {
+  // read everything from URL on change
+  const urlSearch = searchParams.get("search") || "";
+  const urlBrand  = searchParams.get("brand") || "";
+  const urlMin    = searchParams.get("min") || "";
+  const urlMax    = searchParams.get("max") || "";
+  const urlIn     = searchParams.get("inStock") === "1";
+  const urlSortBy = searchParams.get("sortBy") || "createdAt";
+  const urlOrder  = searchParams.get("sortOrder") || "desc";
+  const urlLimit  = Number(searchParams.get("limit") || 24);
+  const urlPage   = Number(searchParams.get("page") || 1);
+
+  // update only when different to avoid loops
+  if (search !== urlSearch) setSearch(urlSearch);
+  if (brand !== urlBrand) setBrand(urlBrand);
+  if (minPrice !== urlMin) setMinPrice(urlMin);
+  if (maxPrice !== urlMax) setMaxPrice(urlMax);
+  if (inStock !== urlIn) setInStock(urlIn);
+  if (sortBy !== urlSortBy) setSortBy(urlSortBy);
+  if (sortOrder !== urlOrder) setSortOrder(urlOrder);
+  if (limit !== urlLimit) setLimit(urlLimit);
+  if (page !== urlPage) setPage(urlPage);
+}, [location.search]); // <— run whenever the query string changes
+
+  // Filters
+
 
   const [data, setData] = useState({ items: [], total: 0, page: 1, limit: 24 });
   const [loading, setLoading] = useState(false);
@@ -54,21 +83,29 @@ export default function ProductsBrowsePage() {
   }, [dispatch, categories.length]);
 
   // keep URL in sync with filters
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams);
-    const setOrDel = (k, v) => (v && v !== "" && v !== "0" ? params.set(k, v) : params.delete(k));
+useEffect(() => {
+  const params = new URLSearchParams(searchParams);
+  const setOrDel = (k, v) => (v && v !== "" && v !== "0" ? params.set(k, v) : params.delete(k));
 
-    setOrDel("search", search.trim());
-    setOrDel("brand", brand.trim());
-    setOrDel("min", minPrice);
-    setOrDel("max", maxPrice);
-    setOrDel("inStock", inStock ? "1" : "");
-    setOrDel("sortBy", sortBy);
-    setOrDel("sortOrder", sortOrder);
-    setOrDel("limit", String(limit));
-    setOrDel("page", String(page));
+  setOrDel("search", search.trim());
+  setOrDel("brand", brand.trim());
+  setOrDel("min", minPrice);
+  setOrDel("max", maxPrice);
+  setOrDel("inStock", inStock ? "1" : "");
+  setOrDel("sortBy", sortBy);
+  setOrDel("sortOrder", sortOrder);
+  setOrDel("limit", String(limit));
+  setOrDel("page", String(page));
+  if (categoryId) params.set("category", categoryId); else params.delete("category");
+  if (deep) params.set("deep", "1"); else params.delete("deep");
+
+  const next = params.toString();
+  const current = searchParams.toString();
+  if (next !== current) {
     setSearchParams(params, { replace: true });
-  }, [search, brand, minPrice, maxPrice, inStock, sortBy, sortOrder, limit, page]);
+  }
+}, [search, brand, minPrice, maxPrice, inStock, sortBy, sortOrder, limit, page, categoryId, deep]);
+
 
   // build server query
   const serverQuery = useMemo(() => {

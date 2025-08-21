@@ -39,15 +39,18 @@ const Navbar = () => {
     }
   }, [location.pathname, dispatch]);
 
-
   const handleSearch = (e) => {
     e.preventDefault();
-    if (search.trim()) navigate(`/search?q=${encodeURIComponent(search.trim())}`);
+    if (search.trim()) {
+      // if you have a virtual "all" category ID you can use it here
+      // or just point to `/c/rootId`
+      navigate(`/c?search=${encodeURIComponent(search.trim())}`);
+    }
   };
 
   const handleSuggestionClick = (name) => {
     dispatch(setQuery(name));
-    navigate(`/search?q=${encodeURIComponent(name)}`);
+    navigate(`/c?search=${encodeURIComponent(name)}`);
     dispatch(clearResults());
   };
 
@@ -82,13 +85,14 @@ const Navbar = () => {
       }
     } catch (error) {
       toast.error(
-        "Error sending OTP: " + (error?.response?.data?.message || error.message)
+        "Error sending OTP: " +
+          (error?.response?.data?.message || error.message)
       );
     }
   };
 
   return (
-    <div className="container mx-auto flex items-center justify-between py-10 font-medium">
+    <div className="container mx-auto flex items-center justify-between py-5 font-medium">
       <Link to="/">
         <h1 className="bodoni-moda-heading text-2xl uppercase">Bella Closet</h1>
       </Link>
@@ -115,21 +119,32 @@ const Navbar = () => {
             src={assets.cross_icon}
             alt="clear"
             className="inline w-3 cursor-pointer"
-            onClick={() => dispatch(setQuery(""))}
+            onClick={() => {
+              dispatch(setQuery(""));
+              navigate("/c"); // optional: drop the ?search param too
+              dispatch(clearResults());
+            }}
           />
         </form>
 
-        {search && suggestions.length > 0 && (
+        {search && (
           <ul className="absolute z-50 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto shadow">
-            {suggestions.map((sugg, i) => (
-              <li
-                key={i}
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
-                onClick={() => handleSuggestionClick(sugg)}
-              >
-                {sugg}
-              </li>
-            ))}
+            {suggestions.length > 0 ? (
+              suggestions.map((sugg, i) => (
+                <li
+                  key={i}
+                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
+                  onClick={() => handleSuggestionClick(sugg)}
+                >
+                  {sugg}
+                </li>
+              ))
+            ) : (
+             <li className="px-4 py-3 text-left text-gray-500 select-none">
+        No suggestions for “{search}”
+      </li>
+    )}
+            
           </ul>
         )}
       </div>
@@ -141,22 +156,34 @@ const Navbar = () => {
         {/* Profile */}
         <div className="relative group">
           <Link to={userData ? "" : "/login"}>
-            <img src={assets.profile_icon} className="w-6 cursor-pointer" alt="profile" />
+            <img
+              src={assets.profile_icon}
+              className="w-6 cursor-pointer"
+              alt="profile"
+            />
           </Link>
           {userData && (
             <div className="absolute right-0 pt-4 hidden group-hover:block dropdown-menu z-10">
               <div className="flex flex-col gap-2 px-5 py-3 text-gray-500 rounded w-36 bg-slate-100">
                 {!userData?.isAccountVerified && (
-                  <button onClick={SendVerificationOtp}>
-                    <Link to="/email-verify" className="cursor-pointer hover:text-gray-700">
-                      Verify Email
-                    </Link>
-                  </button>
+                  <Link
+                    to="/email-verify"
+                    onClick={SendVerificationOtp}
+                    className="cursor-pointer hover:text-gray-700 px-0"
+                  >
+                    Verify Email
+                  </Link>
                 )}
-                <Link to="/profile" className="cursor-pointer hover:text-gray-700">
+                <Link
+                  to="/profile"
+                  className="cursor-pointer hover:text-gray-700"
+                >
                   My Profile
                 </Link>
-                <Link to="/orders" className="cursor-pointer hover:text-gray-700">
+                <Link
+                  to="/orders"
+                  className="cursor-pointer hover:text-gray-700"
+                >
                   Orders
                 </Link>
                 <button

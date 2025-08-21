@@ -11,7 +11,7 @@ export default function ImageGallery({
   return (
     <div className="flex flex-col-reverse gap-3 sm:flex-row">
       {/* Thumbs */}
-      <div className="flex sm:flex-col justify-between overflow-x-auto sm:overflow-y-auto sm:w-[18.7%] w-full">
+      <div className="flex sm:flex-col justify-start overflow-x-auto sm:overflow-y-auto sm:w-[18.7%] w-full">
         {images.map((src, i) => (
           <img
             key={i}
