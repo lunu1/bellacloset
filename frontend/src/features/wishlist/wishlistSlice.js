@@ -104,7 +104,7 @@ const wishlistSlice = createSlice({
         s.loading = false;
         const productId = a.payload;
         s.items = s.items.filter(
-          (it) => String(it.product?._id || it.productId) !== String(productId)
+          (it) => String(it.product?._id || it.product || it.productId) !== String(productId)
         );
       })
       .addCase(removeFromWishlist.rejected, (s, a) => {

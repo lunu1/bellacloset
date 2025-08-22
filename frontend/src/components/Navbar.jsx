@@ -15,7 +15,7 @@ import {
 
 // ✅ import wishlist + cart actions
 import { getWishlist, clearWishlist } from "../features/wishlist/wishlistSlice";
-import { clearCart } from "../features/cart/cartSlice";
+import { loadCart, clearCart } from "../features/cart/cartSlice";
 
 const Navbar = () => {
   const [visible, setVisible] = useState(false);
@@ -31,6 +31,7 @@ const Navbar = () => {
   useEffect(() => {
     if(!authLoading && userData) {
       dispatch(getWishlist());
+      dispatch(loadCart());
     }
   }, [authLoading, userData, dispatch]);
 

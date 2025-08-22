@@ -1,13 +1,13 @@
 // src/pages/ProductPage.jsx
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
 import { getAllProducts } from "../features/product/productSlice";
 import { getVariantsByProduct } from "../features/variants/variantSlice";
 import { addToWishlist, removeFromWishlist } from "../features/wishlist/wishlistSlice";
-import { addToCart } from "../features/cart/cartSlice";
+import { addToCartServer, loadCart } from "../features/cart/cartSlice";
 
 import ImageGallery from "../components/product/ImageGallery";
 import WishlistShare from "../components/product/WishlistShare";
@@ -26,6 +26,7 @@ import {
   getDisplayImages,
   calcDiscount,
 } from "../utils/productView";
+import { AppContext } from "../context/AppContext";
 
 const CURRENCY = "AED";
 
@@ -33,11 +34,17 @@ export default function Product() {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // From AppContext
+  const { userData, authLoading, isLoggedin } = useContext(AppContext);
+
+  // Store data
   const { items: products = [], loading } = useSelector((s) => s.products);
   const { items: variants = [], loading: variantLoading } = useSelector((s) => s.variants);
   const wishlistItems = useSelector((s) => s.wishlist.items);
 
+  // Local UI state
   const [productData, setProductData] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [image, setImage] = useState("");
@@ -49,7 +56,7 @@ export default function Product() {
   const [showZoom, setShowZoom] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
 
-  // Mock reviews (keep as-is; later you can fetch real ones)
+  // Mock reviews (leave as-is)
   const [reviews] = useState([
     {
       id: 1,
@@ -69,47 +76,67 @@ export default function Product() {
     },
   ]);
 
-  // Load products
+  // Load products on first mount
   useEffect(() => {
     if (products.length === 0) dispatch(getAllProducts());
   }, [dispatch, products.length]);
 
-  // Resolve product by id + initialize
+  // Resolve product by route id
   useEffect(() => {
     if (!id || products.length === 0) return;
     const sel = products.find((p) => p.product._id === id);
     setProductData(sel || null);
   }, [id, products]);
 
-  // Load variants for the product
+  // Load variants when product is ready
   useEffect(() => {
     if (productData?.product?._id) {
       dispatch(getVariantsByProduct(productData.product._id));
     }
   }, [dispatch, productData]);
 
-  // Init image/color when product & variants change
+  // A) Ensure we always have a valid selected variant (and an image) when product/variants change
   useEffect(() => {
     if (!productData) return;
 
-    const imgs = getDisplayImages(selectedVariant, productData.product);
-    setImage(imgs?.[0] || "");
-
-    if (variants.length > 0) {
-      const firstWithColor = variants.find((v) => v.optionValues?.Color);
-      if (firstWithColor?.optionValues?.Color) {
-        setColor(firstWithColor.optionValues.Color);
-      }
+    if (!variants || variants.length === 0) {
+      // No variants for this product
+      setSelectedVariant(null);
+      const imgs = getDisplayImages(null, productData.product);
+      setImage(imgs?.[0] || productData.product?.images?.[0] || "");
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productData, variants]);
 
-  // Update selected variant when color/size changes
-  useEffect(() => {
-    if (!productData) return;
-    const mv = findMatchedVariant(variants, { color, size });
-    if (mv) setSelectedVariant(mv);
+    // Try to honor the current color/size; else pick the first variant
+    const matched = findMatchedVariant(variants, { color, size });
+    if (matched) {
+      setSelectedVariant(matched);
+      const imgs = getDisplayImages(matched, productData.product);
+      setImage(imgs?.[0] || "");
+      return;
+    }
+
+    const first = variants[0];
+    setSelectedVariant(first);
+    // seed color/size from variant if present
+    const c = first?.optionValues?.Color;
+    const s = first?.optionValues?.Size;
+    if (c) setColor(c);
+    if (s) setSize(s);
+    const imgs = getDisplayImages(first, productData.product);
+    setImage(imgs?.[0] || "");
   }, [productData, variants, color, size]);
+
+  // B) When user changes color/size, re-pick the variant + image
+  useEffect(() => {
+    if (!productData || !variants || variants.length === 0) return;
+    const matched = findMatchedVariant(variants, { color, size });
+    if (matched) {
+      setSelectedVariant(matched);
+      const imgs = getDisplayImages(matched, productData.product);
+      setImage(imgs?.[0] || "");
+    }
+  }, [color, size, productData, variants]);
 
   // Wishlist derived state
   const isInWishlist = useMemo(() => {
@@ -117,7 +144,8 @@ export default function Product() {
     return wishlistItems.some((w) => w?.product?._id === productData.product._id);
   }, [wishlistItems, productData]);
 
-  if (loading) {
+  // Loading & Not found guards
+  if (loading || variantLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -151,7 +179,7 @@ export default function Product() {
 
   const availableColors = getAvailableColors(variants);
   const availableSizes = getAvailableSizes(variants);
-  const variantStock = selectedVariant?.stock ?? 0;
+  const variantStock = selectedVariant?.stock ?? product.defaultStock ??  0;
 
   const { currentPrice, originalPrice, discountPercent } = calcDiscount(selectedVariant);
 
@@ -225,7 +253,7 @@ export default function Product() {
 
           <h1 className="mt-2 text-2xl font-bold">{product.name}</h1>
 
-          {/* stars (keep simple) */}
+          {/* stars */}
           <div className="mt-2 text-sm text-gray-600">4.5 ({reviews.length} reviews)</div>
 
           <PriceBlock
@@ -276,23 +304,42 @@ export default function Product() {
 
           {/* Actions */}
           <ProductActions
-            onAddToCart={() => {
+            addDisabled={authLoading}
+            onAddToCart={async () => {
+              // For variant products, enforce a choice
               if (!size && availableSizes.length > 0) return toast.error("Please select a size");
               if (!color && availableColors.length > 0) return toast.error("Please select a color");
 
-              dispatch(
-                addToCart({
-                  productId: product._id,
-                  variantId: selectedVariant?._id,
-                  size,
-                  color,
-                  quantity,
-                  price: selectedVariant?.price ?? product.defaultPrice,
-                  name: product.name,
-                  thumbnail: image || product.images?.[0],
-                })
-              );
-              toast.success("Added to cart");
+              if (authLoading) {
+                toast.info("Checking your session…");
+                return;
+              }
+              if (!isLoggedin) {
+                toast.info("Please login to add items to cart");
+                return navigate("/login", { state: { from: location.pathname } });
+              }
+
+              // If your backend requires variantId for variant products:
+              if (variants.length > 0 && !selectedVariant?._id) {
+                return toast.error("Please select a variant");
+              }
+
+              try {
+                // Send one request with the chosen quantity
+                await dispatch(
+                  addToCartServer({
+                    productId: product._id,
+                    variantId: selectedVariant?._id || null, // send null for simple products
+                    quantity, 
+                  })
+                ).unwrap();
+
+                dispatch(loadCart()); // refresh navbar count
+                toast.success("Added to cart");
+              } catch (e) {
+                const msg = e?.error || e?.message || "Failed to add to cart";
+                toast.error(typeof msg === "string" ? msg : "Failed to add to cart");
+              }
             }}
             onBuyNow={() => {
               if (!size && availableSizes.length > 0) return toast.error("Please select a size");
@@ -338,4 +385,3 @@ export default function Product() {
     </div>
   );
 }
-

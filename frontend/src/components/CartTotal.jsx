@@ -1,17 +1,17 @@
 // CartTotal.jsx
-import { useSelector } from "react-redux";
+// import { useSelector } from "react-redux";
 import Title from "./Title";
 
-function CartTotal({ items }) {
-  const cartItemsFromStore = useSelector((state) => state.cart.items);
-  const cartItems = (Array.isArray(items) && items.length > 0)
-    ? items
-    : cartItemsFromStore;
+function CartTotal({ items = [] }) {
+  // const cartItemsFromStore = useSelector((state) => state.cart.items);
+  // const cartItems = (Array.isArray(items) && items.length > 0)
+  //   ? items
+  //   : cartItemsFromStore;
 
   const currency = "₹";
-  const deliveryFee = cartItems.length === 0 ? 0 : 50;
+  const deliveryFee = items.length === 0 ? 0 : 50;
 
-  const subtotal = cartItems.reduce((acc, item) => {
+  const subtotal = items.reduce((acc, item) => {
     const priceNum = Number(item.price) || 0;
     const qtyNum = Number(item.quantity) || 0;
     return acc + priceNum * qtyNum;
@@ -24,7 +24,7 @@ function CartTotal({ items }) {
       </div>
 
       <div className="flex flex-col gap-2 mt-2 text-sm">
-        {cartItems.map((item, idx) => {
+        {items.map((item, idx) => {
           const priceNum = Number(item.price) || 0;
           const qtyNum = Number(item.quantity) || 0;
           return (

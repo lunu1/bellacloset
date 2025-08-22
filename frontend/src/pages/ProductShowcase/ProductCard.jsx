@@ -13,7 +13,15 @@ const formatAED = (n) =>
 export default function ProductCard({ product, variants = [] }) {
   const dispatch = useDispatch();
   const wishlistItems = useSelector((s) => s.wishlist.items);
-  const isWishlisted = wishlistItems.some((w) => w.product._id === product._id);
+  const isWishlisted = wishlistItems.some((w) => {
+   const wid =
+    // populated document
+    w.product && typeof w.product === "object" && w.product._id
+       ? String(w.product._id)
+       // raw id or alternate field naming
+       : String(w.product || w.productId);
+  return wid === String(product._id);
+ });
 
   const toggleWishlist = (e) => {
     e.preventDefault();
