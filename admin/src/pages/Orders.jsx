@@ -46,7 +46,7 @@ function Orders() {
     dispatch(updateAdminOrderPayment({ orderId: id, paymentStatus: newPayStatus }));
 
   return (
-    <div className="p-6">
+    <div className="">
       <h1 className="mb-4 text-2xl font-bold">Orders</h1>
 
       {/* Filters */}

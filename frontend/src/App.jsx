@@ -31,6 +31,7 @@ import ProductsBrowsePage from "./pages/ProductsBrowsePage.jsx";
 
 const App = () => {
   return (
+    <>
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <ToastContainer position="top-right" autoClose={3000}/>
       <Navbar />
@@ -68,12 +69,15 @@ const App = () => {
          {/* <Route path="/orders" element={<OrderPage />} /> */}
 
          <Route path="/products" element={<ProductsBrowsePage />} />
+<Route path="/c" element={<ProductsBrowsePage />} />
         <Route path="/c/:categoryId" element={<ProductsBrowsePage />} />
       </Routes>
-      <Footer />
 
       
     </div>
+      <Footer />
+    </>
+
   );
 };
 

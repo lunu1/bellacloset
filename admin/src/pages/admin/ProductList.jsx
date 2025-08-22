@@ -35,7 +35,7 @@ export default function ProductsList() {
     : items;
 
   return (
-    <div className="p-6">
+    <div className="">
       <div className="flex items-center gap-3 flex-wrap mb-4">
         <input
           value={search}

@@ -24,8 +24,7 @@ import ProductEdit from "./pages/admin/ProductEdit";
 export let currency = "PKR. ";
 
 const App = () => {
-  const { isAdminLoggedIn , loading} = useContext(AdminContext);
-
+  const { isAdminLoggedIn, loading } = useContext(AdminContext);
 
   if (loading) {
     return (
@@ -64,14 +63,16 @@ const App = () => {
                 <Route path="/products" element={<Products />} />
                 <Route path="/login" element={<Navigate to="/" />} />
                 <Route path="*" element={<Navigate to="/" />} />
-              
-<Route path="/admin/products/edit/:id" element={<ProductEdit />} />
 
+                <Route
+                  path="/admin/products/edit/:id"
+                  element={<ProductEdit />}
+                />
               </>
             ) : (
               <>
-              <Route path="/login" element={<Login />} />
-              <Route path="*" element={<Navigate to="/login" />} /> 
+                <Route path="/login" element={<Login />} />
+                <Route path="*" element={<Navigate to="/login" />} />
               </>
             )}
           </Routes>

@@ -34,9 +34,7 @@ const Hero = () => {
 
       <div className="text-center mt-8">
   <Link to="/shop">
-    <button className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 transition duration-300 text-sm sm:text-base">
-      View All Products
-    </button>
+   
   </Link>
 </div>
 
