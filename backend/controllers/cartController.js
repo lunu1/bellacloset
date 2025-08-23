@@ -167,17 +167,89 @@ export const addToCart = async (req, res) => {
   }
 };
 
+// export const getCart = async (req, res) => {
+//   try {
+//     const userId = req.user._id;
+//     const cart = await Cart.findOne({ user: userId })
+//     if (!cart) return res.status(200).json({ items: [] });  // <-- early return before populate
+//     await cart.populate('items.product items.variant');
+//     return res.status(200).json(cart);
+//   } catch (err) {
+//     return res.status(500).json({ error: 'Failed to fetch cart', details: err.message });
+//   }
+// };
+
 export const getCart = async (req, res) => {
   try {
     const userId = req.user._id;
-    const cart = await Cart.findOne({ user: userId });
-    if (!cart) return res.status(200).json({ items: [] });  // <-- early return before populate
-    await cart.populate('items.product items.variant');
-    return res.status(200).json(cart);
+
+    const cart = await Cart.findOne({ user: userId })
+      .populate([{ path: 'items.product', select: 'name images defaultPrice defaultStock isActive' },
+                 { path: 'items.variant', select: 'price stock isActive product' }]);
+
+    if (!cart) return res.status(200).json({ items: [] });
+
+    // Build a shaped response with availability flags
+    const shaped = {
+      _id: cart._id,
+      items: cart.items.map((line) => {
+        const p = line.product;      // may be null if hard-deleted
+        const v = line.variant;      // may be null if hard-deleted or simple product
+        const productMissing = !p;
+        const variantMissing = !!line.variant && !v;
+
+        const productInactive = !!p && p.isActive === false;
+        const variantInactive = !!v && v.isActive === false;
+
+        const unavailable = productMissing || variantMissing || productInactive || variantInactive;
+
+        // choose a display price if available
+        const unitPrice = v?.price ?? p?.defaultPrice ?? 0;
+
+        // helpful short reason for the UI (optional)
+        let reason = null;
+        if (productMissing) reason = 'PRODUCT_DELETED';
+        else if (variantMissing) reason = 'VARIANT_DELETED';
+        else if (productInactive) reason = 'PRODUCT_INACTIVE';
+        else if (variantInactive) reason = 'VARIANT_INACTIVE';
+
+        return {
+          productId: line.product?._id || line.product,   // keep original id if populate failed
+          variantId: line.variant?._id || line.variant || null,
+          quantity: line.quantity,
+          product: p ? { _id: p._id, name: p.name, images: p.images ?? [], defaultPrice: p.defaultPrice } : null,
+          variant: v ? { _id: v._id, price: v.price } : null,
+          unitPrice,
+          lineTotal: unavailable ? 0 : unitPrice * line.quantity,
+          unavailable,
+          reason,
+        };
+      })
+    };
+
+    // Optional: cart totals exclude unavailable lines
+    const totals = shaped.items.reduce(
+      (acc, i) => {
+        if (!i.unavailable) {
+          acc.subtotal += i.lineTotal;
+          acc.count += i.quantity;
+        } else {
+          acc.unavailableCount += 1;
+        }
+        return acc;
+      },
+      { subtotal: 0, count: 0, unavailableCount: 0 }
+    );
+
+    return res.status(200).json({ ...shaped, totals });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch cart', details: err.message });
   }
 };
+
+
+
+
 
 export const removeFromCart = async (req, res) => {
   const userId = req.user._id;

@@ -38,7 +38,7 @@ const Login = () => {
 
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center h-full pt-20">
       <div className="max-w-md px-8 py-6 mb-4 bg-white rounded-lg shadow-md">
         <h1 className="mb-4 text-2xl font-bold">Admin Panel</h1>
         <form onSubmit={onSubmitHandler}>

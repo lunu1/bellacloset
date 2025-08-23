@@ -6,6 +6,7 @@ import { fetchCategories } from '../redux/categorySlice';
 import { toast } from 'react-toastify';
 import VariantBuilderGrouped from './VariantBuilderGrouped';
 import CategoryTreeSelect from '../components/category/CategoryTreeSelect';
+import Spinner from './Spinner';
 
 const ProductForm = ({ onSubmit }) => {
   const [product, setProduct] = useState({
@@ -20,6 +21,8 @@ const ProductForm = ({ onSubmit }) => {
   const [variants, setVariants] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasVariants, setHasVariants] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+
 
   // NEW: holds selected ids from root -> leaf
   const [categoryPath, setCategoryPath] = useState([]); // e.g. ["WomenId", "BagsId", "ShoulderBagId"]
@@ -35,8 +38,11 @@ const ProductForm = ({ onSubmit }) => {
 
   const handleDefaultImageUpload = async (e) => {
     const files = Array.from(e.target.files).slice(0, 4 - defaultImages.length);
+    if (files.length === 0) return;
     const formData = new FormData();
     files.forEach(file => formData.append("images", file));
+    setIsUploadingImages(true);
+    
     try {
       const res = await axios.post("http://localhost:4000/api/upload/images", formData);
       setDefaultImages(prev => [...prev, ...res.data.urls]);
@@ -44,7 +50,9 @@ const ProductForm = ({ onSubmit }) => {
     } catch (err) {
       console.error("Image upload failed", err);
       toast.error("Failed to upload images.");
-    }
+    } finally {
+    setIsUploadingImages(false); 
+  }
   };
 
   const idToNode = useMemo(() => {
@@ -110,7 +118,7 @@ const ProductForm = ({ onSubmit }) => {
       setVariants([]);
       setHasVariants(false);
       setCategoryPath([]);
-    } catch (error) {
+    } catch (err) {
       toast.error("❌ Failed to create product");
     } finally {
       setIsSubmitting(false);
@@ -192,8 +200,16 @@ const ProductForm = ({ onSubmit }) => {
         <div className="border border-dashed border-gray-300 p-4 rounded-md">
           <p className="text-sm font-medium mb-2">Image</p>
           <div className="flex items-center gap-4">
-            <label className="cursor-pointer px-4 py-2 border rounded-md bg-white shadow text-sm font-medium">
-              Add files
+            <label className={`cursor-pointer px-4 py-2 border rounded-md bg-white shadow text-sm font-medium inline-flex items-center gap-2 
+            ${isUploadingImages ? "opacity-60 cursor-not-allowed" : ""}`}>
+             {isUploadingImages ? (
+      <>
+        <Spinner />
+        Uploading…
+      </>
+    ) : (
+      "Add files"
+    )}
               <input type="file" multiple accept="image/*" className="hidden" onChange={handleDefaultImageUpload} />
             </label>
           </div>

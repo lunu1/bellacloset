@@ -15,6 +15,8 @@ const Category = () => {
   const [imageFile,setImageFile] = useState(null);
   const [existingImage, setExistingImage] = useState(null);
   const fileInputRef = useRef(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);//only to create/update 
+  const [uploadPct, setUploadPct] = useState(0);//file upload progress
 
 
   const fetchCategories = async () => {
@@ -56,12 +58,24 @@ const handleDragEnd = (result) => {
     e.preventDefault();
     if (!label.trim()) return alert("Please enter a category name");
 
+    setIsSubmitting(true);
+    setUploadPct(0);
+
     try {
        const formData = new FormData();
        formData.append("label",label);
        if (parentId) formData.append("parent", parentId);
        if (imageFile) formData.append("image", imageFile);
 
+
+       //track upload progress
+       const cfg = {
+        onUploadProgress: ( evt ) => {
+          if (evt.total) {
+            setUploadPct( Math.round((evt.loaded * 100) / evt.total ));
+          }
+        }
+        };
 
       if (editId) {
         await axios.put(`${backendURL}/api/category/${editId}` ,formData 
@@ -90,11 +104,14 @@ const handleDragEnd = (result) => {
       setParentId("");
       setImageFile(null);
       setExistingImage(null);
-      fileInputRef.current.value = "";  // ✅ CLEAR file input
+       if (fileInputRef.current) fileInputRef.current.value = ""; // ✅ CLEAR file input
       fetchCategories();
     } catch (err) {
       alert(err.response?.data?.message || "Something went wrong");
-    }
+    } finally {
+    setIsSubmitting(false);
+    setUploadPct(0);
+  }
   };
 
   const handleEdit = (cat) => {
@@ -194,6 +211,17 @@ const renderCategoryList = (items, level = 0) => {
          
          />
 
+
+         {isSubmitting && imageFile && uploadPct > 0 && (
+  <div className="mt-2">
+    <div className="h-2 w-full bg-gray-200 rounded">
+      <div className="h-2 bg-black rounded" style={{ width: `${uploadPct}%` }} />
+    </div>
+    <p className="text-xs text-gray-500 mt-1">{uploadPct}%</p>
+  </div>
+)}
+
+
          {/* ✅ Preview the existing image during edit (if no new file chosen) */}
         {existingImage && !imageFile && (
           <div>
@@ -209,9 +237,10 @@ const renderCategoryList = (items, level = 0) => {
 
         <button
           type="submit"
-          className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
+          disabled={isSubmitting}
+          className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 disabled:opacity-60"
         >
-          {editId ? "Update" : "Create"}
+          {isSubmitting ?(editId ? "Updating" : "Creating") : (editId ? "Update" : "Create")}
         </button>
 
         {editId && (

@@ -4,14 +4,36 @@ import Order from "../models/Order.js";
 import userModel from "../models/userModel.js";
 import { emailOrderCancelled, emailOrderConfirmed } from "../services/email.service.js";
 import { checkAndDecrementStock, restock } from "../utils/stock.util.js";
+import Cart from "../models/cartModel.js";
 
-/**
- * POST /api/order/place
- * - Validates payload
- * - Decrements stock (variant.stock or product.defaultStock)
- * - Creates order (transaction when available; safe fallback otherwise)
- * - Sends confirmation email (fire & forget)
- */
+// Helper: remove purchased items from user's cart
+async function removePurchasedFromCart(userId, purchased, session = null) {
+  const cart = await Cart.findOne({ user: userId }).session(session || null);
+  if (!cart) return;
+
+  for (const p of purchased) {
+    const pid = String(p.productId);
+    const vid = String(p.variantId || "");
+
+    const idx = cart.items.findIndex(
+      (i) => String(i.product) === pid && String(i.variant || "") === vid
+    );
+
+    if (idx > -1) {
+      const newQty = (cart.items[idx].quantity || 0) - Number(p.quantity || 0);
+      if (newQty > 0) {
+        cart.items[idx].quantity = newQty;   // just reduce qty
+      } else {
+        cart.items.splice(idx, 1);           // remove if <= 0
+      }
+    }
+  }
+
+  await cart.save({ session: session || undefined });
+}
+
+
+
 export const placeOrder = async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -55,6 +77,11 @@ export const placeOrder = async (req, res) => {
         );
 
         createdOrder = order;
+
+        // 3) Remove purchased items from user's cart
+        await removePurchasedFromCart(userId, products, session);
+
+
       });
     } catch (trxErr) {
       // Fallback when local MongoDB has no replica set / transactions
@@ -78,6 +105,8 @@ export const placeOrder = async (req, res) => {
             address,
             statusHistory: [{ status: "Pending", note: "Order placed" }],
           });
+          // Remove purchased items from user's cart
+          await removePurchasedFromCart(userId, products, null);
         } catch (fallbackErr) {
           return res.status(fallbackErr.status || 500).json({
             message: fallbackErr.message || "Order failed",
@@ -224,3 +253,4 @@ export const cancelOrder = async (req, res) => {
     return res.status(500).json({ message: err.message });
   }
 };
+
