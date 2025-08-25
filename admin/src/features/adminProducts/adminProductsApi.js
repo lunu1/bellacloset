@@ -15,7 +15,10 @@ export const adminProductsApi = createApi({
         const list = Array.isArray(result) ? result : result?.items || [];
         return list.length
           ? [
-              ...list.map(({ product }) => ({ type: "Product", id: product?._id })),
+              ...list.map(({ product }) => ({
+                type: "Product",
+                id: product?._id,
+              })),
               { type: "Product", id: "LIST" },
             ]
           : [{ type: "Product", id: "LIST" }];
@@ -34,18 +37,29 @@ export const adminProductsApi = createApi({
 
     updateProduct: builder.mutation({
       // arg: { id, patch, queryArg }
-      query: ({ id, patch }) => ({ url: `/products/${id}`, method: "PUT", body: patch }),
-      async onQueryStarted({ id, patch, queryArg }, { dispatch, queryFulfilled }) {
+      query: ({ id, patch }) => ({
+        url: `/products/${id}`,
+        method: "PUT",
+        body: patch,
+      }),
+      async onQueryStarted(
+        { id, patch, queryArg },
+        { dispatch, queryFulfilled }
+      ) {
         // optimistic update for the current list view
         const patchResult = dispatch(
-          adminProductsApi.util.updateQueryData("getProducts", queryArg || {}, (draft) => {
-            const items = Array.isArray(draft) ? draft : draft?.items;
-            if (!items) return;
-            const idx = items.findIndex((x) => x?.product?._id === id);
-            if (idx !== -1) {
-              Object.assign(items[idx].product, patch);
+          adminProductsApi.util.updateQueryData(
+            "getProducts",
+            queryArg || {},
+            (draft) => {
+              const items = Array.isArray(draft) ? draft : draft?.items;
+              if (!items) return;
+              const idx = items.findIndex((x) => x?.product?._id === id);
+              if (idx !== -1) {
+                Object.assign(items[idx].product, patch);
+              }
             }
-          })
+          )
         );
         try {
           await queryFulfilled;
@@ -62,17 +76,21 @@ export const adminProductsApi = createApi({
       async onQueryStarted({ id, queryArg }, { dispatch, queryFulfilled }) {
         // optimistic remove from current list cache
         const patchResult = dispatch(
-          adminProductsApi.util.updateQueryData("getProducts", queryArg || {}, (draft) => {
-            if (Array.isArray(draft)) {
-              const idx = draft.findIndex((x) => x?.product?._id === id);
-              if (idx !== -1) draft.splice(idx, 1);
-            } else if (draft?.items) {
-              draft.items = draft.items.filter((x) => x?.product?._id !== id);
-              if (typeof draft.total === "number") {
-                draft.total = Math.max(0, draft.total - 1);
+          adminProductsApi.util.updateQueryData(
+            "getProducts",
+            queryArg || {},
+            (draft) => {
+              if (Array.isArray(draft)) {
+                const idx = draft.findIndex((x) => x?.product?._id === id);
+                if (idx !== -1) draft.splice(idx, 1);
+              } else if (draft?.items) {
+                draft.items = draft.items.filter((x) => x?.product?._id !== id);
+                if (typeof draft.total === "number") {
+                  draft.total = Math.max(0, draft.total - 1);
+                }
               }
             }
-          })
+          )
         );
         try {
           await queryFulfilled;
@@ -88,7 +106,9 @@ export const adminProductsApi = createApi({
 export const {
   useGetProductsQuery,
   useGetProductByIdQuery,
+  useLazyGetProductByIdQuery, 
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  
 } = adminProductsApi;

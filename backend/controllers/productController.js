@@ -173,58 +173,109 @@ export const getAllProducts = async (req, res) => {
       page = 1,
       limit = 20,
       search = "",
+      name,
+      brand,
+      createdFrom,
+      createdTo,
       sortBy = "createdAt",
       sortOrder = "desc",
       category,
       subcategory,
-      brand,
       isActive,
-      withVariants = "true",
-      deep = "0"            // NEW: deep search via categoryPath when deep=1
+      withVariants = "true",   // "true" | "false" | "count"
+      deep = "0",              // 1 => use categoryPath for deep match
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-    const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
 
-    // Build filter
+    // ---- Sort allowlist (avoid arbitrary sort keys)
+    const allowedSort = new Set(["createdAt", "name", "brand"]);
+    const sortKey = allowedSort.has(String(sortBy)) ? String(sortBy) : "createdAt";
+    const sort = { [sortKey]: sortOrder === "asc" ? 1 : -1 };
+
+    // ---- Build filter
     const filter = {};
+
     if (search) {
-      const regex = new RegExp(search, "i");
-      filter.$or = [{ name: regex }, { brand: regex }, { description: regex }];
+      const r = new RegExp(search, "i");
+      filter.$or = [{ name: r }, { brand: r }, { description: r }];
     }
-    if (brand) filter.brand = brand;
-    if (typeof isActive !== "undefined") filter.isActive = isActive === "true";
+    if (name) {
+      filter.name = new RegExp(name, "i");
+    }
+    if (brand) {
+      filter.brand = new RegExp(brand, "i");
+    }
+    if (typeof isActive !== "undefined") {
+      filter.isActive = isActive === "true";
+    }
+
+    // createdAt range
+    if (createdFrom || createdTo) {
+      filter.createdAt = {};
+      if (createdFrom) filter.createdAt.$gte = new Date(createdFrom);
+      if (createdTo) {
+        const end = new Date(createdTo);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
 
     // lineage filters
     if (subcategory && mongoose.Types.ObjectId.isValid(subcategory)) {
       filter.subcategory = subcategory; // exact leaf only
     } else if (category && mongoose.Types.ObjectId.isValid(category)) {
       if (deep === "1") {
-        filter.categoryPath = category; // deep: any product under this node
+        // If categoryPath is an array of ancestor ObjectIds:
+        // filter.categoryPath = new mongoose.Types.ObjectId(category);
+        // If it's stored as raw id or string, your original line is fine:
+        filter.categoryPath = category;
       } else {
-        filter.category = category;     // direct category only
+        filter.category = category; // direct category only
       }
     }
 
+    // ---- Query products + total
     const [products, total] = await Promise.all([
-      Product.find(filter).sort(sort).skip((pageNum - 1) * limitNum).limit(limitNum).lean(),
+      Product.find(filter)
+        .sort(sort)
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .lean(),
       Product.countDocuments(filter),
     ]);
 
-    let items;
-    if (withVariants !== "false") {
+    // ---- Build items with variants according to mode
+    let items = products.map((p) => ({ product: p, variants: [] }));
+
+    if (withVariants === "true") {
       const ids = products.map((p) => p._id);
       const allVariants = await Variant.find({ product: { $in: ids } }).lean();
+
       const byProduct = new Map();
       for (const v of allVariants) {
         const key = String(v.product);
         if (!byProduct.has(key)) byProduct.set(key, []);
         byProduct.get(key).push(v);
       }
-      items = products.map((p) => ({ product: p, variants: byProduct.get(String(p._id)) || [] }));
-    } else {
-      items = products.map((p) => ({ product: p, variants: [] }));
+
+      items = products.map((p) => ({
+        product: p,
+        variants: byProduct.get(String(p._id)) || [],
+      }));
+    } else if (withVariants === "count") {
+      // Only compute counts (no variant docs)
+      const ids = products.map((p) => p._id);
+      const counts = await Variant.aggregate([
+        { $match: { product: { $in: ids } } },
+        { $group: { _id: "$product", count: { $sum: 1 } } },
+      ]);
+      const countMap = new Map(counts.map((c) => [String(c._id), c.count]));
+      items = products.map((p) => ({
+        product: { ...p, variantCount: countMap.get(String(p._id)) || 0 },
+        variants: [],
+      }));
     }
 
     return res.json({ items, total, page: pageNum, limit: limitNum });
@@ -233,6 +284,7 @@ export const getAllProducts = async (req, res) => {
     return res.status(500).json({ message: "Failed to fetch products", error: error.message });
   }
 };
+
 
 // GET /api/products/by-category/:id?deep=1&page=1&limit=24
 export const getProductsByCategory = async (req, res) => {
@@ -374,7 +426,23 @@ export const updateProduct = async (req, res) => {
       "defaultStock", "isActive", "isFeatured", "seo"
     ];
     const patch = {};
+
     for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+
+    
+    // Validate category if present
+    if (patch.category && !mongoose.Types.ObjectId.isValid(patch.category)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
+
+     // Normalize numeric fields if present
+    if ("defaultPrice" in patch) patch.defaultPrice = parseFloat(patch.defaultPrice ?? 0);
+    if ("compareAtPrice" in patch) patch.compareAtPrice = parseFloat(patch.compareAtPrice ?? 0);
+    if ("defaultStock" in patch) patch.defaultStock = parseInt(patch.defaultStock ?? 0, 10);
+
+        if (Array.isArray(patch.images)) patch.images = patch.images.slice(0, 4);
+
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
@@ -386,6 +454,113 @@ export const updateProduct = async (req, res) => {
     return res.json(updatedProduct);
   } catch (error) {
     return res.status(500).json({ message: "Failed to update product", error: error.message });
+  }
+};
+
+
+// controllers/productController.js (same file, add this)
+export const upsertProductVariants = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const productId = req.params.id;
+    const { variants = [] } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      await session.abortTransaction(); session.endSession();
+      return res.status(400).json({ message: "Invalid product ID" });
+    }
+
+    const product = await Product.findById(productId).session(session);
+    if (!product) {
+      await session.abortTransaction(); session.endSession();
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Get current variants
+    const existing = await Variant.find({ product: productId }).session(session);
+    const existingById = new Map(existing.map(v => [String(v._id), v]));
+
+    // Partition payload
+    const toUpdate = [];
+    const toCreate = [];
+    const incomingIds = new Set();
+
+    for (const v of Array.isArray(variants) ? variants : []) {
+      const attrs = v.attributes || v.optionValues || {};
+      // Build values string for slug/SKU
+      const valuesStr = Object.values(attrs).filter(Boolean).join("-").toLowerCase();
+
+      // Normalize fields
+      const norm = {
+        optionValues: attrs,
+        price: parseFloat(v.price ?? 0),
+        compareAtPrice: parseFloat(v.compareAtPrice ?? 0),
+        stock: parseInt(v.stock ?? 0, 10),
+        images: Array.isArray(v.images) ? v.images.slice(0, 4) : [],
+      };
+
+      // Generate slug + sku based on product.slug and attributes
+      const variantSlug = slugify(`${product.slug}-${valuesStr}`, { lower: true });
+      const sku = `${product.slug.toUpperCase()}-${valuesStr.toUpperCase().replace(/\s+/g, "-")}`;
+
+      if (v._id && existingById.has(String(v._id))) {
+        incomingIds.add(String(v._id));
+        toUpdate.push({
+          _id: v._id,
+          update: { ...norm, slug: variantSlug, sku }
+        });
+      } else {
+        toCreate.push({
+          product: productId,
+          ...norm,
+          slug: variantSlug,
+          sku,
+        });
+      }
+    }
+
+    // Delete variants missing from payload
+    const toDelete = existing.filter(ev => !incomingIds.has(String(ev._id)));
+    if (toDelete.length) {
+      await Variant.deleteMany({ _id: { $in: toDelete.map(v => v._id) } }).session(session);
+    }
+
+    // Apply updates
+    for (const u of toUpdate) {
+      await Variant.findByIdAndUpdate(u._id, u.update, { new: false, runValidators: true }).session(session);
+    }
+
+    // Create new
+    let created = [];
+    if (toCreate.length) {
+      created = await Variant.insertMany(toCreate, { session });
+    }
+
+    // Re-fetch final variants
+    const finalVariants = await Variant.find({ product: productId }).session(session);
+
+    // Update product.images if options include "Color"
+    const hasColorOption = Array.isArray(product.options) && product.options.includes("Color");
+    if (hasColorOption) {
+      // choose the first variant that has images
+      const withImages = finalVariants.find(v => Array.isArray(v.images) && v.images.length > 0);
+      const newImages = withImages ? withImages.images.slice(0, 4) : product.images || [];
+      await Product.findByIdAndUpdate(productId, { images: newImages }, { new: false, runValidators: false }).session(session);
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Return updated snapshot
+    const updatedProduct = await Product.findById(productId).lean();
+    const variantsLean = finalVariants.map(v => v.toObject());
+    return res.json({ product: updatedProduct, variants: variantsLean });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("upsertProductVariants error:", error);
+    return res.status(500).json({ message: "Failed to update variants", error: error.message });
   }
 };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 const VariantBuilderGrouped = ({
@@ -6,7 +6,7 @@ const VariantBuilderGrouped = ({
   defaultPrice,
   defaultStock,
   defaultCompareAtPrice,
-    initialVariants = [], 
+  initialVariants = [],           // NEW
 }) => {
   const [colors, setColors] = useState([]);
   const [sizes, setSizes] = useState([]);
@@ -15,81 +15,82 @@ const VariantBuilderGrouped = ({
   const [colorInput, setColorInput] = useState("");
   const [sizeInput, setSizeInput] = useState("");
   const [defaultPriceLocal, setDefaultPriceLocal] = useState("");
-  const [defaultCompareAtPriceLocal, setDefaultCompareAtPriceLocal] =
-    useState("");
+  const [defaultCompareAtPriceLocal, setDefaultCompareAtPriceLocal] = useState("");
   const [defaultStockLocal, setDefaultStockLocal] = useState("");
 
-   useEffect(() => {
-    if (!Array.isArray(initialVariants) || initialVariants.length === 0) return;
+  // guard so our auto-initializer doesn't blow away prefilled data
+  const prefilledRef = useRef(false);
 
-    // extract colors & sizes from server variants
-    const colorSet = new Set();
-    const sizeSet = new Set();
-
-    const preData = {}; // { [color]: { images: [], sizes: { [size||default]: { price,stock,compareAtPrice } } } }
+  // ---- PREFILL FROM SERVER VARIANTS ONCE ----
+  useEffect(() => {
+    if (!initialVariants || initialVariants.length === 0) return;
+    // Build prefilled structure
+    const cSet = new Set();
+    const sSet = new Set();
+    const pre = {}; // { [color]: { images: [], sizes: { [size|default]: { price, stock, compareAtPrice, _id } } } } OR size-only
 
     for (const v of initialVariants) {
-      const color = v?.optionValues?.Color || null;
-      const size = v?.optionValues?.Size || null;
+      const attrs = v.optionValues || v.attributes || {};
+      const color = attrs.Color || null;
+      const size  = attrs.Size  || null;
 
       const price = v?.price ?? "";
       const stock = v?.stock ?? "";
       const compareAt = v?.compareAtPrice ?? "";
 
       if (color) {
-        colorSet.add(color);
-        if (!preData[color]) {
-          preData[color] = {
+        cSet.add(color);
+        if (!pre[color]) {
+          pre[color] = {
             images: Array.isArray(v.images) ? Array.from(new Set(v.images)).slice(0, 4) : [],
             sizes: {},
           };
         }
         const key = size || "default";
-        preData[color].sizes[key] = {
+        pre[color].sizes[key] = {
+          _id: v?._id,          // keep for upsert
           price,
           stock,
           compareAtPrice: compareAt,
-          // keep a reference to _id so caller can upsert (optional)
-          _id: v?._id,
         };
-
+        // union images for that color
         if (Array.isArray(v.images) && v.images.length) {
-          // union images for that color
-          const existing = new Set(preData[color].images);
-          for (const url of v.images) existing.add(url);
-          preData[color].images = Array.from(existing).slice(0, 4);
+          const set = new Set(pre[color].images);
+          v.images.forEach((u) => set.add(u));
+          pre[color].images = Array.from(set).slice(0, 4);
         }
+        if (size) sSet.add(size);
       } else if (size) {
-        sizeSet.add(size);
-        // only-size variants mode
-        preData[size] = {
+        // size-only
+        sSet.add(size);
+        pre[size] = {
+          _id: v?._id,
           price,
           stock,
           compareAtPrice: compareAt,
-          _id: v?._id,
         };
       }
     }
 
-    setColors(Array.from(colorSet));
-    setSizes(Array.from(sizeSet));
-    setVariantData(preData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // IMPORTANT: set data first, then colors/sizes, then mark prefilled
+    setVariantData(pre);
+    setColors(Array.from(cSet));
+    setSizes(Array.from(sSet));
+    prefilledRef.current = true;
   }, [initialVariants]);
 
+  // ---- AUTO-INITIALIZER (only when NOT prefilled) ----
   useEffect(() => {
+    if (prefilledRef.current) return; // don’t overwrite prefill
+
     const data = {};
 
     if (colors.length > 0) {
       colors.forEach((color) => {
-        if (!variantData[color]) {
-          data[color] = { images: [], sizes: {} };
-        } else {
-          data[color] = {
-            images: variantData[color].images || [],
-            sizes: { ...variantData[color].sizes },
-          };
-        }
+        data[color] = {
+          images: variantData[color]?.images || [],
+          sizes: { ...(variantData[color]?.sizes || {}) },
+        };
 
         if (sizes.length > 0) {
           sizes.forEach((size) => {
@@ -101,9 +102,7 @@ const VariantBuilderGrouped = ({
               };
             }
           });
-        }
-
-        if (sizes.length === 0 && !data[color].sizes["default"]) {
+        } else if (!data[color].sizes["default"]) {
           data[color].sizes["default"] = {
             price: defaultPriceLocal,
             stock: defaultStockLocal,
@@ -113,78 +112,91 @@ const VariantBuilderGrouped = ({
       });
     } else if (sizes.length > 0) {
       sizes.forEach((size) => {
-        if (!variantData[size]) {
-          data[size] = {
-            price: defaultPriceLocal,
-            stock: defaultStockLocal,
-            compareAtPrice: defaultCompareAtPriceLocal,
-          };
-        }
+        data[size] = {
+          ...(variantData[size] || {}),
+          price: variantData[size]?.price ?? defaultPriceLocal,
+          stock: variantData[size]?.stock ?? defaultStockLocal,
+          compareAtPrice: variantData[size]?.compareAtPrice ?? defaultCompareAtPriceLocal,
+        };
       });
     }
 
-    setVariantData(data);
-  }, [colors, sizes, defaultPrice, defaultStock, defaultCompareAtPrice]);
+    // only set if we actually built something
+    if (Object.keys(data).length > 0) setVariantData(data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colors, sizes, defaultPriceLocal, defaultStockLocal, defaultCompareAtPriceLocal]);
 
+  // ---- FLATTEN TO PARENT ----
   useEffect(() => {
     const flattened = [];
 
     if (colors.length > 0) {
-      for (let color of colors) {
-        if (!variantData[color]) continue;
+      for (const color of colors) {
+        const colorBlock = variantData[color];
+        if (!colorBlock) continue;
+
+        const imgs = colorBlock.images || [];
 
         if (sizes.length > 0) {
-          for (let size of sizes) {
-            if (!variantData[color].sizes[size]) continue;
+          for (const size of sizes) {
+            const row = colorBlock.sizes?.[size];
+            if (!row) continue;
             flattened.push({
+              _id: row._id, // keep id if present
               attributes: { Color: color, Size: size },
-              price: variantData[color].sizes[size].price,
-              stock: variantData[color].sizes[size].stock,
-              compareAtPrice: variantData[color].sizes[size].compareAtPrice,
-              images: variantData[color].images || [],
+              price: row.price,
+              stock: row.stock,
+              compareAtPrice: row.compareAtPrice,
+              images: imgs,
             });
           }
         } else {
-          if (!variantData[color].sizes["default"]) continue;
+          const row = colorBlock.sizes?.["default"];
+          if (!row) continue;
           flattened.push({
+            _id: row._id,
             attributes: { Color: color },
-            price: variantData[color].sizes["default"].price,
-            stock: variantData[color].sizes["default"].stock,
-            compareAtPrice: variantData[color].sizes["default"].compareAtPrice,
-            images: variantData[color].images || [],
+            price: row.price,
+            stock: row.stock,
+            compareAtPrice: row.compareAtPrice,
+            images: imgs,
           });
         }
       }
     } else if (sizes.length > 0) {
-      for (let size of sizes) {
-        if (!variantData[size]) continue;
+      for (const size of sizes) {
+        const row = variantData[size];
+        if (!row) continue;
         flattened.push({
+          _id: row._id,
           attributes: { Size: size },
-          price: variantData[size].price,
-          stock: variantData[size].stock,
-          compareAtPrice: variantData[size].compareAtPrice,
+          price: row.price,
+          stock: row.stock,
+          compareAtPrice: row.compareAtPrice,
           images: [],
         });
       }
     }
 
     onVariantsChange(flattened);
-  }, [variantData, colors, sizes]);
+  }, [variantData, colors, sizes, onVariantsChange]);
 
+  // ---- Handlers unchanged ----
   const handleImageUpload = async (e, color) => {
     const files = Array.from(e.target.files).slice(0, 4);
+    if (!files.length) return;
     const formData = new FormData();
     files.forEach((file) => formData.append("images", file));
     try {
       const res = await axios.post(
-        "http://localhost:4000/api/upload/images",
+        `${import.meta.env.VITE_API_URL || "http://localhost:4000/api"}/upload/images`,
         formData
       );
       setVariantData((prev) => ({
         ...prev,
         [color]: {
           ...prev[color],
-          images: [...(prev[color].images || []), ...res.data.urls],
+          images: [...(prev[color]?.images || []), ...(res.data?.urls || [])].slice(0, 4),
         },
       }));
     } catch (err) {
@@ -197,7 +209,7 @@ const VariantBuilderGrouped = ({
       ...prev,
       [color]: {
         ...prev[color],
-        images: prev[color].images.filter((img) => img !== url),
+        images: (prev[color]?.images || []).filter((img) => img !== url),
       },
     }));
   };
@@ -208,9 +220,9 @@ const VariantBuilderGrouped = ({
       [color]: {
         ...prev[color],
         sizes: {
-          ...prev[color].sizes,
+          ...(prev[color]?.sizes || {}),
           [size]: {
-            ...prev[color].sizes[size],
+            ...(prev[color]?.sizes?.[size] || {}),
             [field]: value,
           },
         },
@@ -218,42 +230,29 @@ const VariantBuilderGrouped = ({
     }));
   };
 
+  // ---- UI (same as yours) ----
   return (
-    
     <div className="mt-6 space-y-6">
-
       <h3 className="text-lg font-semibold">Variants</h3>
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-  <div>
-    <label className="text-sm font-medium">Default Price</label>
-    <input
-      type="number"
-      className="border p-2 w-full"
-      value={defaultPriceLocal}
-      onChange={e => setDefaultPriceLocal(e.target.value)}
-    />
-  </div>
-  <div>
-    <label className="text-sm font-medium">Default Compare At Price</label>
-    <input
-      type="number"
-      className="border p-2 w-full"
-      value={defaultCompareAtPriceLocal}
-      onChange={e => setDefaultCompareAtPriceLocal(e.target.value)}
-    />
-  </div>
-  <div>
-    <label className="text-sm font-medium">Default Stock</label>
-    <input
-      type="number"
-      className="border p-2 w-full"
-      value={defaultStockLocal}
-      onChange={e => setDefaultStockLocal(e.target.value)}
-    />
-  </div>
-</div>
 
-      {/* Color and Size Inputs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="text-sm font-medium">Default Price</label>
+          <input type="number" className="border p-2 w-full"
+            value={defaultPriceLocal} onChange={(e) => setDefaultPriceLocal(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Default Compare At Price</label>
+          <input type="number" className="border p-2 w-full"
+            value={defaultCompareAtPriceLocal} onChange={(e) => setDefaultCompareAtPriceLocal(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Default Stock</label>
+          <input type="number" className="border p-2 w-full"
+            value={defaultStockLocal} onChange={(e) => setDefaultStockLocal(e.target.value)} />
+        </div>
+      </div>
+
       <div className="space-y-4">
         <div className="flex gap-2">
           <input
@@ -266,10 +265,7 @@ const VariantBuilderGrouped = ({
           <button
             type="button"
             onClick={() => {
-              const arr = colorInput
-                .split(",")
-                .map((v) => v.trim())
-                .filter(Boolean);
+              const arr = colorInput.split(",").map((v) => v.trim()).filter(Boolean);
               setColors(arr);
             }}
             className="bg-blue-600 text-white px-4 py-2 rounded"
@@ -289,10 +285,7 @@ const VariantBuilderGrouped = ({
           <button
             type="button"
             onClick={() => {
-              const arr = sizeInput
-                .split(",")
-                .map((v) => v.trim())
-                .filter(Boolean);
+              const arr = sizeInput.split(",").map((v) => v.trim()).filter(Boolean);
               setSizes(arr);
             }}
             className="bg-green-600 text-white px-4 py-2 rounded"
@@ -302,7 +295,6 @@ const VariantBuilderGrouped = ({
         </div>
       </div>
 
-      {/* Per-Color Group */}
       {colors.map((color) => (
         <div key={color} className="border rounded-md p-4 bg-gray-50">
           <div className="flex justify-between items-center mb-2">
@@ -310,36 +302,22 @@ const VariantBuilderGrouped = ({
             <button
               type="button"
               className="text-blue-600 text-sm"
-              onClick={() =>
-                setExpanded((prev) => ({ ...prev, [color]: !prev[color] }))
-              }
+              onClick={() => setExpanded((prev) => ({ ...prev, [color]: !prev[color] }))}
             >
               {expanded[color] ? "Hide" : "Add Price & Stock"}
             </button>
           </div>
 
-          {/* Image Upload */}
           <div className="border border-dashed p-3 rounded bg-white mb-4">
-            <p className="text-sm font-medium mb-1">
-              Upload images for {color}
-            </p>
+            <p className="text-sm font-medium mb-1">Upload images for {color}</p>
             <label className="text-blue-600 underline text-sm cursor-pointer">
               Upload Images
-              <input
-                type="file"
-                hidden
-                multiple
-                onChange={(e) => handleImageUpload(e, color)}
-              />
+              <input type="file" hidden multiple onChange={(e) => handleImageUpload(e, color)} />
             </label>
             <div className="flex gap-2 mt-3 flex-wrap">
               {(variantData[color]?.images || []).map((img, i) => (
                 <div key={i} className="relative group">
-                  <img
-                    src={img}
-                    alt="preview"
-                    className="w-16 h-16 object-cover rounded"
-                  />
+                  <img src={img} alt="preview" className="w-16 h-16 object-cover rounded" />
                   <button
                     type="button"
                     onClick={() => handleImageDelete(color, img)}
@@ -352,109 +330,46 @@ const VariantBuilderGrouped = ({
             </div>
           </div>
 
-          {/* Prices & Stocks */}
           {expanded[color] && (
             <>
               {sizes.length > 0 ? (
                 sizes.map((size) => (
                   <div key={size} className="flex gap-4 mb-2 items-center">
-                    <span className="w-20 text-sm text-gray-700">
-                      Size: {size}
-                    </span>
+                    <span className="w-20 text-sm text-gray-700">Size: {size}</span>
                     <input
-                      type="number"
-                      placeholder="Price"
-                      className="border p-1 w-24"
-                      value={variantData[color]?.sizes[size]?.price || ""}
-                      onChange={(e) =>
-                        handlePriceStockChange(
-                          color,
-                          size,
-                          "price",
-                          e.target.value
-                        )
-                      }
+                      type="number" placeholder="Price" className="border p-1 w-24"
+                      value={variantData[color]?.sizes?.[size]?.price || ""}
+                      onChange={(e) => handlePriceStockChange(color, size, "price", e.target.value)}
                     />
                     <input
-                      type="number"
-                      placeholder="Compare Price"
-                      className="border p-1 w-28"
-                      value={
-                        variantData[color]?.sizes[size]?.compareAtPrice || ""
-                      }
-                      onChange={(e) =>
-                        handlePriceStockChange(
-                          color,
-                          size,
-                          "compareAtPrice",
-                          e.target.value
-                        )
-                      }
+                      type="number" placeholder="Compare Price" className="border p-1 w-28"
+                      value={variantData[color]?.sizes?.[size]?.compareAtPrice || ""}
+                      onChange={(e) => handlePriceStockChange(color, size, "compareAtPrice", e.target.value)}
                     />
                     <input
-                      type="number"
-                      placeholder="Stock"
-                      className="border p-1 w-24"
-                      value={variantData[color]?.sizes[size]?.stock || ""}
-                      onChange={(e) =>
-                        handlePriceStockChange(
-                          color,
-                          size,
-                          "stock",
-                          e.target.value
-                        )
-                      }
+                      type="number" placeholder="Stock" className="border p-1 w-24"
+                      value={variantData[color]?.sizes?.[size]?.stock || ""}
+                      onChange={(e) => handlePriceStockChange(color, size, "stock", e.target.value)}
                     />
                   </div>
                 ))
               ) : (
                 <div className="flex gap-4 mb-2 items-center">
-                  <span className="w-20 text-sm text-gray-700">
-                    Price & Stock
-                  </span>
+                  <span className="w-20 text-sm text-gray-700">Price & Stock</span>
                   <input
-                    type="number"
-                    placeholder="Price"
-                    className="border p-1 w-24"
-                    value={variantData[color]?.sizes["default"]?.price || ""}
-                    onChange={(e) =>
-                      handlePriceStockChange(
-                        color,
-                        "default",
-                        "price",
-                        e.target.value
-                      )
-                    }
+                    type="number" placeholder="Price" className="border p-1 w-24"
+                    value={variantData[color]?.sizes?.["default"]?.price || ""}
+                    onChange={(e) => handlePriceStockChange(color, "default", "price", e.target.value)}
                   />
                   <input
-                    type="number"
-                    placeholder="Compare Price"
-                    className="border p-1 w-28"
-                    value={
-                      variantData[color]?.sizes["default"]?.compareAtPrice || ""
-                    }
-                    onChange={(e) =>
-                      handlePriceStockChange(
-                        color,
-                        "default",
-                        "compareAtPrice",
-                        e.target.value
-                      )
-                    }
+                    type="number" placeholder="Compare Price" className="border p-1 w-28"
+                    value={variantData[color]?.sizes?.["default"]?.compareAtPrice || ""}
+                    onChange={(e) => handlePriceStockChange(color, "default", "compareAtPrice", e.target.value)}
                   />
                   <input
-                    type="number"
-                    placeholder="Stock"
-                    className="border p-1 w-24"
-                    value={variantData[color]?.sizes["default"]?.stock || ""}
-                    onChange={(e) =>
-                      handlePriceStockChange(
-                        color,
-                        "default",
-                        "stock",
-                        e.target.value
-                      )
-                    }
+                    type="number" placeholder="Stock" className="border p-1 w-24"
+                    value={variantData[color]?.sizes?.["default"]?.stock || ""}
+                    onChange={(e) => handlePriceStockChange(color, "default", "stock", e.target.value)}
                   />
                 </div>
               )}
@@ -463,7 +378,6 @@ const VariantBuilderGrouped = ({
         </div>
       ))}
 
-      {/* Only Size Variants */}
       {colors.length === 0 && sizes.length > 0 && (
         <div className="mt-6 border rounded p-4 bg-gray-50">
           <h4 className="font-semibold mb-2 text-gray-800">Size Variants</h4>
@@ -471,49 +385,28 @@ const VariantBuilderGrouped = ({
             <div key={size} className="flex gap-4 mb-2 items-center">
               <span className="w-20 text-sm text-gray-700">Size: {size}</span>
               <input
-                type="number"
-                placeholder="Price"
-                className="border p-1 w-24"
+                type="number" placeholder="Price" className="border p-1 w-24"
                 value={variantData[size]?.price || ""}
-                onChange={(e) =>
-                  setVariantData((prev) => ({
-                    ...prev,
-                    [size]: {
-                      ...prev[size],
-                      price: e.target.value,
-                    },
-                  }))
-                }
+                onChange={(e) => setVariantData((prev) => ({
+                  ...prev,
+                  [size]: { ...(prev[size] || {}), price: e.target.value },
+                }))}
               />
               <input
-                type="number"
-                placeholder="Compare Price"
-                className="border p-1 w-28"
+                type="number" placeholder="Compare Price" className="border p-1 w-28"
                 value={variantData[size]?.compareAtPrice || ""}
-                onChange={(e) =>
-                  setVariantData((prev) => ({
-                    ...prev,
-                    [size]: {
-                      ...prev[size],
-                      compareAtPrice: e.target.value,
-                    },
-                  }))
-                }
+                onChange={(e) => setVariantData((prev) => ({
+                  ...prev,
+                  [size]: { ...(prev[size] || {}), compareAtPrice: e.target.value },
+                }))}
               />
               <input
-                type="number"
-                placeholder="Stock"
-                className="border p-1 w-24"
+                type="number" placeholder="Stock" className="border p-1 w-24"
                 value={variantData[size]?.stock || ""}
-                onChange={(e) =>
-                  setVariantData((prev) => ({
-                    ...prev,
-                    [size]: {
-                      ...prev[size],
-                      stock: e.target.value,
-                    },
-                  }))
-                }
+                onChange={(e) => setVariantData((prev) => ({
+                  ...prev,
+                  [size]: { ...(prev[size] || {}), stock: e.target.value },
+                }))}
               />
             </div>
           ))}
