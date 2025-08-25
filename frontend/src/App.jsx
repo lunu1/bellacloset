@@ -23,7 +23,6 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import UserProfile from "./pages/UserProfile";
 import ProductShowcase from "./pages/ProductShowcase/ProductShowcase.jsx";
 import WishlistPage from "./pages/wishlistPage.jsx";
-import OrderPage from "./pages/OrderPage";
 import SearchResults from "./pages/SearchResults.jsx";
 import OrderDetails from "./pages/OrderDetails.jsx";
 import OrderSuccess from "./pages/OrderSuccess.jsx";

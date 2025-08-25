@@ -7,7 +7,8 @@ import {
   deleteProduct,
   searchProducts,
   getSearchSuggestions,
-  getVariantsByProduct,  // ⬅️ new
+  getVariantsByProduct,
+  upsertProductVariants,  // ⬅️ new
 } from "../controllers/productController.js";
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.get("/all", getAllProducts);
 
 // Variants by product
 router.get("/:id/variants", getVariantsByProduct);
+router.put("/:id/variants", upsertProductVariants);  
 
 // Single item
 router.get("/:id", getProductById);

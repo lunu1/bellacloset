@@ -11,7 +11,7 @@ import authRouter from "./routes/authRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 import bannerRouter from "./routes/bannerRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
-import productRoutes from "./routes/product.route.js";
+import productRoutes from "./routes/productRoutes.js";
 import adminRouter from "./routes/adminRoutes.js";
 import couponRouter from "./routes/couponRoutes.js";
 import wishlistRouter from "./routes/wishlistRoutes.js";
