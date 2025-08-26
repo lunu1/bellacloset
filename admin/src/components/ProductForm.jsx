@@ -7,8 +7,10 @@ import { toast } from 'react-toastify';
 import VariantBuilderGrouped from './VariantBuilderGrouped';
 import CategoryTreeSelect from '../components/category/CategoryTreeSelect';
 import Spinner from './Spinner';
+import { validateProductForm } from '../utils/validateProductForm';
 
 const ProductForm = ({ onSubmit }) => {
+
   const [product, setProduct] = useState({
     name: '', brand: '', tags: '', description: '', options: [],
     // We'll set category/subcategory from the tree at submit
@@ -23,6 +25,7 @@ const ProductForm = ({ onSubmit }) => {
   const [hasVariants, setHasVariants] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
 
+  const [errors, setErrors] = useState({});
 
   // NEW: holds selected ids from root -> leaf
   const [categoryPath, setCategoryPath] = useState([]); // e.g. ["WomenId", "BagsId", "ShoulderBagId"]
@@ -75,6 +78,7 @@ const ProductForm = ({ onSubmit }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrors({});
 
     const tagsArray = product.tags.split(',').map(t => t.trim()).filter(Boolean);
     const finalVariants = variants.map(v => ({
@@ -87,6 +91,28 @@ const ProductForm = ({ onSubmit }) => {
     // Determine root category and deepest subcategory from the path
     const rootCategoryId = categoryPath[0] || null;
     const leafCategoryId = categoryPath.length ? categoryPath[categoryPath.length - 1] : null;
+
+// ----- validation -----
+const { isValid, errors:err } = validateProductForm({
+  name: product.name,
+  brand: product.brand,
+  description: product.description,
+  categoryPath: categoryPath,
+  // category: rootCategoryId,
+  hasVariants: hasVariants,
+  defaultImages: defaultImages,
+  defaultPrice: defaultPrice,
+  compareAtPrice: compareAtPrice,
+  defaultStock: defaultStock,
+  variants: finalVariants
+})
+
+if (!isValid) {
+  setErrors(err);
+  setIsSubmitting(false);
+  return;
+}
+
 
     const payload = {
       ...product,
@@ -146,8 +172,19 @@ const ProductForm = ({ onSubmit }) => {
 
       <h2 className="text-xl font-semibold">Add New Product</h2>
 
-      <input name="name" placeholder="Product Name" className="border p-2 w-full" value={product.name} onChange={handleChange} />
-      <input name="brand" placeholder="Brand" className="border p-2 w-full" value={product.brand} onChange={handleChange} />
+      <input name="name"
+       placeholder="Product Name"
+       className={`border p-2 w-full ${errors.name ? "border-red-600" : ""}`} 
+       value={product.name} 
+       onChange={handleChange} />
+      {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
+
+      <input name="brand"
+       placeholder="Brand"
+       className={`border p-2 w-full ${errors.brand ? "border-red-600" : ""}`}
+       value={product.brand}
+       onChange={handleChange} />
+       {errors.brand && <p className="text-xs text-red-600 mt-1">{errors.brand}</p>}
 
       {/* DYNAMIC CATEGORY TREE */}
       <div>
@@ -165,9 +202,15 @@ const ProductForm = ({ onSubmit }) => {
         {categoryPath.length > 0 && (
           <div className="text-xs text-gray-500 mt-1">Selected: {readablePath}</div>
         )}
+        {errors.categoryPath && <p className="text-xs text-red-600 mt-1">{errors.categoryPath}</p>}
       </div>
 
-      <textarea name="description" placeholder="Description" className="border p-2 w-full" value={product.description} onChange={handleChange} />
+      <textarea name="description"
+       placeholder="Description" 
+       className={`border p-2 w-full ${errors.description ? "border-red-600" : ""}`}
+       value={product.description} 
+       onChange={handleChange} />
+       {errors.description && <p className="text-xs text-red-600 mt-1">{errors.description}</p>}
       <input name="tags" placeholder="Tags (comma separated)" className="border p-2 w-full" value={product.tags} onChange={handleChange} />
 
       {!hasVariants && (
@@ -175,24 +218,27 @@ const ProductForm = ({ onSubmit }) => {
           <input
             type="number"
             placeholder="Price"
-            className="border p-2 w-full"
+            className={`border p-2 w-full ${errors.defaultPrice ? 'border-red-500' : ''}`}
             value={defaultPrice}
             onChange={e => setDefaultPrice(e.target.value)}
           />
+          {errors.defaultPrice && <p className='test-xs text-red-600 mt-1'>{errors.defaultPrice}</p>}
           <input
             type="number"
             placeholder="Comparison Price"
-            className="border p-2 w-full"
+            className={`border-2 w-full p-2 ${errors.compareAtPrice ? 'border-red-500' : ''}`}
             value={compareAtPrice}
             onChange={e => setDefaultcomparePrice(e.target.value)}
           />
+          {errors.compareAtPrice && <p className='test-xs text-red-600 mt-1'>{errors.compareAtPrice}</p>}
           <input
             type="number"
             placeholder="Stock"
-            className="border p-2 w-full"
+            className={`border p-2 w-full ${errors.defaultStock ? 'border-red-500': ''}`}
             value={defaultStock}
             onChange={e => setDefaultStock(e.target.value)}
           />
+          {errors.defaultStock && <p className='test-xs text-red-600 mt-1'>{errors.defaultStock}</p>}
         </>
       )}
 
@@ -230,13 +276,19 @@ const ProductForm = ({ onSubmit }) => {
           </div>
         </div>
       )}
+      {errors.defaultImages && <p className="text-xs text-red-600 mt-1">{errors.defaultImages}</p>}
 
       {hasVariants && (
-        <VariantBuilderGrouped
+        <>
+         <VariantBuilderGrouped
           onVariantsChange={setVariants}
           defaultPrice={defaultPrice}
           defaultStock={defaultStock}
+          variantErrors={errors}
         />
+        {errors.variants && <p className="text-xs text-red-600 mt-2">{errors.variants}</p>}
+        </>
+       
       )}
 
       <button
