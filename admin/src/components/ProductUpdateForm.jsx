@@ -331,6 +331,7 @@ const ProductUpdateForm = ({
           // NEW props we’ll add in the small patch below
           initialVariants={initialVariants}
           onVariantsChange={setVariants}
+           variantErrors={errors}
         />
         {errors.variants && <p className="text-xs text-red-600 mt-2">{errors.variants}</p>}
 

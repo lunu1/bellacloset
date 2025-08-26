@@ -7,7 +7,7 @@ const VariantBuilderGrouped = ({
   defaultStock,
   defaultCompareAtPrice,
   initialVariants = [],
-  variantErrors = {}, // <-- from parent validator
+  variantErrors = {}, // <-- parent passes validator errors here
 }) => {
   const [colors, setColors] = useState([]);
   const [sizes, setSizes] = useState([]);
@@ -19,29 +19,30 @@ const VariantBuilderGrouped = ({
   const [defaultCompareAtPriceLocal, setDefaultCompareAtPriceLocal] = useState("");
   const [defaultStockLocal, setDefaultStockLocal] = useState("");
 
-  // local UI warnings (e.g., color has no images)
+  // local visual warning for missing per-color images
   const [localErrors, setLocalErrors] = useState({ colorImages: {} });
 
+  // avoid auto-initializer overwriting prefill
   const prefilledRef = useRef(false);
 
   // ---------- helpers ----------
-  // Map (color,size) → flattened index in the same order we push to onVariantsChange
+  // (color, size) -> flattened index (same order as we push variants to parent)
   const getFlatIndex = (color, size) => {
     if (colors.length > 0) {
       if (sizes.length > 0) {
-        return colors.indexOf(color) * sizes.length + sizes.indexOf(size); // <- fixed '+'
+        return colors.indexOf(color) * sizes.length + sizes.indexOf(size);
       }
-      return colors.indexOf(color); // color-only (default)
+      return colors.indexOf(color); // color-only, "default"
     } else if (sizes.length > 0) {
       return sizes.indexOf(size); // size-only
     }
     return -1;
   };
 
-  // Read error from several possible shapes:
-  // 1) flat-dot:    errors["variants.3.price"]
-  // 2) flat-brack:  errors["variants[3].price"]
-  // 3) nested:      errors.variants?.[3]?.price
+  // Read an error regardless of shape:
+  //  - flat dot:   errors["variants.3.price"]
+  //  - flat brack: errors["variants[3].price"]
+  //  - nested:     errors.variants?.[3]?.price
   const getVariantErr = (idx, field) => {
     if (idx < 0 || !variantErrors) return null;
     const dot = variantErrors[`variants.${idx}.${field}`];
@@ -118,11 +119,6 @@ const VariantBuilderGrouped = ({
     setSizeInput(sArr.join(", "));
     prefilledRef.current = true;
   }, [initialVariants]);
-
-  useEffect(() => {
-  // sanity check – remove after testing
-  console.log("variantErrors keys:", Object.keys(variantErrors || {}));
-}, [variantErrors]);
 
   // ---------- AUTO-INITIALIZER (only when NOT prefilled) ----------
   useEffect(() => {
@@ -234,10 +230,10 @@ const VariantBuilderGrouped = ({
         if (imgs.length === 0) colorImages[c] = "Add at least one image for this color.";
       }
     }
-    setLocalErrors((prev) => ({ ...prev, colorImages }));
+    setLocalErrors({ colorImages });
   }, [colors, variantData]);
 
-  // ---------- Handlers ----------
+  // ---------- handlers ----------
   const handleImageUpload = async (e, color) => {
     const files = Array.from(e.target.files).slice(0, 4);
     if (!files.length) return;
@@ -320,7 +316,7 @@ const VariantBuilderGrouped = ({
         </div>
       </div>
 
-      {/* Color & Size inputs */}
+      {/* Color & Size entry */}
       <div className="space-y-4">
         <div className="flex gap-2">
           <input
