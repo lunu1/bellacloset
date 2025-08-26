@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";   // ⬅️ add this
 import Variant from "../models/Variants.js";
+import Brand from "../models/Brand.js";
 import slugify from "slugify";
 import mongoose from "mongoose";
 
@@ -51,7 +52,7 @@ export const createProduct = async (req, res) => {
   try {
     const {
       // product core
-      name, slug: clientSlug, description, brand, tags,
+      name, slug: clientSlug, description, brand,brandName, tags,
       options = [], variants = [], defaultImages = [],
       defaultPrice, compareAtPrice, defaultStock,
 
@@ -60,6 +61,8 @@ export const createProduct = async (req, res) => {
       categoryId,        // a single leaf category id
       category,          // legacy: if provided, treated as leaf id (for backward compatibility)
     } = req.body;
+
+    const brandId = await ensureBrandFromPayload({ brandId: brand, brandName });
 
     if (!name) {
       return res.status(400).json({ message: "Missing required field: name" });
@@ -92,7 +95,7 @@ export const createProduct = async (req, res) => {
       name,
       slug: finalSlug,
       description,
-      brand,
+      brand : brandId || null,
       // lineage fields:
       category: rootCategoryId,          // root/top-level
       subcategory: leafCategoryId,       // leaf
@@ -154,7 +157,12 @@ export const createProduct = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(201).json({ product: { ...created.toObject(), images }, variants: createdVariants });
+    // return res.status(201).json({ product: { ...created.toObject(), images }, variants: createdVariants });
+
+    const populated = await Product.findById(created._id)
+      .populate("brand", "name slug logo").lean();
+      populated.images = images;
+      return res.status(201).json({ product: populated, variants: createdVariants });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -197,16 +205,28 @@ export const getAllProducts = async (req, res) => {
     // ---- Build filter
     const filter = {};
 
-    if (search) {
-      const r = new RegExp(search, "i");
-      filter.$or = [{ name: r }, { brand: r }, { description: r }];
-    }
-    if (name) {
-      filter.name = new RegExp(name, "i");
-    }
+if (name) filter.name = new RegExp(name, "i");
+
+if (search) {
+  const r = new RegExp(search, "i");
+  const brandIds = await Brand.find({ name: r }).select("_id");
+  filter.$or = [
+    { name: r },
+    { description: r },
+    ...(brandIds.length ? [{ brand: { $in: brandIds.map(b => b._id) } }] : []),
+  ];
+}
     if (brand) {
-      filter.brand = new RegExp(brand, "i");
-    }
+  if (mongoose.Types.ObjectId.isValid(brand)) {
+    filter.brand = brand; // exact brand id
+  } else {
+    const r = new RegExp(brand, "i");
+    const ids = await Brand.find({ name: r }).select("_id");
+    // If no match, force empty result rather than regex on ObjectId
+    filter.brand = ids.length ? { $in: ids.map(b => b._id) } : null;
+  }
+}
+
     if (typeof isActive !== "undefined") {
       filter.isActive = isActive === "true";
     }
@@ -238,11 +258,7 @@ export const getAllProducts = async (req, res) => {
 
     // ---- Query products + total
     const [products, total] = await Promise.all([
-      Product.find(filter)
-        .sort(sort)
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
-        .lean(),
+      Product.find(filter).populate("brand", "name slug logo").sort(sort).skip((pageNum - 1) * limitNum).limit(limitNum).lean(),
       Product.countDocuments(filter),
     ]);
 
@@ -301,7 +317,7 @@ export const getProductsByCategory = async (req, res) => {
 
     const filter = deep ? { categoryPath: id } : { subcategory: id };
     const [products, total] = await Promise.all([
-      Product.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Product.find(filter).populate("brand", "name slug logo").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Product.countDocuments(filter),
     ]);
 
@@ -327,7 +343,7 @@ export const getProductsByCategory = async (req, res) => {
 // Get single product with variants
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).lean();
+    const product = await Product.findById(req.params.id).populate("brand", "name slug logo").lean();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     const variants = await Variant.find({ product: product._id }).lean();
@@ -364,10 +380,14 @@ export const searchProducts = async (req, res) => {
 
     // Convert to case-insensitive partial regex
     const regex = new RegExp(query, "i"); // partial + case-insensitive match
-
+    const brandIds = await Brand.find({ name: regex }).select("_id");
     const results = await Product.find({
-      $or: [{ name: regex }, { brand: regex }, { description: regex }],
-    }).limit(30);
+      $or: [{ name: regex }, { description: regex },
+        ...(brandIds.length ? [{ brand: { $in: brandIds.map(b => b._id) } }] : [])
+      ],
+    })
+    .populate("brand", "name slug logo")
+    .limit(30);
 
     res.status(200).json({ success: true, results });
   } catch (error) {
@@ -381,6 +401,16 @@ export const searchProducts = async (req, res) => {
       });
   }
 };
+
+async function ensureBrandFromPayload({ brandId, brandName }) {
+  if (brandId && mongoose.Types.ObjectId.isValid(brandId)) return brandId;
+  const name = (brandName || "").trim();
+  if (!name) return null;
+  const slug = slugify(name, { lower: true, strict: true });
+  let brand = await Brand.findOne({ slug }).select("_id");
+  if (!brand) brand = await Brand.create({ name, slug });
+  return brand._id;
+}
 
 // Search for suggestions
 export const getSearchSuggestions = async (req, res) => {
@@ -421,13 +451,25 @@ export const getVariantsByProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
   try {
     const allowed = [
-      "name", "slug", "description", "brand", "category", "tags",
+      "name", "slug", "description", "brand", "brandName","category", "tags",
       "options", "images", "defaultPrice", "compareAtPrice",
       "defaultStock", "isActive", "isFeatured", "seo"
     ];
+
+    
     const patch = {};
 
     for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+ 
+    if ("brand" in patch || "brandName" in patch) {
+      const brandId = await ensureBrandFromPayload({
+        brandId: patch.brand,
+        brandName: patch.brandName,
+      });
+      patch.brand = brandId || null;
+      delete patch.brandName;
+    }
+
 
     
     // Validate category if present
@@ -448,7 +490,7 @@ export const updateProduct = async (req, res) => {
       req.params.id,
       patch,
       { new: true, runValidators: true }
-    ).lean();
+    ).populate("brand","name slug logo").lean();
 
     if (!updatedProduct) return res.status(404).json({ message: "Product not found" });
     return res.json(updatedProduct);

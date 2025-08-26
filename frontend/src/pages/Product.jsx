@@ -1,6 +1,6 @@
 // src/pages/ProductPage.jsx
-import { useContext, useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useContext, useEffect, useMemo, useState ,useRef} from "react";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
@@ -27,6 +27,7 @@ import {
   calcDiscount,
 } from "../utils/productView";
 import { AppContext } from "../context/AppContext";
+import { brandLabel } from "../utils/brandLabel";
 
 const CURRENCY = "AED";
 
@@ -37,7 +38,7 @@ export default function Product() {
   const location = useLocation();
 
   // From AppContext
-  const { userData, authLoading, isLoggedin } = useContext(AppContext);
+  const { authLoading, isLoggedin } = useContext(AppContext);
 
   // Store data
   const { items: products = [], loading } = useSelector((s) => s.products);
@@ -56,7 +57,11 @@ export default function Product() {
   const [showZoom, setShowZoom] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
 
-  // Mock reviews (leave as-is)
+  // Optimistic local wishlist indicator for instant heart fill
+  const [wishState, setWishState] = useState(false);
+  const wishInFlightRef = useRef(false);
+
+  // Mock reviews
   const [reviews] = useState([
     {
       id: 1,
@@ -88,6 +93,14 @@ export default function Product() {
     setProductData(sel || null);
   }, [id, products]);
 
+  // Keep local wishState in sync with store (after nav/refresh)
+  useEffect(() => {
+    if (productData?.product?._id) {
+      if (wishInFlightRef.current) return;
+      setWishState(wishlistItems.some((w) => w?.product?._id === productData.product._id));
+    }
+  }, [wishlistItems, productData]);
+
   // Load variants when product is ready
   useEffect(() => {
     if (productData?.product?._id) {
@@ -95,19 +108,17 @@ export default function Product() {
     }
   }, [dispatch, productData]);
 
-  // A) Ensure we always have a valid selected variant (and an image) when product/variants change
+  // Ensure valid selected variant & image when data changes
   useEffect(() => {
     if (!productData) return;
 
     if (!variants || variants.length === 0) {
-      // No variants for this product
       setSelectedVariant(null);
       const imgs = getDisplayImages(null, productData.product);
       setImage(imgs?.[0] || productData.product?.images?.[0] || "");
       return;
     }
 
-    // Try to honor the current color/size; else pick the first variant
     const matched = findMatchedVariant(variants, { color, size });
     if (matched) {
       setSelectedVariant(matched);
@@ -118,7 +129,6 @@ export default function Product() {
 
     const first = variants[0];
     setSelectedVariant(first);
-    // seed color/size from variant if present
     const c = first?.optionValues?.Color;
     const s = first?.optionValues?.Size;
     if (c) setColor(c);
@@ -127,7 +137,7 @@ export default function Product() {
     setImage(imgs?.[0] || "");
   }, [productData, variants, color, size]);
 
-  // B) When user changes color/size, re-pick the variant + image
+  // Re-pick variant & image when user changes color/size
   useEffect(() => {
     if (!productData || !variants || variants.length === 0) return;
     const matched = findMatchedVariant(variants, { color, size });
@@ -138,7 +148,7 @@ export default function Product() {
     }
   }, [color, size, productData, variants]);
 
-  // Wishlist derived state
+  // (kept for any other logic you might rely on)
   const isInWishlist = useMemo(() => {
     if (!productData?.product?._id) return false;
     return wishlistItems.some((w) => w?.product?._id === productData.product._id);
@@ -179,7 +189,7 @@ export default function Product() {
 
   const availableColors = getAvailableColors(variants);
   const availableSizes = getAvailableSizes(variants);
-  const variantStock = selectedVariant?.stock ?? product.defaultStock ??  0;
+  const variantStock = selectedVariant?.stock ?? product.defaultStock ?? 0;
 
   const { currentPrice, originalPrice, discountPercent } = calcDiscount(selectedVariant);
 
@@ -194,19 +204,22 @@ export default function Product() {
 
   const handleToggleWishlist = async () => {
     try {
-      if (isInWishlist) {
+      wishInFlightRef.current = true;
+      if (wishState) {
+        setWishState(false); // optimistic
         await dispatch(removeFromWishlist(product._id)).unwrap();
         toast.success("Removed from wishlist");
       } else {
-        await dispatch(addToWishlist(product._id)).unwrap();
+        setWishState(true); // optimistic
+        // IMPORTANT: use the payload shape your slice expects
+        await dispatch(addToWishlist({ productId: product._id })).unwrap();
         toast.success("Added to wishlist");
       }
     } catch (err) {
-      if (err?.response?.data?.message === "Product already in wishlist.") {
-        toast.info("Already in wishlist");
-      } else {
-        toast.error("Something went wrong while updating wishlist");
-      }
+      toast.error("Something went wrong");
+      setWishState((v) => !v); // rollback
+    } finally {
+      wishInFlightRef.current = false;
     }
   };
 
@@ -229,7 +242,8 @@ export default function Product() {
           />
           <div className="absolute top-4 right-4">
             <WishlistShare
-              isInWishlist={isInWishlist}
+              // render from local optimistic state so the heart fills instantly
+              isInWishlist={wishState}
               onToggleWishlist={handleToggleWishlist}
             />
           </div>
@@ -241,7 +255,11 @@ export default function Product() {
           <div className="flex items-center gap-2 mb-2">
             {product.brand && (
               <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                {product.brand}
+                {product.brand?.slug ? (
+                  <Link to={`/brand/${product.brand.slug}`}>{brandLabel(product)}</Link>
+                ) : (
+                  brandLabel(product)
+                )}
               </span>
             )}
             {product.bestseller && (
@@ -281,11 +299,7 @@ export default function Product() {
           )}
 
           {availableSizes.length > 0 && (
-            <SizeSelector
-              sizes={availableSizes}
-              value={size}
-              onChange={setSize}
-            />
+            <SizeSelector sizes={availableSizes} value={size} onChange={setSize} />
           )}
 
           {/* Quantity */}
@@ -319,18 +333,16 @@ export default function Product() {
                 return navigate("/login", { state: { from: location.pathname } });
               }
 
-              // If your backend requires variantId for variant products:
               if (variants.length > 0 && !selectedVariant?._id) {
                 return toast.error("Please select a variant");
               }
 
               try {
-                // Send one request with the chosen quantity
                 await dispatch(
                   addToCartServer({
                     productId: product._id,
-                    variantId: selectedVariant?._id || null, // send null for simple products
-                    quantity, 
+                    variantId: selectedVariant?._id || null,
+                    quantity,
                   })
                 ).unwrap();
 
@@ -380,8 +392,8 @@ export default function Product() {
         availableSizes={availableSizes}
       />
 
-      {/* Related */}
-      <RelatedProducts category={product.category} subCategory={product.subCategory} />
+      {/* Related (prop fixed to match backend field casing) */}
+      <RelatedProducts category={product.category} subcategory={product.subcategory} />
     </div>
   );
 }

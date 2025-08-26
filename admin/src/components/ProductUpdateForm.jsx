@@ -4,8 +4,12 @@ import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCategories } from "../redux/categorySlice";
 import { toast } from "react-toastify";
-import VariantBuilderGrouped from "../components/VariantBuilderGrouped"; // we’ll patch it to accept initialVariants
+
+import VariantBuilderGrouped from "../components/VariantBuilderGrouped";
+import BrandSelect from "../components/brand/BrandSelect";
 import { validateProductForm } from "../utils/validateProductForm";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 const ProductUpdateForm = ({
   initialProduct,
@@ -19,39 +23,67 @@ const ProductUpdateForm = ({
   // derive hasVariants from server data
   const initialHasVariants = initialVariants.length > 0;
 
-  // core product state
+  // core product state (excluding brand id which we handle separately)
   const [product, setProduct] = useState({
     name: "",
-    brand: "",
     category: "",
     tags: "",
     description: "",
-    options: [], // ["Color","Size"] etc.
+    options: [], // e.g. ["Color", "Size"]
   });
 
-  // non-variant pricing/media (when NO variants)
+  // BRAND state
+  const [brands, setBrands] = useState([]);
+  const [brandsLoading, setBrandsLoading] = useState(false);
+  const [brandId, setBrandId] = useState(null);
+
+  // NON-VARIANT (simple product) pricing & media
   const [defaultImages, setDefaultImages] = useState([]);
   const [defaultPrice, setDefaultPrice] = useState("");
   const [compareAtPrice, setCompareAtPrice] = useState("");
   const [defaultStock, setDefaultStock] = useState("");
   const [uploadingDefault, setUploadingDefault] = useState(false);
 
-  // variants
-  const [variants, setVariants] = useState([]); // flattened from VariantBuilderGrouped
+  // VARIANTS
+  const [variants, setVariants] = useState([]); // flattened list from VariantBuilderGrouped
   const [hasVariants, setHasVariants] = useState(initialHasVariants);
 
+  // UI errors from validation
   const [errors, setErrors] = useState({});
 
-  // preload
+  // preload categories
   useEffect(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
+  // preload brands
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setBrandsLoading(true);
+        const { data } = await axios.get(`${API_BASE}/brands`);
+        const arr = Array.isArray(data) ? data : data?.brands || [];
+        if (mounted) {
+          setBrands(arr.sort((a, b) => a.name.localeCompare(b.name)));
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (mounted) setBrandsLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // seed form from initial product
   useEffect(() => {
     if (!initialProduct) return;
+
     setProduct({
       name: initialProduct.name || "",
-      brand: initialProduct.brand || "",
       category: initialProduct.category || "",
       tags: Array.isArray(initialProduct.tags)
         ? initialProduct.tags.join(", ")
@@ -60,13 +92,32 @@ const ProductUpdateForm = ({
       options: initialProduct.options || [],
     });
 
-    // default fields
-    setDefaultImages(initialProduct.images || []);
-    setDefaultPrice(initialProduct.defaultPrice ?? "");
-    setCompareAtPrice(initialProduct.compareAtPrice ?? "");
-    setDefaultStock(initialProduct.defaultStock ?? "");
+    // brand can be populated object or ID
+    const initBrandId =
+      initialProduct.brand && typeof initialProduct.brand === "object"
+        ? initialProduct.brand._id
+        : initialProduct.brand || null;
+    setBrandId(initBrandId || null);
 
-    // variants come from parent prop; VariantBuilderGrouped will prefill them via the patch below
+    // default fields for simple product
+    setDefaultImages(initialProduct.images || []);
+    setDefaultPrice(
+      initialProduct.defaultPrice !== undefined
+        ? String(initialProduct.defaultPrice)
+        : ""
+    );
+    setCompareAtPrice(
+      initialProduct.compareAtPrice !== undefined
+        ? String(initialProduct.compareAtPrice)
+        : ""
+    );
+    setDefaultStock(
+      initialProduct.defaultStock !== undefined
+        ? String(initialProduct.defaultStock)
+        : ""
+    );
+
+    // variants presence is controlled by prop + toggle
     setHasVariants(initialVariants.length > 0);
   }, [initialProduct, initialVariants]);
 
@@ -74,19 +125,20 @@ const ProductUpdateForm = ({
     setProduct((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const handleDefaultImageUpload = async (e) => {
-    const files = Array.from(e.target.files).slice(0, 4 - defaultImages.length);
+    const files = Array.from(e.target.files || []).slice(
+      0,
+      Math.max(0, 4 - defaultImages.length)
+    );
     if (files.length === 0) return;
+
     const formData = new FormData();
     files.forEach((f) => formData.append("images", f));
+
     setUploadingDefault(true);
     try {
-      const res = await axios.post(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:4000/api"
-        }/upload/images`,
-        formData
-      );
-      setDefaultImages((prev) => [...prev, ...(res.data?.urls || [])]);
+      const { data } = await axios.post(`${API_BASE}/upload/images`, formData);
+      const urls = data?.urls || [];
+      setDefaultImages((prev) => [...prev, ...urls].slice(0, 4));
       toast.success("Images uploaded");
     } catch (err) {
       console.error(err);
@@ -95,6 +147,18 @@ const ProductUpdateForm = ({
       setUploadingDefault(false);
     }
   };
+
+  // BrandSelect helper to create a brand
+  async function createBrand(name) {
+    const { data } = await axios.post(`${API_BASE}/brands`, { name });
+    const created = Array.isArray(data) ? data[0] : data;
+    setBrands((prev) => {
+      const exists = prev.some((b) => String(b._id) === String(created._id));
+      const next = exists ? prev : [...prev, created];
+      return next.sort((a, b) => a.name.localeCompare(b.name));
+    });
+    return created;
+  }
 
   // Submit
   const handleSubmit = async (e) => {
@@ -108,54 +172,34 @@ const ProductUpdateForm = ({
           .filter(Boolean)
       : [];
 
+    // Build patch body
     const productPatch = {
       name: product.name,
-      brand: product.brand,
+      ...(brandId ? { brand: brandId } : { brand: null }),
       category: product.category,
       description: product.description,
       tags: tagsArray,
-      options: hasVariants
-        ? ["Color", "Size"].filter((o) => product.options.includes(o))
-        : [], // keep your options logic
+      options: hasVariants ? ["Color", "Size"] : [],
       isActive: initialProduct?.isActive ?? true,
       isFeatured: initialProduct?.isFeatured ?? false,
       seo: initialProduct?.seo || {},
     };
 
     if (!hasVariants) {
-      // keep default fields when there are no variants
       productPatch.images = defaultImages.slice(0, 4);
       productPatch.defaultPrice = Number(defaultPrice || 0);
       productPatch.compareAtPrice = Number(compareAtPrice || 0);
       productPatch.defaultStock = Number(defaultStock || 0);
     } else {
-      // if variants exist, let images be set from a variant color (your create logic does this); here we just keep current product.images
+      // keep product-level images as-is; backend may derive from variants/colors
       productPatch.images = initialProduct?.images || [];
     }
 
-    const { isValid, errors: err } = validateProductForm({
-      name: product.name,
-      brand: product.brand,
-      description: product.description,
-      category: product.category,
-      hasVariants: hasVariants,
-      defaultImages: defaultImages,
-      defaultPrice: defaultPrice,
-      compareAtPrice: compareAtPrice,
-      defaultStock: defaultStock,
-      variants: variants,
-    });
-    if (!isValid) {
-      setErrors(err);
-      return;
-    }
-
-    // variantsPayload is produced by VariantBuilderGrouped (flattened)
+    // Prepare variants payload (flattened from VariantBuilderGrouped)
     const variantsPayload = hasVariants
       ? variants.map((v) => ({
-          // keep existing _id if present so backend can upsert
-          _id: v._id,
-          attributes: v.attributes, // { Color, Size? }
+          _id: v._id, // allow backend upsert
+          attributes: v.attributes, // { Color, Size }
           price: Number(v.price || 0),
           compareAtPrice: Number(v.compareAtPrice || 0),
           stock: Number(v.stock || 0),
@@ -163,11 +207,37 @@ const ProductUpdateForm = ({
         }))
       : [];
 
+    // Validate before submit
+    const { isValid, errors: err } = validateProductForm({
+      name: product.name,
+      // NOTE: validateProductForm expected brand string earlier; we pass label for clarity,
+      // but also keep ID on patch. Adjust if your validator expects brandId.
+      brand: brandId,
+      description: product.description,
+      category: product.category,
+      hasVariants,
+      defaultImages,
+      defaultPrice,
+      compareAtPrice,
+      defaultStock,
+      variants: variantsPayload,
+    });
+
+    if (!isValid) {
+      setErrors(err || {});
+      return;
+    }
+
     await onSubmit({ productPatch, variantsPayload });
   };
 
+  const selectedBrand = useMemo(
+    () => brands.find((b) => String(b._id) === String(brandId)) || null,
+    [brands, brandId]
+  );
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {/* Header + variants toggle */}
       <div className="flex items-center gap-2">
         <input
@@ -182,102 +252,147 @@ const ProductUpdateForm = ({
       </div>
 
       <h2 className="text-xl font-semibold">Update Product</h2>
-      <input
-        name="name"
-        placeholder="Product Name"
-        className={`border p-2 w-full ${errors.name ? "border-red-600" : ""}`}
-        value={product.name}
-        onChange={handleChange}
-      />
-      {errors.name && (
-        <p className="text-xs text-red-600 mt-1">{errors.name}</p>
-      )}
-      <input
-        name="brand"
-        placeholder="Brand"
-        className={`border p-2 w-full ${errors.brand ? "border-red-600" : ""}`}
-        value={product.brand}
-        onChange={handleChange}
-      />
-      {errors.brand && (
-        <p className="text-xs text-red-600 mt-1">{errors.brand}</p>
-      )}
 
-      <select
-        name="category"
-        className={`border p-2 w-full ${
-          errors.category ? "border-red-500" : ""
-        }`}
-        value={product.category}
-        onChange={handleChange}
-      >
-        <option value="">Select Category</option>
-        {categories.map((cat) => (
-          <option key={cat._id} value={cat._id}>
-            {cat.label}
-          </option>
-        ))}
-      </select>
-      {errors.category && (
-        <p className="text-xs text-red-600 mt-1">{errors.category}</p>
-      )}
+      {/* NAME */}
+      <div>
+        <input
+          name="name"
+          placeholder="Product Name"
+          className={`border p-2 w-full rounded ${
+            errors.name ? "border-red-600" : "border-gray-300"
+          }`}
+          value={product.name}
+          onChange={handleChange}
+        />
+        {errors.name && (
+          <p className="text-xs text-red-600 mt-1">{errors.name}</p>
+        )}
+      </div>
 
-      <textarea
-        name="description"
-        placeholder="Description"
-        className={`border p-2 w-full ${
-          errors.description ? "border-red-600" : ""
-        }`}
-        value={product.description}
-        onChange={handleChange}
-      />
-      {errors.description && (
-        <p className="text-xs text-red-600 mt-1">{errors.description}</p>
-      )}
-      <input
-        name="tags"
-        placeholder="Tags (comma separated)"
-        className="border p-2 w-full"
-        value={product.tags}
-        onChange={handleChange}
-      />
+      {/* BRAND */}
+      <div>
+        <p className="text-sm font-medium mb-1">Brand</p>
+        {brandsLoading ? (
+          <div className="text-sm text-gray-500">Loading brands…</div>
+        ) : (
+          <BrandSelect
+            brands={brands}
+            valueId={brandId}
+            onChange={setBrandId}
+            onCreate={createBrand}
+            placeholder="Select a brand"
+          />
+        )}
+        <p className="text-xs text-gray-500 mt-1">
+          {selectedBrand
+            ? `Selected: ${selectedBrand.name}`
+            : "Pick an existing brand or create a new one."}
+        </p>
+        {errors.brand && (
+          <p className="text-xs text-red-600 mt-1">{errors.brand}</p>
+        )}
+      </div>
 
-      {/* Default fields when no variants */}
+      {/* CATEGORY */}
+      <div>
+        <select
+          name="category"
+          className={`border p-2 w-full rounded ${
+            errors.category ? "border-red-600" : "border-gray-300"
+          }`}
+          value={product.category}
+          onChange={handleChange}
+        >
+          <option value="">Select Category</option>
+          {categories.map((cat) => (
+            <option key={cat._id} value={cat._id}>
+              {cat.label || cat.name}
+            </option>
+          ))}
+        </select>
+        {errors.category && (
+          <p className="text-xs text-red-600 mt-1">{errors.category}</p>
+        )}
+      </div>
+
+      {/* DESCRIPTION */}
+      <div>
+        <textarea
+          name="description"
+          placeholder="Description"
+          className={`border p-2 w-full rounded min-h-[120px] ${
+            errors.description ? "border-red-600" : "border-gray-300"
+          }`}
+          value={product.description}
+          onChange={handleChange}
+        />
+        {errors.description && (
+          <p className="text-xs text-red-600 mt-1">{errors.description}</p>
+        )}
+      </div>
+
+      {/* TAGS */}
+      <div>
+        <input
+          name="tags"
+          placeholder="Tags (comma separated)"
+          className="border p-2 w-full rounded border-gray-300"
+          value={product.tags}
+          onChange={handleChange}
+        />
+      </div>
+
+      {/* SIMPLE PRODUCT FIELDS (no variants) */}
       {!hasVariants && (
         <>
-          <input
-            type="number"
-            placeholder="Price"
-            className={`border p-2 w-full ${
-              errors.defaultPrice ? "border-red-500" : ""
-            }`}
-            value={defaultPrice}
-            onChange={(e) => setDefaultPrice(e.target.value)}
-          />
-          {errors.defaultPrice && (
-            <p className="test-xs text-red-600 mt-1">{errors.defaultPrice}</p>
-          )}
-          <input
-            type="number"
-            placeholder="Comparison Price"
-            className={`border-2 w-full p-2 ${
-              errors.compareAtPrice ? "border-red-500" : ""
-            }`}
-            value={compareAtPrice}
-            onChange={(e) => setCompareAtPrice(e.target.value)}
-          />
-          {errors.compareAtPrice && (
-            <p className="test-xs text-red-600 mt-1">{errors.compareAtPrice}</p>
-          )}
+          <div>
+            <input
+              type="number"
+              placeholder="Price"
+              className={`border p-2 w-full rounded ${
+                errors.defaultPrice ? "border-red-600" : "border-gray-300"
+              }`}
+              value={defaultPrice}
+              onChange={(e) => setDefaultPrice(e.target.value)}
+            />
+            {errors.defaultPrice && (
+              <p className="text-xs text-red-600 mt-1">
+                {errors.defaultPrice}
+              </p>
+            )}
+          </div>
 
-        <input
-            type="number"
-            placeholder="Stock"
-            className={`border p-2 w-full ${errors.defaultStock ? 'border-red-500': ''}`}
-            value={defaultStock}
-            onChange={e => setDefaultStock(e.target.value)}
-          />
-          {errors.defaultStock && <p className='test-xs text-red-600 mt-1'>{errors.defaultStock}</p>}
+          <div>
+            <input
+              type="number"
+              placeholder="Comparison Price"
+              className={`border p-2 w-full rounded ${
+                errors.compareAtPrice ? "border-red-600" : "border-gray-300"
+              }`}
+              value={compareAtPrice}
+              onChange={(e) => setCompareAtPrice(e.target.value)}
+            />
+            {errors.compareAtPrice && (
+              <p className="text-xs text-red-600 mt-1">
+                {errors.compareAtPrice}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <input
+              type="number"
+              placeholder="Stock"
+              className={`border p-2 w-full rounded ${
+                errors.defaultStock ? "border-red-600" : "border-gray-300"
+              }`}
+              value={defaultStock}
+              onChange={(e) => setDefaultStock(e.target.value)}
+            />
+            {errors.defaultStock && (
+              <p className="text-xs text-red-600 mt-1">{errors.defaultStock}</p>
+            )}
+          </div>
 
           <div className="border border-dashed border-gray-300 p-4 rounded-md">
             <p className="text-sm font-medium mb-2">Images</p>
@@ -318,24 +433,29 @@ const ProductUpdateForm = ({
                 </div>
               ))}
             </div>
+            {errors.defaultImages && (
+              <p className="text-xs text-red-600 mt-2">{errors.defaultImages}</p>
+            )}
           </div>
         </>
       )}
-     {errors.defaultImages && <p className="text-xs text-red-600 mt-1">{errors.defaultImages}</p>}
 
-
-      {/* Variants editor when variants exist */}
+      {/* VARIANTS EDITOR */}
       {hasVariants && (
         <>
-         <VariantBuilderGrouped
-          // NEW props we’ll add in the small patch below
-          initialVariants={initialVariants}
-          onVariantsChange={setVariants}
-        />
-        {errors.variants && <p className="text-xs text-red-600 mt-2">{errors.variants}</p>}
-
+          <VariantBuilderGrouped
+            // Prefill existing variants for edit
+            initialVariants={initialVariants}
+            onVariantsChange={setVariants}
+            // Optionally pass defaults if your builder uses them; safe to omit for update form
+            // defaultPrice={defaultPrice}
+            // defaultStock={defaultStock}
+            // defaultCompareAtPrice={compareAtPrice}
+          />
+          {errors.variants && (
+            <p className="text-xs text-red-600 mt-2">{errors.variants}</p>
+          )}
         </>
-       
       )}
 
       <button

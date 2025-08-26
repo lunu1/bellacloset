@@ -55,6 +55,13 @@ export default function ProductsList() {
       return next;
     });
   };
+    function brandLabel(product) {
+  // Supports both new (object) and legacy (string) brand values
+  if (!product?.brand) return "";
+  if (typeof product.brand === "string") return product.brand;        // old data
+  return product.brand?.name || "";                                   // new populated data
+}
+
 
   return (
     <div>
@@ -140,7 +147,7 @@ export default function ProductsList() {
 
                 return (
                   <FragmentRow key={product._id}>
-                    <tr className="border-t">
+                    <tr className="border-t" key={product._id}>
                       <Td>{product.name}</Td>
                       <Td>
                         {image ? (
@@ -153,8 +160,7 @@ export default function ProductsList() {
                           <span className="text-gray-400">—</span>
                         )}
                       </Td>
-                      <Td>
-                        {product.brand || <span className="text-gray-400">—</span>}
+                      <Td>{brandLabel(product) || <span className="text-gray-400">—</span>}
                       </Td>
                       <Td>
                         {price != null ? `AED ${price}` : (
@@ -219,6 +225,33 @@ export default function ProductsList() {
                       </tr>
                     )}
                   </FragmentRow>
+                  // <tr key={product._id} className="border-t">
+                  //   <Td>{product.name}</Td>
+                  //   <Td>
+                  //     {image ? (
+                  //       <img src={image} alt={product.name} className="w-12 h-12 object-cover rounded" />
+                  //     ) : (
+                  //       <span className="text-gray-400">—</span>
+                  //     )}
+                  //   </Td>
+                  //   <Td>{brandLabel(product) || <span className="text-gray-400">—</span>}</Td>
+                  //   <Td>{price != null ? `AED ${price}` : <span className="text-gray-400">N/A</span>}</Td>
+                  //   <Td>{compareAtPrice ? `AED ${compareAtPrice}` : <span className="text-gray-400">—</span>}</Td>
+                  //   <Td>{stock}</Td>
+                  //   <Td>{variants?.length || 0}</Td>
+                  //   <Td className="text-right pr-4">
+                  //     <div className="flex gap-2 justify-end">
+                  //       <a href={`/admin/products/edit/${product._id}`} className="px-2 py-1 border rounded">Edit</a>
+                  //       <button
+                  //         disabled={isDeleting}
+                  //         onClick={() => deleteProduct({ id: product._id, queryArg })}
+                  //         className="px-2 py-1 border rounded text-red-600 disabled:opacity-60"
+                  //       >
+                  //         Delete
+                  //       </button>
+                  //     </div>
+                  //   </Td>
+                  // </tr>
                 );
               })}
 

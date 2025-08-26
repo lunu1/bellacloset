@@ -1,14 +1,22 @@
+// src/pages/WishlistPage.jsx
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Link,useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getWishlist, removeFromWishlist } from '../features/wishlist/wishlistSlice';
 import { toast } from 'react-toastify';
 import { Trash2, ShoppingBag } from 'lucide-react';
+import { brandLabel } from '../utils/brandLabel';
+
+const formatAED = (n) =>
+  typeof n === 'number' && !Number.isNaN(n)
+    ? new Intl.NumberFormat('en-AE', { style: 'currency', currency: 'AED', maximumFractionDigits: 0 }).format(n)
+    : null;
 
 const WishlistPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { items, loading } = useSelector((state) => state.wishlist);
+  const loading = useSelector((state) => state.wishlist.loading);
+  const items = useSelector((state) => state.wishlist.items || []);
 
   useEffect(() => {
     dispatch(getWishlist());
@@ -19,7 +27,8 @@ const WishlistPage = () => {
       await dispatch(removeFromWishlist(productId)).unwrap();
       toast.success('Removed from wishlist');
     } catch (error) {
-      toast.error(`Failed to remove item: ${error.message}`);
+      const msg = error?.message || error?.error || 'Failed to remove item';
+      toast.error(msg);
     }
   };
 
@@ -49,18 +58,17 @@ const WishlistPage = () => {
           {items.map(({ product }) => {
             if (!product) return null;
 
-            const imageUrl = Array.isArray(product.images) && product.images.length > 0
-              ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url)
-              : '/placeholder.jpg';
+            const imageUrl =
+              Array.isArray(product.images) && product.images.length > 0
+                ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url)
+                : '/placeholder.jpg';
+
+            const price = typeof product.defaultPrice === 'number' ? product.defaultPrice : null;
 
             return (
               <div key={product._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                 <div className="relative">
-                  <img
-                    src={imageUrl}
-                    alt={product.name}
-                    className="w-full h-48 object-cover"
-                  />
+                  <img src={imageUrl} alt={product.name} className="w-full h-48 object-cover" />
                   <button
                     onClick={() => handleRemove(product._id)}
                     className="absolute top-2 right-2 p-2 bg-white rounded-full shadow hover:bg-red-50 text-red-500"
@@ -72,16 +80,12 @@ const WishlistPage = () => {
 
                 <div className="p-4">
                   <Link to={`/product/${product._id}`}>
-                    <h3 className="font-semibold text-gray-800 mb-1">{product.name}</h3>
-                    {product.brand && (
-                      <p className="text-sm text-gray-600 mb-2">{product.brand}</p>
-                    )}
-                    {product.price && (
-                      <p className="text-lg font-bold text-gray-900">${product.price}</p>
-                    )}
+                    <h3 className="font-semibold text-gray-800 mb-1 line-clamp-1">{product.name}</h3>
+                    {product.brand && <p className="text-sm text-gray-600 mb-2">{brandLabel(product)}</p>}
+                    {price != null && <p className="text-lg font-bold text-gray-900">{formatAED(price)}</p>}
                   </Link>
-                  
-                  <Link 
+
+                  <Link
                     to={`/product/${product._id}`}
                     className="w-full mt-3 bg-gray-900 text-white py-2 rounded hover:bg-gray-800 inline-block text-center"
                   >
@@ -93,15 +97,15 @@ const WishlistPage = () => {
           })}
         </div>
       )}
-      
+
       {items.length > 0 && (
         <div className="text-center mt-8">
-          <Link 
-           onClick={() => navigate(-1)}
+          <button
+            onClick={() => navigate(-1)}
             className="bg-gray-100 text-gray-700 px-6 py-2 rounded border hover:bg-gray-200 inline-block"
           >
             Continue Shopping
-          </Link>
+          </button>
         </div>
       )}
     </div>

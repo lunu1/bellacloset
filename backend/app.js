@@ -20,6 +20,7 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import adminOrderRoutes from './routes/adminOrderRoutes.js';
+import brandRoutes from './routes/brandRoutes.js';
 
 // Connect to MongoDB database
 connectDB();
@@ -79,6 +80,7 @@ app.use("/api/variants", varitantRoute);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/cart", cartRoutes)
 app.use("/api/order", orderRoutes)
+app.use("/api/brands", brandRoutes)
 app.use("/api/admin/orders", adminOrderRoutes)
 
 
