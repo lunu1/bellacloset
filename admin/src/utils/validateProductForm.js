@@ -73,10 +73,10 @@ export function validateProductForm({
       const vs = num(v.stock);
       const vc = num(v.compareAtPrice);
 
-      if (vp === null || Number.isNaN(vp) || vp <= 0) errors[`variants.${i}.price`] = "Price > 0 required";
-      if (vs === null || Number.isNaN(vs) || vs < 0 || !isInt(vs)) errors[`variants.${i}.stock`] = "Stock must be an integer ≥ 0";
+      if (vp === null || Number.isNaN(vp) || vp <= 0) errors[`variants.${i}.price`] = "Price greater than 0 required";
+      if (vs === null || Number.isNaN(vs) || vs < 0 || !isInt(vs)) errors[`variants.${i}.stock`] = "Stock must be 0 or more";
       if (vc !== null && !Number.isNaN(vc) && vc > 0 && vp !== null && !Number.isNaN(vp) && vc < vp) {
-        errors[`variants.${i}.compareAtPrice`] = "Compare-at must be ≥ price";
+        errors[`variants.${i}.compareAtPrice`] = "Compare-at must be greater than price";
       }
     });
   }

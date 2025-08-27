@@ -443,18 +443,14 @@ const ProductUpdateForm = ({
       {/* VARIANTS EDITOR */}
       {hasVariants && (
         <>
-          <VariantBuilderGrouped
-            // Prefill existing variants for edit
-            initialVariants={initialVariants}
-            onVariantsChange={setVariants}
-            // Optionally pass defaults if your builder uses them; safe to omit for update form
-            // defaultPrice={defaultPrice}
-            // defaultStock={defaultStock}
-            // defaultCompareAtPrice={compareAtPrice}
-          />
-          {errors.variants && (
-            <p className="text-xs text-red-600 mt-2">{errors.variants}</p>
-          )}
+         <VariantBuilderGrouped
+          // NEW props we’ll add in the small patch below
+          initialVariants={initialVariants}
+          onVariantsChange={setVariants}
+           variantErrors={errors}
+        />
+        {errors.variants && <p className="text-xs text-red-600 mt-2">{errors.variants}</p>}
+
         </>
       )}
 

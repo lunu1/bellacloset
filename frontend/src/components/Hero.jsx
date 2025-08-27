@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 const Hero = () => {
@@ -8,19 +8,26 @@ const Hero = () => {
 
   useEffect(() => {
     const fetchBanners = async () => {
-      try {
-        const [heroRes, promoRes] = await Promise.all([
-          axios.get("http://localhost:4000/api/banner/hero"),
-          axios.get("http://localhost:4000/api/banner/promo")
-        ]);
       
-        
+        const [heroRes, promoRes] = await Promise.allSettled([
+          axios.get("http://localhost:4000/api/banner/hero"),
+          axios.get("http://localhost:4000/api/banner/promo"),
+        ]);
+        if (heroRes.status === "fulfilled" && heroRes.value?.data?.imageUrl) {
+          setHeroBanner(heroRes.value.data.imageUrl);
+        }
+        if (promoRes.status === "fulfilled" && promoRes.value?.data?.imageUrl) {
+          setPromoBanner(promoRes.value.data.imageUrl);
+        }
 
-        if (heroRes.data?.imageUrl) setHeroBanner(heroRes.data.imageUrl);
-        if (promoRes.data?.imageUrl) setPromoBanner(promoRes.data.imageUrl);
-      } catch (error) {
-        console.error("Error fetching banners:", error);
-      }
+        // Optional: log any failures without breaking the other
+        if (heroRes.status === "rejected") {
+          console.error("Hero banner fetch failed:", heroRes.reason);
+        }
+        if (promoRes.status === "rejected") {
+          console.error("Promo banner fetch failed:", promoRes.reason);
+        }
+    
     };
 
     fetchBanners();
@@ -29,17 +36,27 @@ const Hero = () => {
   return (
     <div className="container  mx-auto  my-5 gap-4">
       {heroBanner && (
-        <img src={heroBanner} alt="Hero Banner" className="w-full object-cover my-4" />
+        <div>
+          <img
+            src={heroBanner}
+            alt="Hero Banner"
+            className="w-full object-cover my-4"
+          />
+        </div>
       )}
 
       <div className="text-center mt-8">
-  <Link to="/shop">
-   
-  </Link>
-</div>
+        <Link to="/shop"></Link>
+      </div>
 
       {promoBanner && (
-        <img src={promoBanner} alt="Promo Banner" className="w-full object-cover my-4" />
+        <div>
+          <img
+            src={promoBanner}
+            alt="Promo Banner"
+            className="w-full object-cover my-4"
+          />
+        </div>
       )}
     </div>
   );
