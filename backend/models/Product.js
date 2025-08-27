@@ -18,6 +18,8 @@ const productSchema = new mongoose.Schema({
   defaultStock: Number,
   isActive: { type: Boolean, default: true },
   isFeatured: { type: Boolean, default: false },
+  avgRating:   { type: Number, default: 0 },
+reviewCount: { type: Number, default: 0 },
   seo: {
     title: String,
     description: String,

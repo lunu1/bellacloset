@@ -18,6 +18,7 @@ import wishlistRouter from "./routes/wishlistRoutes.js";
 import varitantRoute from "./routes/variant.routes.js";  
 import uploadRoutes from './routes/uploadRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
+import reviewRoutes from './routes/reviews.js';
 import orderRoutes from './routes/orderRoutes.js';
 import adminOrderRoutes from './routes/adminOrderRoutes.js';
 import brandRoutes from './routes/brandRoutes.js';
@@ -31,6 +32,7 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 4000;
 const debugging = debug("development:app");
+
 
 //cors
 const allowedOrigins = [
@@ -86,6 +88,7 @@ app.use("/api/brands", brandRoutes)
 app.use("/api/settings", settingRoutes)
 app.use("/api/admin/orders", adminOrderRoutes)
 app.use("/api/notify", notifyRoutes);
+app.use("/api/reviews",reviewRoutes);
 
 
 app.get("/", (req, res) => {

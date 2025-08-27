@@ -8,6 +8,8 @@ import variantReducer from '../features/variants/variantSlice';
 import orderReducer from '../features/order/orderSlice';
 import settingReducer from '../features/settings/settingSlice';
 import notifyReducer from "../features/notify/notifySlice";
+import reviewsReducer from '../features/reviews/reviewsSlice';
+
 
 
 export const store = configureStore({
@@ -21,5 +23,6 @@ export const store = configureStore({
      order: orderReducer,
      settings: settingReducer,
      notify: notifyReducer,
+     reviews: reviewsReducer,
   },
 });
