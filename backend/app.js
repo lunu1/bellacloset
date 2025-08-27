@@ -21,6 +21,8 @@ import cartRoutes from './routes/cartRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import adminOrderRoutes from './routes/adminOrderRoutes.js';
 import brandRoutes from './routes/brandRoutes.js';
+import settingRoutes from './routes/settingRoutes.js';
+import notifyRoutes from "./routes/notifyRoutes.js";
 
 // Connect to MongoDB database
 connectDB();
@@ -81,7 +83,9 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/cart", cartRoutes)
 app.use("/api/order", orderRoutes)
 app.use("/api/brands", brandRoutes)
+app.use("/api/settings", settingRoutes)
 app.use("/api/admin/orders", adminOrderRoutes)
+app.use("/api/notify", notifyRoutes);
 
 
 app.get("/", (req, res) => {

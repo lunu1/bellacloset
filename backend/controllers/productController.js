@@ -4,6 +4,7 @@ import Variant from "../models/Variants.js";
 import Brand from "../models/Brand.js";
 import slugify from "slugify";
 import mongoose from "mongoose";
+import { notifyBackInStockForProduct } from "../services/backInStockService.js";
 
 // Build full lineage path [rootId, ..., leafId] from a leaf category id
 async function buildCategoryPathFromLeaf(leafId) {
@@ -448,19 +449,18 @@ export const getVariantsByProduct = async (req, res) => {
 
 
 // Update product (whitelist fields)
+// 🔔 Triggers notify if defaultStock transitions <=0 -> >0 OR isActive false->true
 export const updateProduct = async (req, res) => {
   try {
     const allowed = [
-      "name", "slug", "description", "brand", "brandName","category", "tags",
-      "options", "images", "defaultPrice", "compareAtPrice",
+      "name", "slug", "description", "brand", "brandName", "category",
+      "tags", "options", "images", "defaultPrice", "compareAtPrice",
       "defaultStock", "isActive", "isFeatured", "seo"
     ];
 
-    
     const patch = {};
-
     for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
- 
+
     if ("brand" in patch || "brandName" in patch) {
       const brandId = await ensureBrandFromPayload({
         brandId: patch.brand,
@@ -470,36 +470,43 @@ export const updateProduct = async (req, res) => {
       delete patch.brandName;
     }
 
-
-    
-    // Validate category if present
     if (patch.category && !mongoose.Types.ObjectId.isValid(patch.category)) {
       return res.status(400).json({ message: "Invalid category ID" });
     }
 
-
-     // Normalize numeric fields if present
     if ("defaultPrice" in patch) patch.defaultPrice = parseFloat(patch.defaultPrice ?? 0);
     if ("compareAtPrice" in patch) patch.compareAtPrice = parseFloat(patch.compareAtPrice ?? 0);
     if ("defaultStock" in patch) patch.defaultStock = parseInt(patch.defaultStock ?? 0, 10);
+    if (Array.isArray(patch.images)) patch.images = patch.images.slice(0, 4);
 
-        if (Array.isArray(patch.images)) patch.images = patch.images.slice(0, 4);
+    const before = await Product.findById(req.params.id).lean();
+    if (!before) return res.status(404).json({ message: "Product not found" });
 
+    const prevDefaultStock = Number(before.defaultStock) || 0;
+    const prevActive = before.isActive !== false;
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       patch,
       { new: true, runValidators: true }
-    ).populate("brand","name slug logo").lean();
+    ).populate("brand", "name slug logo").lean();
 
-    if (!updatedProduct) return res.status(404).json({ message: "Product not found" });
+    // Decide if we should notify (product-level restock/reactivation)
+    const newDefaultStock = Number(updatedProduct?.defaultStock) || 0;
+    const newActive = updatedProduct?.isActive !== false;
+
+    const stockCameBack = ('defaultStock' in patch) && prevDefaultStock <= 0 && newDefaultStock > 0;
+    const reactivated = ('isActive' in patch) && !prevActive && newActive === true;
+
+    if (stockCameBack || reactivated) {
+      await notifyBackInStockForProduct(updatedProduct._id);
+    }
+
     return res.json(updatedProduct);
   } catch (error) {
     return res.status(500).json({ message: "Failed to update product", error: error.message });
   }
 };
-
-
 // controllers/productController.js (same file, add this)
 export const upsertProductVariants = async (req, res) => {
   const session = await mongoose.startSession();

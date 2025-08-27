@@ -6,6 +6,8 @@ import cartReducer from '../features/cart/cartSlice';
 import searchReducer from '../features/search/searchSlice';
 import variantReducer from '../features/variants/variantSlice';
 import orderReducer from '../features/order/orderSlice';
+import settingReducer from '../features/settings/settingSlice';
+import notifyReducer from "../features/notify/notifySlice";
 
 
 export const store = configureStore({
@@ -17,5 +19,7 @@ export const store = configureStore({
      search : searchReducer,
      variants : variantReducer,
      order: orderReducer,
+     settings: settingReducer,
+     notify: notifyReducer,
   },
 });

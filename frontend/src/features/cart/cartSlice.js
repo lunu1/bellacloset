@@ -1,7 +1,14 @@
+// src/features/cart/cartSlice.js
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { addToCartAPI, removeFromCartAPI, fetchCartAPI, clearCartAPI, updateQuantityAPI } from "./cartAPI";
+import {
+  addToCartAPI,
+  removeFromCartAPI,
+  fetchCartAPI,
+  clearCartAPI,
+  updateQuantityAPI,
+} from "./cartAPI";
 
-// ========== Thunks ==========
+// Thunks (unchanged signatures)
 export const loadCart = createAsyncThunk("cart/load", async (_arg, { rejectWithValue }) => {
   try {
     const data = await fetchCartAPI();
@@ -15,7 +22,7 @@ export const addToCartServer = createAsyncThunk(
   "cart/addServer",
   async ({ productId, variantId, quantity }, { rejectWithValue }) => {
     try {
-      const data = await addToCartAPI({  productId, variantId, quantity });
+      const data = await addToCartAPI({ productId, variantId, quantity });
       return data;
     } catch (e) {
       return rejectWithValue(e?.response?.data || e.message);
@@ -25,9 +32,9 @@ export const addToCartServer = createAsyncThunk(
 
 export const removeFromCartServer = createAsyncThunk(
   "cart/removeServer",
-  async ({  productId, variantId,quantity }, { rejectWithValue }) => {
+  async ({ lineId, productId, variantId, quantity }, { rejectWithValue }) => {
     try {
-      const data = await removeFromCartAPI({ productId, variantId ,quantity});
+      const data = await removeFromCartAPI({ lineId, productId, variantId, quantity });
       return data;
     } catch (e) {
       return rejectWithValue(e?.response?.data || e.message);
@@ -35,12 +42,11 @@ export const removeFromCartServer = createAsyncThunk(
   }
 );
 
-
 export const updateQuantityServer = createAsyncThunk(
   "cart/updateQty",
   async ({ productId, variantId, quantity }, { rejectWithValue }) => {
     try {
-      const data = await updateQuantityAPI({  productId, variantId, quantity });
+      const data = await updateQuantityAPI({ productId, variantId, quantity });
       return data;
     } catch (e) {
       return rejectWithValue(e?.response?.data || e.message);
@@ -60,20 +66,33 @@ export const clearCartServer = createAsyncThunk(
   }
 );
 
-// ========== Helpers ==========
-const normalize = (cart) => {
-  // expects: { items: [{ product, variant, quantity }, ...] }
-  const items = (cart?.items || []).map((i) => ({
-    productId: String(i.product?._id || i.product),
-    variantId: i.variant ? String(i.variant?._id || i.variant) : null,
-    quantity: i.quantity || 1,
-  }));
-  return items;
+// Normalize server payload that looks like { items: [ { lineId, productId, variantId, quantity, product, variant, unitPrice, unavailable, reason, ... } ], totals }
+const normalize = (payload) => {
+  const list = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
+  return list.map((i) => {
+    const productId = i.productId ?? (i.product?._id ?? i.product) ?? "";
+    const variantId = i.variantId ?? (i.variant?._id ?? i.variant ?? null);
+    const product = i.product
+      ? { _id: i.product._id, name: i.product.name, images: i.product.images ?? [] }
+      : null;
+
+    return {
+      lineId: i.lineId ? String(i.lineId) : undefined,
+      productId: productId ? String(productId) : "",
+      variantId: variantId ? String(variantId) : null,
+      quantity: i.quantity ?? 1,
+      unitPrice: Number(i.unitPrice ?? 0),
+      unavailable: !!i.unavailable,
+      reason: i.reason ?? null,
+      product,
+      // keep raw for UI if you want
+      variant: i.variant || null,
+    };
+  });
 };
 
-// ========== Slice ==========
 const initialState = {
-  items: [],         // Each item: { productId, variantId, quantity }
+  items: [],
   loading: false,
   error: null,
 };
@@ -82,8 +101,6 @@ const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
-    // If you need guest cart, you can re-add local reducers here.
-    // For server-only cart, we keep just a client-side clear:
     clearCart(state) {
       state.items = [];
       state.loading = false;
@@ -91,37 +108,31 @@ const cartSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Load
+    const fulfill = (s, a) => { s.loading = false; s.items = normalize(a.payload); };
+    const reject  = (s, a) => { s.loading = false; s.error = a.payload || a.error?.message; };
+
     builder
       .addCase(loadCart.pending, (s) => { s.loading = true; s.error = null; })
-      .addCase(loadCart.fulfilled, (s, a) => { s.loading = false; s.items = normalize(a.payload); })
-      .addCase(loadCart.rejected, (s, a) => { s.loading = false; s.error = a.payload || a.error.message; });
+      .addCase(loadCart.fulfilled, fulfill)
+      .addCase(loadCart.rejected, reject)
 
-    // Add
-    builder
       .addCase(addToCartServer.pending, (s) => { s.loading = true; s.error = null; })
-      .addCase(addToCartServer.fulfilled, (s, a) => { s.loading = false; s.items = normalize(a.payload); })
-      .addCase(addToCartServer.rejected, (s, a) => { s.loading = false; s.error = a.payload || a.error.message; });
+      .addCase(addToCartServer.fulfilled, fulfill)
+      .addCase(addToCartServer.rejected, reject)
 
-// Update Quantity
-   builder
-  .addCase(updateQuantityServer.pending,  (s) => { s.loading = true; s.error = null; })
-  .addCase(updateQuantityServer.fulfilled,(s,a)=> { s.loading = false; s.items = normalize(a.payload); })
-  .addCase(updateQuantityServer.rejected, (s,a)=> { s.loading = false; s.error = a.payload || a.error.message; });
+      .addCase(updateQuantityServer.pending, (s) => { s.loading = true; s.error = null; })
+      .addCase(updateQuantityServer.fulfilled, fulfill)
+      .addCase(updateQuantityServer.rejected, reject)
 
-    // Remove
-    builder
       .addCase(removeFromCartServer.pending, (s) => { s.loading = true; s.error = null; })
-      .addCase(removeFromCartServer.fulfilled, (s, a) => { s.loading = false; s.items = normalize(a.payload); })
-      .addCase(removeFromCartServer.rejected, (s, a) => { s.loading = false; s.error = a.payload || a.error.message; });
+      .addCase(removeFromCartServer.fulfilled, fulfill)
+      .addCase(removeFromCartServer.rejected, reject)
 
-    // Clear
-    builder
       .addCase(clearCartServer.pending, (s) => { s.loading = true; s.error = null; })
       .addCase(clearCartServer.fulfilled, (s) => { s.loading = false; s.items = []; })
-      .addCase(clearCartServer.rejected, (s, a) => { s.loading = false; s.error = a.payload || a.error.message; });
+      .addCase(clearCartServer.rejected, reject);
   },
 });
 
-export const { clearCart } = cartSlice.actions; // client-only clear (e.g., on logout visual reset)
+export const { clearCart } = cartSlice.actions;
 export default cartSlice.reducer;

@@ -1,31 +1,37 @@
-// src/features/wishlist/wishlistAPI.js
 import axios from "axios";
 
-// Adjust if your backend URL is different:
-const api = axios.create({
+const wishlist = axios.create({
   baseURL: "http://localhost:4000/api/wishlist",
-  withCredentials: true, // send auth cookie
+  withCredentials: true,
 });
 
+const notify = axios.create({
+  baseURL: "http://localhost:4000/api/notify",
+  withCredentials: true,
+});
 
 export const getWishlistAPI = async () => {
-  const { data } = await api.get("/");
-  return data; // expect array
+  const { data } = await wishlist.get("/");
+  return data; // [{ wishlistId, productId, status, stock, product }]
 };
 
-
-// payload: { productId, variantId?, size?, color? }
 export const addToWishlistAPI = async (payload) => {
-  const { data } = await api.post("/", payload);
-  return data; // {item} or the updated list (handle both in slice)
+  const { data } = await wishlist.post("/", payload);
+  return data; // { item }
 };
 
+export const removeFromWishlistAPI = async ({ productId, wishlistId }) => {
+  // prefer wishlistId; fallback to productId path
+  if (wishlistId) {
+    const { data } = await wishlist.delete(`/${productId || "dummy"}`, { data: { wishlistId } });
+    return data;
+  } else {
+    const { data } = await wishlist.delete(`/${productId}`);
+    return data;
+  }
+};
 
-
-
-
-
-export const removeFromWishlistAPI = async (productId) => {
-  const { data } = await api.delete(`/${productId}`);
-  return data; // usually {success:true}
+export const subscribeBackInStockAPI = async ({ productId, email }) => {
+  const { data } = await notify.post("/subscribe", { productId, email });
+  return data;
 };

@@ -27,8 +27,16 @@ import SearchResults from "./pages/SearchResults.jsx";
 import OrderDetails from "./pages/OrderDetails.jsx";
 import OrderSuccess from "./pages/OrderSuccess.jsx";
 import ProductsBrowsePage from "./pages/ProductsBrowsePage.jsx";
+import { useDispatch } from "react-redux";
+import { fetchShopSettings} from "./features/settings/settingSlice.js";
+import { useEffect } from "react";
 
 const App = () => {
+
+  const dispatch = useDispatch();
+  useEffect(() => { dispatch(fetchShopSettings()); }, [dispatch]);
+
+
   return (
     <>
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">

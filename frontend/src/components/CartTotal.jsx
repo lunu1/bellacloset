@@ -1,21 +1,39 @@
-// CartTotal.jsx
-// import { useSelector } from "react-redux";
+// src/components/CartTotal.jsx
 import Title from "./Title";
+import {
+  computePricingPreview,
+  defaultStoreSettings,
+  adaptSettingsToPreview,
+  formatCurrency
+} from "../utils/pricingPreview";
 
-function CartTotal({ items = [] }) {
-  // const cartItemsFromStore = useSelector((state) => state.cart.items);
-  // const cartItems = (Array.isArray(items) && items.length > 0)
-  //   ? items
-  //   : cartItemsFromStore;
+/**
+ * Props:
+ * - items: [{ name, price, quantity }]
+ * - pricing: optional server/authoritative snapshot (order.pricing)
+ * - settings: either:
+ *      (a) backend /api/settings/public shape (shipping/tax/delivery), OR
+ *      (b) computePricingPreview shape
+ * - currency: defaults to "AED"
+ * - showBreakdown: default true
+ * - showEta: default true
+ */
+export default function CartTotal({
+  items = [],
+  pricing = null,
+  settings = null,
+  currency = "AED",
+  showBreakdown = true,
+  showEta = true,
+}) {
+  // Normalize settings (works whether you pass backend shape or preview shape)
+  const normalizedSettings =
+    settings && (settings.shipping || settings.tax)
+      ? adaptSettingsToPreview(settings) // backend shape
+      : (settings || defaultStoreSettings); // already preview shape or null
 
-  const currency = "₹";
-  const deliveryFee = items.length === 0 ? 0 : 50;
-
-  const subtotal = items.reduce((acc, item) => {
-    const priceNum = Number(item.price) || 0;
-    const qtyNum = Number(item.quantity) || 0;
-    return acc + priceNum * qtyNum;
-  }, 0);
+  // Prefer authoritative snapshot if provided (e.g., from placed order)
+  const snapshot = pricing || computePricingPreview(items, normalizedSettings);
 
   return (
     <div className="w-full">
@@ -24,34 +42,54 @@ function CartTotal({ items = [] }) {
       </div>
 
       <div className="flex flex-col gap-2 mt-2 text-sm">
-        {items.map((item, idx) => {
-          const priceNum = Number(item.price) || 0;
-          const qtyNum = Number(item.quantity) || 0;
-          return (
-            <div className="flex justify-between" key={idx}>
-              <p>{item.name} x {qtyNum}</p>
-              <p>{currency}{(priceNum * qtyNum).toFixed(2)}</p>
-            </div>
-          );
-        })}
+        {showBreakdown &&
+          items.map((item, idx) => {
+            const priceNum = Number(item.price) || 0;
+            const qtyNum = Number(item.quantity) || 0;
+            return (
+              <div className="flex justify-between" key={idx}>
+                <p>{item.name} x {qtyNum}</p>
+                <p>{formatCurrency(priceNum * qtyNum, currency)}</p>
+              </div>
+            );
+          })}
 
-        <hr />
+        {showBreakdown && <hr />}
+
         <div className="flex justify-between">
           <p>Subtotal</p>
-          <p>{currency}{subtotal.toFixed(2)}</p>
+          <p>{formatCurrency(snapshot.subtotal, currency)}</p>
         </div>
+
         <div className="flex justify-between">
-          <p>Shipping Fee</p>
-          <p>{currency}{deliveryFee.toFixed(2)}</p>
+          <p>
+            Shipping Fee{" "}
+            {snapshot.shippingMethod?.label ? `(${snapshot.shippingMethod.label})` : ""}
+          </p>
+          <p>{formatCurrency(snapshot.shippingFee, currency)}</p>
         </div>
+
+        <div className="flex justify-between">
+          <p>
+            {snapshot.taxMode === "tax_inclusive" ? "Included VAT" : "VAT"}{" "}
+            {snapshot.taxRate ? `(${snapshot.taxRate}%)` : ""}
+          </p>
+          <p>{formatCurrency(snapshot.taxAmount, currency)}</p>
+        </div>
+
+        {showEta && snapshot.deliveryEta && (
+          <div className="flex justify-between text-gray-600">
+            <p>Delivery ETA</p>
+            <p>{snapshot.deliveryEta}</p>
+          </div>
+        )}
+
         <hr />
         <div className="flex justify-between font-semibold">
           <p>Total</p>
-          <p>{currency}{(subtotal + deliveryFee).toFixed(2)}</p>
+          <p>{formatCurrency(snapshot.grandTotal, currency)}</p>
         </div>
       </div>
     </div>
   );
 }
-
-export default CartTotal;
