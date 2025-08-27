@@ -4,9 +4,21 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
-import { getAllProducts } from "../features/product/productSlice";
-import { getVariantsByProduct } from "../features/variants/variantSlice";
-import { addToWishlist, removeFromWishlist } from "../features/wishlist/wishlistSlice";
+import {
+  getAllProducts,
+  selectProductsWrapped,
+  selectProductById,
+  selectProductsLoading,
+} from "../features/product/productSlice";
+
+import {
+  getVariantsByProduct,
+  clearVariants,
+} from "../features/variants/variantSlice";
+import {
+  addToWishlist,
+  removeFromWishlist,
+} from "../features/wishlist/wishlistSlice";
 import { addToCartServer, loadCart } from "../features/cart/cartSlice";
 
 import ImageGallery from "../components/product/ImageGallery";
@@ -18,6 +30,11 @@ import QuantitySelector from "../components/product/QuantitySelector";
 import ProductActions from "../components/product/ProductActions";
 import ProductTabs from "../components/product/ProductTabs";
 import RelatedProducts from "../components/RelatedProducts";
+import {
+  getReviewsByProduct,
+  clearReviews,
+  addReview,
+} from "../features/reviews/reviewsSlice";
 
 import {
   getAvailableColors,
@@ -37,15 +54,35 @@ export default function Product() {
   const location = useLocation();
 
   // From AppContext
-  const { userData, authLoading, isLoggedin } = useContext(AppContext);
+  const { authLoading, isLoggedin } = useContext(AppContext);
 
-  // Store data
-  const { items: products = [], loading } = useSelector((s) => s.products);
-  const { items: variants = [], loading: variantLoading } = useSelector((s) => s.variants);
+  // Products (via selectors)
+  const products = useSelector(selectProductsWrapped); // [{ product }]
+  const productData = useSelector((s) => selectProductById(s, id)); // { product } or null
+  const productsLoading = useSelector(selectProductsLoading);
+
+  // Variants (raw from slice)
+  const variantsAll = useSelector((s) => s.variants.items);
+  const variantLoading = useSelector((s) => s.variants.loading);
+
+  //reviews
+  const reviews = useSelector((s) => s.reviews.items);
+  const reviewsLoading = useSelector((s) => s.reviews.loading);
+  const reviewPosting = useSelector((s) => s.reviews.posting);
+
+  // Only variants for this product id
+  const variants = useMemo(
+    () =>
+      (variantsAll || []).filter(
+        (v) => v?.product === id || v?.product?._id === id
+      ),
+    [variantsAll, id]
+  );
+
+  // Wishlist
   const wishlistItems = useSelector((s) => s.wishlist.items);
 
   // Local UI state
-  const [productData, setProductData] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
@@ -56,58 +93,40 @@ export default function Product() {
   const [showZoom, setShowZoom] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
 
-  // Mock reviews (leave as-is)
-  const [reviews] = useState([
-    {
-      id: 1,
-      user: "John Doe",
-      rating: 5,
-      comment: "Excellent product! Great quality and fast delivery.",
-      date: "2024-01-15",
-      verified: true,
-    },
-    {
-      id: 2,
-      user: "Jane Smith",
-      rating: 4,
-      comment: "Good product, but sizing runs a bit small.",
-      date: "2024-01-10",
-      verified: true,
-    },
-  ]);
 
   // Load products on first mount
   useEffect(() => {
     if (products.length === 0) dispatch(getAllProducts());
   }, [dispatch, products.length]);
 
-  // Resolve product by route id
+  // Load variants for this product, clear old ones first to avoid stale data
   useEffect(() => {
-    if (!id || products.length === 0) return;
-    const sel = products.find((p) => p.product._id === id);
-    setProductData(sel || null);
-  }, [id, products]);
+    if (!productData?.product?._id) return;
+    dispatch(clearVariants());
+    dispatch(getVariantsByProduct(productData.product._id));
+    dispatch(clearReviews());
+    dispatch(getReviewsByProduct(productData.product._id));
+    // reset local selection when product changes
+    setSelectedVariant(null);
+    setColor("");
+    setSize("");
+    setQuantity(1);
+    setStockLimitReached(false);
+    setImage(productData.product?.images?.[0] || "");
+  }, [dispatch, productData?.product?._id]);
 
-  // Load variants when product is ready
-  useEffect(() => {
-    if (productData?.product?._id) {
-      dispatch(getVariantsByProduct(productData.product._id));
-    }
-  }, [dispatch, productData]);
-
-  // A) Ensure we always have a valid selected variant (and an image) when product/variants change
+  // Ensure valid selection when product/variants change
   useEffect(() => {
     if (!productData) return;
 
     if (!variants || variants.length === 0) {
-      // No variants for this product
       setSelectedVariant(null);
       const imgs = getDisplayImages(null, productData.product);
       setImage(imgs?.[0] || productData.product?.images?.[0] || "");
       return;
     }
 
-    // Try to honor the current color/size; else pick the first variant
+    // Try current color/size, else pick first variant
     const matched = findMatchedVariant(variants, { color, size });
     if (matched) {
       setSelectedVariant(matched);
@@ -118,16 +137,14 @@ export default function Product() {
 
     const first = variants[0];
     setSelectedVariant(first);
-    // seed color/size from variant if present
-    const c = first?.optionValues?.Color;
-    const s = first?.optionValues?.Size;
-    if (c) setColor(c);
-    if (s) setSize(s);
+    if (!color && first?.optionValues?.Color)
+      setColor(first.optionValues.Color);
+    if (!size && first?.optionValues?.Size) setSize(first.optionValues.Size);
     const imgs = getDisplayImages(first, productData.product);
     setImage(imgs?.[0] || "");
   }, [productData, variants, color, size]);
 
-  // B) When user changes color/size, re-pick the variant + image
+  // When user changes color/size, re-pick the variant + image
   useEffect(() => {
     if (!productData || !variants || variants.length === 0) return;
     const matched = findMatchedVariant(variants, { color, size });
@@ -140,12 +157,13 @@ export default function Product() {
 
   // Wishlist derived state
   const isInWishlist = useMemo(() => {
-    if (!productData?.product?._id) return false;
-    return wishlistItems.some((w) => w?.product?._id === productData.product._id);
+    const pid = productData?.product?._id;
+    if (!pid) return false;
+    return wishlistItems.some((w) => w?.product?._id === pid);
   }, [wishlistItems, productData]);
 
   // Loading & Not found guards
-  if (loading || variantLoading) {
+  if (productsLoading || variantLoading || reviewsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -156,12 +174,16 @@ export default function Product() {
     );
   }
 
-  if (!loading && products.length > 0 && !productData) {
+  if (!productsLoading && products.length > 0 && !productData) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
-          <p className="text-gray-600 mb-4">The product you are looking for does not exist.</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Product Not Found
+          </h2>
+          <p className="text-gray-600 mb-4">
+            The product you are looking for does not exist.
+          </p>
           <button
             onClick={() => window.history.back()}
             className="bg-black text-white px-6 py-2 rounded hover:bg-gray-800 transition-colors"
@@ -179,9 +201,10 @@ export default function Product() {
 
   const availableColors = getAvailableColors(variants);
   const availableSizes = getAvailableSizes(variants);
-  const variantStock = selectedVariant?.stock ?? product.defaultStock ??  0;
+  const variantStock = selectedVariant?.stock ?? product.defaultStock ?? 0;
 
-  const { currentPrice, originalPrice, discountPercent } = calcDiscount(selectedVariant);
+  const { currentPrice, originalPrice, discountPercent } =
+    calcDiscount(selectedVariant);
 
   // zoom helpers
   const handleMouseMove = (e) => {
@@ -212,6 +235,9 @@ export default function Product() {
 
   const galleryImages = getDisplayImages(selectedVariant, product);
 
+    const avg = product?.avgRating ?? 0;
+const count = product?.reviewCount ?? (reviews?.length || 0);
+
   return (
     <div className="pt-10 transition-opacity duration-500 ease-in border-t-2 opacity-100">
       {/* Top section */}
@@ -237,7 +263,6 @@ export default function Product() {
 
         {/* Right: Details */}
         <div className="flex-1">
-          {/* badges */}
           <div className="flex items-center gap-2 mb-2">
             {product.brand && (
               <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
@@ -253,9 +278,9 @@ export default function Product() {
 
           <h1 className="mt-2 text-2xl font-bold">{product.name}</h1>
 
-          {/* stars */}
-          <div className="mt-2 text-sm text-gray-600">4.5 ({reviews.length} reviews)</div>
-
+        <div className="mt-2 text-sm text-gray-600">
+  {avg ? `${avg}★ (${count} review${count !== 1 ? "s" : ""})` : `${count} review${count !== 1 ? "s" : ""}`}
+</div>
           <PriceBlock
             currency={CURRENCY}
             currentPrice={currentPrice ?? product.defaultPrice}
@@ -263,7 +288,9 @@ export default function Product() {
             discountPercent={discountPercent}
           />
 
-          <p className="mt-5 text-gray-600 md:w-4/5 leading-relaxed">{product.description}</p>
+          <p className="mt-5 text-gray-600 md:w-4/5 leading-relaxed">
+            {product.description}
+          </p>
 
           {/* Color / Size */}
           {availableColors.length > 0 && (
@@ -306,9 +333,10 @@ export default function Product() {
           <ProductActions
             addDisabled={authLoading}
             onAddToCart={async () => {
-              // For variant products, enforce a choice
-              if (!size && availableSizes.length > 0) return toast.error("Please select a size");
-              if (!color && availableColors.length > 0) return toast.error("Please select a color");
+              if (!size && availableSizes.length > 0)
+                return toast.error("Please select a size");
+              if (!color && availableColors.length > 0)
+                return toast.error("Please select a color");
 
               if (authLoading) {
                 toast.info("Checking your session…");
@@ -316,34 +344,38 @@ export default function Product() {
               }
               if (!isLoggedin) {
                 toast.info("Please login to add items to cart");
-                return navigate("/login", { state: { from: location.pathname } });
+                return navigate("/login", {
+                  state: { from: location.pathname },
+                });
               }
 
-              // If your backend requires variantId for variant products:
               if (variants.length > 0 && !selectedVariant?._id) {
                 return toast.error("Please select a variant");
               }
 
               try {
-                // Send one request with the chosen quantity
                 await dispatch(
                   addToCartServer({
                     productId: product._id,
-                    variantId: selectedVariant?._id || null, // send null for simple products
-                    quantity, 
+                    variantId: selectedVariant?._id || null,
+                    quantity,
                   })
                 ).unwrap();
 
-                dispatch(loadCart()); // refresh navbar count
+                dispatch(loadCart());
                 toast.success("Added to cart");
               } catch (e) {
                 const msg = e?.error || e?.message || "Failed to add to cart";
-                toast.error(typeof msg === "string" ? msg : "Failed to add to cart");
+                toast.error(
+                  typeof msg === "string" ? msg : "Failed to add to cart"
+                );
               }
             }}
             onBuyNow={() => {
-              if (!size && availableSizes.length > 0) return toast.error("Please select a size");
-              if (!color && availableColors.length > 0) return toast.error("Please select a color");
+              if (!size && availableSizes.length > 0)
+                return toast.error("Please select a size");
+              if (!color && availableColors.length > 0)
+                return toast.error("Please select a color");
 
               navigate("/place-order", {
                 state: {
@@ -360,7 +392,6 @@ export default function Product() {
             }}
           />
 
-          {/* small guarantees */}
           <hr className="mt-8 sm:w-4/5" />
           <div className="flex flex-col gap-2 mt-5 text-sm text-gray-600">
             <p>✓ 100% original product</p>
@@ -371,17 +402,25 @@ export default function Product() {
         </div>
       </div>
 
-      {/* Tabs */}
       <ProductTabs
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        product={product}
-        reviews={reviews}
-        availableSizes={availableSizes}
-      />
+  activeTab={activeTab}
+  setActiveTab={setActiveTab}
+  product={product}
+  reviews={reviews}
+  reviewsLoading={reviewsLoading}
+  availableSizes={availableSizes}
+  // hasMore={/* boolean from your paging, e.g., reviews.length < total */}
+  onLoadMore={() => dispatch(getReviewsByProduct(product._id))}
+  onSubmitReview={({ rating, comment }) =>
+    dispatch(addReview({ productId: product._id, rating, comment })).unwrap()
+  }
+/>
 
-      {/* Related */}
-      <RelatedProducts category={product.category} subCategory={product.subCategory} />
+
+      <RelatedProducts
+        category={product.category}
+        subCategory={product.subCategory}
+      />
     </div>
   );
 }

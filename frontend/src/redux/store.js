@@ -6,6 +6,8 @@ import cartReducer from '../features/cart/cartSlice';
 import searchReducer from '../features/search/searchSlice';
 import variantReducer from '../features/variants/variantSlice';
 import orderReducer from '../features/order/orderSlice';
+import reviewsReducer from '../features/reviews/reviewsSlice';
+
 
 
 export const store = configureStore({
@@ -17,5 +19,6 @@ export const store = configureStore({
      search : searchReducer,
      variants : variantReducer,
      order: orderReducer,
+     reviews: reviewsReducer,
   },
 });

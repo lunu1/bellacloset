@@ -12,4 +12,4 @@ router.delete('/clear',userAuth, clearCart);
 router.patch('/update',userAuth, setCartQuantity);
 
 
-export default router
+export default router;
