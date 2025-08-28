@@ -240,7 +240,7 @@ useEffect(() => {
         ) : (
           <div className="text-sm text-gray-600 mb-1">All Products</div>
         )}
-        <div className="flex items-end justify-between gap-4 border">
+        <div className="flex items-end justify-between gap-4">
           <h1 className="text-2xl font-semibold text-black text-cent text-left">Browse Products</h1>
 
           {/* Top toolbar (B/W) */}

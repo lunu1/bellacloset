@@ -33,6 +33,7 @@ import ProductActions from "../components/product/ProductActions";
 import ProductTabs from "../components/product/ProductTabs";
 import RelatedProducts from "../components/RelatedProducts";
 
+
 import {
   getReviewsByProduct,
   clearReviews,
@@ -58,8 +59,9 @@ export default function Product() {
   const navigate = useNavigate();
   const location = useLocation();
 
+
   // From AppContext
-  const { authLoading, isLoggedin } = useContext(AppContext);
+  const { authLoading, isLoggedin,userData } = useContext(AppContext);
 
   // Products (via selectors)
   const products = useSelector(selectProductsWrapped); // [{ product }]
@@ -74,6 +76,9 @@ export default function Product() {
   const reviews = useSelector((s) => s.reviews.items);
   const reviewsLoading = useSelector((s) => s.reviews.loading);
   const reviewPosting = useSelector((s) => s.reviews.posting);
+  const revPage       = useSelector((s) => s.reviews.page);
+  const revPages      = useSelector((s) => s.reviews.pages);
+  const revSummary    = useSelector((s) => s.reviews.summary);
 
   // Only variants for this product id
   const variants = useMemo(
@@ -98,6 +103,14 @@ export default function Product() {
   const [showZoom, setShowZoom] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
 
+  const currentUserId =
+    userData?._id || userData?.id || userData?.userId || null;
+  const currentUserName =
+    userData?.name ||
+    userData?.fullName ||
+    (userData?.email ? userData.email.split("@")[0] : null) ||
+    "You";
+
   // Wishlist optimistic UI state + in-flight ref
   const [wishState, setWishState] = useState(false);
   const wishInFlightRef = useRef(false);
@@ -115,7 +128,7 @@ export default function Product() {
     dispatch(clearVariants());
     dispatch(getVariantsByProduct(productData.product._id));
     dispatch(clearReviews());
-    dispatch(getReviewsByProduct(productData.product._id));
+    dispatch(getReviewsByProduct({ productId: productData.product._id, page: 1, limit: 10, sort: "newest" }));
 
     // reset local selection
     setSelectedVariant(null);
@@ -265,6 +278,20 @@ export default function Product() {
 
   const avg = product?.avgRating ?? 0;
   const count = product?.reviewCount ?? (reviews?.length || 0);
+
+  const hasMoreReviews = (revPage || 1) < (revPages || 1);
+
+  const loadMoreReviews = () =>
+   dispatch(getReviewsByProduct({
+     productId: product._id,
+     page: (revPage || 1) + 1,
+     limit: 10,
+     sort: "newest",
+     append: true
+   }));
+
+   const submitReview = ({ rating, comment }) =>
+   dispatch(addReview({ productId: product._id, rating, comment })).unwrap();
 
   return (
     <div className="pt-10 transition-opacity duration-500 ease-in border-t-2 opacity-100">
@@ -423,13 +450,13 @@ export default function Product() {
             }}
           />
 
-          <hr className="mt-8 sm:w-4/5" />
+          {/* <hr className="mt-8 sm:w-4/5" />
           <div className="flex flex-col gap-2 mt-5 text-sm text-gray-600">
             <p>✓ 100% original product</p>
             <p>✓ Cash on delivery available</p>
             <p>✓ Easy return &amp; exchange within 7 days</p>
             <p>🚚 Free shipping on orders above {CURRENCY}999</p>
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -440,16 +467,15 @@ export default function Product() {
         reviews={reviews}
         reviewsLoading={reviewsLoading}
         availableSizes={availableSizes}
-        onLoadMore={() => dispatch(getReviewsByProduct(product._id))}
-        onSubmitReview={({ rating, comment }) =>
-          dispatch(addReview({ productId: product._id, rating, comment })).unwrap()
-        }
+        onLoadMore={loadMoreReviews}
+        onSubmitReview={submitReview}
+        hasMore={hasMoreReviews}
+        summary={revSummary}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
       />
 
-      <RelatedProducts
-        category={product.category}
-        subcategory={product.subcategory || product.subCategory || null}
-      />
+   <RelatedProducts product={product} />
     </div>
   );
 }
