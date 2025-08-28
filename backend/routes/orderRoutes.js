@@ -2,6 +2,7 @@ import express from "express";
 import userAuth  from "../middlewares/userAuth.js";
 
 import { placeOrder, getUserOrders, cancelOrder, getOrderById, } from "../controllers/orderController.js";
+import { downloadInvoice } from "../controllers/invoice.controller.js";
 
 
 const router = express.Router();
@@ -17,5 +18,7 @@ router.get("/:orderId" , userAuth, getOrderById);
 
 //Cancel an order
 router.put("/cancel/:orderId" , userAuth, cancelOrder);
+
+router.get("/:orderId/invoice.pdf", userAuth, downloadInvoice);
 
 export default router;

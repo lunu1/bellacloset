@@ -32,7 +32,7 @@ export default function ProductCard({ product, variants = [] }) {
   const toggleWishlist = (e) => {
     e.preventDefault();
     const action = isWishlisted
-      ? removeFromWishlist(product._id)
+      ? removeFromWishlist({ productId: product._id })
       : addToWishlist({ productId: product._id });
 
     dispatch(action)

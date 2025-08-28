@@ -24,6 +24,8 @@ export default function PlaceOrder() {
   const cartItems = useSelector((s) => s.cart.items);
   // const settings   = useSelector((s) => s.settings.data); // currency/tax/shipping/delivery
 
+
+
   // selected address from AddressPicker
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [method, setMethod] = useState("cod"); // keep uppercase to match backend
@@ -31,23 +33,44 @@ export default function PlaceOrder() {
   const { settings: apiSettings } = useShopSettings();
 const settings = adaptSettingsForPreview(apiSettings);
 
+
+// ✅ Build clean, available lines from the cart for checkout UI/pricing
+const sourceLines = useMemo(() => {
+  return (cartItems || [])
+    .filter((ln) => !ln.unavailable)
+    .map((ln) => ({
+      productId: ln.productId,
+      variantId: ln.variantId ?? undefined,
+      name: ln.product?.name || "Item",
+      price: typeof ln.unitPrice === "number" ? ln.unitPrice : 0, // CartTotal expects `price`
+      quantity: ln.quantity || 1,
+      thumbnail: ln.product?.images?.[0] || "/placeholder.jpg",
+      // Optional attribute snapshots (if present)
+      size: ln.variant?.optionValues?.Size || ln.size,
+      color: ln.variant?.optionValues?.Color || ln.color,
+    }));
+}, [cartItems]);
+
+
   // Items chosen either from "Buy Now" or whole cart
-  const itemsForCheckout = useMemo(() => {
-    if (state?.productId) {
-      return [{
-        productId: state.productId,
-        variantId: state.variantId,
-        name: state.productName,
-        price: Number(state.price) || 0,
-        quantity: Number(state.quantity) || 1,
-        thumbnail: state.thumbnail,
-        size: state.size,
-        color: state.color,
-      }];
-    }
-    // cartItems already shaped as [{ productId, variantId, price, quantity, name?, thumbnail? }, ...]
-    return cartItems || [];
-  }, [state, cartItems]);
+  // Items chosen either from "Buy Now" (via router state) or entire cart
+const itemsForCheckout = useMemo(() => {
+  if (state?.productId) {
+    return [{
+      productId: state.productId,
+      variantId: state.variantId,
+      name: state.productName || "Item",
+      price: Number(state.price) || 0, // key rename -> price
+      quantity: Number(state.quantity) || 1,
+      thumbnail: state.thumbnail || "/placeholder.jpg",
+      size: state.size,
+      color: state.color,
+    }];
+  }
+  // ✅ default to normalized cart lines
+  return sourceLines;
+}, [state, sourceLines]);
+
 
   // Compute totals with live settings (cart total UI already does this visually)
   const pricing = useMemo(() =>{
@@ -101,11 +124,29 @@ const settings = adaptSettingsForPreview(apiSettings);
     };
 
     try {
-      const { data: created } = await axios.post(
-        `${backendUrl}/api/order/place`,
-        orderData,
-        { withCredentials: true }
-      );
+      let created;
+try {
+  // Prefer REST-y route if your router exposes it
+          const res = await axios.post(
+            `${backendUrl}/api/order`,
+            orderData,
+            { withCredentials: true }
+          );
+          created = res.data;
+        } catch (err) {
+          // Legacy fallback to /api/order/place
+          if (err?.response?.status === 404) {
+            const res2 = await axios.post(
+              `${backendUrl}/api/order/place`,
+              orderData,
+              { withCredentials: true }
+            );
+            created = res2.data;
+          } else {
+            throw err;
+          }
+        }
+
       toast.dismiss();
       toast.success("Order placed successfully!");
       navigate(`/order-success/${created._id}`, { state: { justPlaced: true } });

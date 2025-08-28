@@ -4,7 +4,7 @@ import Variant from "../models/Variants.js";
 import Brand from "../models/Brand.js";
 import slugify from "slugify";
 import mongoose from "mongoose";
-import { notifyBackInStockForProduct } from "../services/backInStockService.js";
+import { notifyBackInStockForProduct , computeProductStock} from "../services/backInStockService.js";
 
 // Build full lineage path [rootId, ..., leafId] from a leaf category id
 async function buildCategoryPathFromLeaf(leafId) {
@@ -526,6 +526,12 @@ export const upsertProductVariants = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
+
+    //capture Before total availability
+    const before = await computeProductStock(productId);
+    const prevTotal = Number(before?.total || 0);
+
+
     // Get current variants
     const existing = await Variant.find({ product: productId }).session(session);
     const existingById = new Map(existing.map(v => [String(v._id), v]));
@@ -547,6 +553,9 @@ export const upsertProductVariants = async (req, res) => {
         compareAtPrice: parseFloat(v.compareAtPrice ?? 0),
         stock: parseInt(v.stock ?? 0, 10),
         images: Array.isArray(v.images) ? v.images.slice(0, 4) : [],
+        // be explicit if payload includes isActive; default to true when omitted
+        ...(typeof v.isActive !== "undefined" ? { isActive: !!v.isActive } : {})
+
       };
 
       // Generate slug + sku based on product.slug and attributes
@@ -600,6 +609,13 @@ export const upsertProductVariants = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+
+// AFTER commit, compute AFTER total and notify if we crossed threshold
+const after = await computeProductStock(productId);
+const newTotal = Number(after?.total || 0);
+ if (prevTotal <= 0 && newTotal > 0) {
+  await notifyBackInStockForProduct(productId);
+}
 
     // Return updated snapshot
     const updatedProduct = await Product.findById(productId).lean();

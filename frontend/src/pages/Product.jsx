@@ -246,7 +246,7 @@ export default function Product() {
       wishInFlightRef.current = true;
       if (wishState) {
         setWishState(false); // optimistic
-        await dispatch(removeFromWishlist(product._id)).unwrap();
+        await dispatch(removeFromWishlist({ productId: product._id })).unwrap();
         toast.success("Removed from wishlist");
       } else {
         setWishState(true); // optimistic

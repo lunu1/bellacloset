@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
 import Variant from "../models/Variants.js";
-import BackInStock from "../models/BackInStock.js"; // new (see model below)
+import { computeProductStock } from "../services/backInStockService.js";
 
 /** Compute current stock for a product (variants sum if you use variants, else defaultStock) */
 async function computeStock(productId) {
@@ -67,17 +67,34 @@ export const addToWishlist = async (req, res) => {
 export const getwishlist = async (req, res) => {
   try {
     const userId = req.user._id;
-    const docs = await Wishlist.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .populate({ path: "product", select: "name images isActive defaultStock" });
+    const items = await Wishlist.find({ user: userId })
+      .populate({ path: "product", select: "name images defaultPrice isActive brand", populate: { path: "brand", select: "name slug logo" } })
+      .lean();
 
-    const shaped = [];
-    for (const d of docs) shaped.push(await shapeWishlistItem(d));
-    res.json(shaped);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const results = await Promise.all(items.map(async (it) => {
+      const p = it.product;
+      if (!p) {
+        return { wishlistId: it._id, productId: it.product, status: "product_unavailable", stock: 0, product: null };
+      }
+      const { total } = await computeProductStock(p._id);
+      const status =
+        p.isActive === false ? "product_unavailable" :
+        total > 0 ? "ok" : "out_of_stock";
+      return {
+        wishlistId: it._id,
+        productId: p._id,
+        status,
+        stock: total,
+        product: p,
+      };
+    }));
+
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ message: "Failed to load wishlist", error: e.message });
   }
 };
+
 
 /** DELETE /api/wishlist/:productId OR body { wishlistId } */
 export const removeFromWishlist = async (req, res) => {

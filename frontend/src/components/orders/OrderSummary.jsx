@@ -8,12 +8,12 @@ function Card({ title, value, sub }) {
   );
 }
 
-export default function OrderSummary({ order, currency = "₹" }) {
+export default function OrderSummary({ order, currency = "AED" }) {
   const itemsCount = (order.products || []).reduce((s, l) => s + (Number(l.quantity) || 0), 0);
   return (
     <div className="max-w-4xl mx-auto px-4 mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
       <Card title="Items" value={itemsCount} sub={`${order.products?.length || 0} line(s)`} />
-      <Card title="Total" value={`${currency}${Number(order.totalAmount || 0).toFixed(2)}`} />
+      <Card title="Total" value={`${Number(order.totalAmount || 0).toFixed(2)}${currency}`} />
       <Card title="Payment" value={`${order.paymentMethod || "—"} · ${order.paymentStatus || "—"}`} />
     </div>
   );

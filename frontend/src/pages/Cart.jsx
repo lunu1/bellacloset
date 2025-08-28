@@ -231,22 +231,12 @@ function Cart() {
                 canCheckout ? "bg-black" : "bg-gray-400 cursor-not-allowed"
               }`}
               disabled={!canCheckout}
-              onClick={() => {
-                if (!canCheckout) return;
-                // choose first available line for default prefill
-                const first = (items || []).find((ln) => !ln.unavailable);
-                if (!first) return;
-                navigate("/place-order", {
-                  state: {
-                    productId: first.productId,
-                    variantId: first.variantId ?? undefined,
-                    productName: first.product?.name || "Item",
-                    thumbnail: first.product?.images?.[0] || "/placeholder.jpg",
-                    price: first.unitPrice,
-                    quantity: first.quantity,
-                  },
-                });
-              }}
+                        onClick={() => {
+            if (!canCheckout) return;
+            // ✅ Don’t prefill a single line via state; let PlaceOrder read the cart
+            navigate("/place-order");
+          }}
+
             >
               PROCEED TO CHECKOUT
             </button>

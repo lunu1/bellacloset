@@ -10,7 +10,7 @@ export default function OrderSuccess() {
   const dispatch = useDispatch();
   const { current: order, currentLoading, error } = useSelector(s => s.order);
   const [copied, setCopied] = useState(false);
-  const currency = "₹";
+  const currency = "AED";
 
   useEffect(() => {
     if (orderId) dispatch(getOrderById(orderId));
@@ -106,7 +106,7 @@ export default function OrderSuccess() {
           <div>
             <div className="text-sm text-gray-600">Total Amount</div>
             <div className="text-xl font-semibold">
-              {currency}{Number(order?.totalAmount || 0).toFixed(2)}
+              {Number(order?.totalAmount || 0).toFixed(2)}{currency}
             </div>
             <div className="text-sm text-gray-500">
               {order?.paymentMethod} • {order?.paymentStatus}
