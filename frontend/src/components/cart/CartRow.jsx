@@ -29,7 +29,7 @@ const StockBadge = ({ stock, quantity }) => {
 
 export default function CartRow({
   line,
-  currency = "₹",
+  currency = "AED",
   onQtyChange,
   onAskRemove,
 }) {
@@ -55,8 +55,9 @@ export default function CartRow({
 
           <div className="flex items-center gap-5 mt-2">
             <p>
-              {currency}
+              
               {typeof price === "number" ? price : "N/A"}
+              {currency}
             </p>
 
             {(item.size || item.color) && (

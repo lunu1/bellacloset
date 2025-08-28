@@ -32,7 +32,7 @@ const OrderPage = () => {
             <div key={order._id} className="border p-4 rounded shadow-sm">
               <p><strong>Order ID:</strong> {order._id}</p>
               <p><strong>Status:</strong> {order.status}</p>
-              <p><strong>Total:</strong> ₹{order.totalAmount}</p>
+              <p><strong>Total:</strong> {order.totalAmount}AED</p>
               <p><strong>Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
 
               <ul className="mt-2 text-sm">

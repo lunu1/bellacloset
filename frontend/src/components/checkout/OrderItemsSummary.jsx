@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function OrderItemsSummary({ items }) {
   const navigate = useNavigate();
+  
 
   return (
     <div className="border border-gray-200 rounded p-4 mb-6 shadow-sm bg-white">

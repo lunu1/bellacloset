@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import CopyButton from "./CopyButton";
+import { backendURL } from "../../config";
 
 export default function OrderHeader({ order }) {
   return (
@@ -31,6 +32,19 @@ export default function OrderHeader({ order }) {
               </div>
               <StatusBadge status={order.status} />
             </div>
+            {/* Actions (invoice, etc.) */}
+        <div className="mt-3 flex justify-end gap-2">
+          <a
+                    href={`${backendURL}/api/order/${order._id}/invoice.pdf`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="px-3 py-1.5 text-sm border rounded hover:bg-black hover:text-white transition"
+                  >
+                    Download Invoice 
+                  </a>
+
+        </div>
+
           </div>
         </div>
       </div>

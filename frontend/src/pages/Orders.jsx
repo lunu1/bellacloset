@@ -94,7 +94,7 @@ function Orders() {
                     )}
 
                     <div className="flex items-center gap-3 mt-2 text-base text-gray-700">
-                      <p className="text-lg">₹{order.totalAmount}</p>
+                      <p className="text-lg">{order.totalAmount}AED</p>
                       <p>Quantity: {first?.quantity}</p>
                       {first?.size && <p>Size: {first.size}</p>}
                     </div>

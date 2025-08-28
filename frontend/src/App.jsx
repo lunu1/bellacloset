@@ -31,6 +31,13 @@ import { useDispatch } from "react-redux";
 import { fetchShopSettings} from "./features/settings/settingSlice.js";
 import { useEffect } from "react";
 
+import AboutBella from "./pages/AboutBella.jsx";
+import PrivacyPolicyBella from "./pages/PrivacyPolicyBella.jsx";
+import TermsConditionsBella from "./pages/TermsConditionsBella.jsx";
+import FAQBella from "./pages/FAQBella.jsx";
+import DeliveryReturnsBella from "./pages/DeliveryReturnsBella.jsx";
+
+
 const App = () => {
 
   const dispatch = useDispatch();
@@ -74,9 +81,14 @@ const App = () => {
         <Route path="/order-success/:orderId" element={<OrderSuccess />} />
         <Route path="/search" element={<SearchResults/>}/>
          {/* <Route path="/orders" element={<OrderPage />} /> */}
-
+        <Route path="/about" element={<AboutBella />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyBella />} />
+        <Route path="/terms" element={<TermsConditionsBella />} />
+        <Route path="/faq" element={<FAQBella />} />
+        <Route path="/delivery-returns" element={<DeliveryReturnsBella />} />
+        <Route path="/contact" element={<Contact/>} />
          <Route path="/products" element={<ProductsBrowsePage />} />
-<Route path="/c" element={<ProductsBrowsePage />} />
+        <Route path="/c" element={<ProductsBrowsePage />} />
         <Route path="/c/:categoryId" element={<ProductsBrowsePage />} />
       </Routes>
 
