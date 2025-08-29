@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
@@ -13,55 +13,66 @@ import {
   clearResults,
 } from "../features/search/searchSlice";
 
-// ✅ import wishlist + cart actions
 import { getWishlist, clearWishlist } from "../features/wishlist/wishlistSlice";
 import { loadCart, clearCart } from "../features/cart/cartSlice";
 
 const Navbar = () => {
-  const [visible, setVisible] = useState(false);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // --- Global state ---
   const search = useSelector((s) => s.search.query);
   const suggestions = useSelector((s) => s.search.suggestions);
+  const wishlistCount = useSelector((s) => s.wishlist?.items?.length || 0);
+  const cartlistCount = useSelector((s) => s.cart?.items?.length || 0);
 
+  // --- Context ---
   const { userData, backendUrl, setisLoggedin, setuserData, authLoading } =
     useContext(AppContext);
 
+  // --- Local UI state ---
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const drawerRef = useRef(null);
 
-    //fetch wishlist count
+  // Fetch wishlist & cart after auth loads
   useEffect(() => {
-    if(!authLoading && userData) {
+    if (!authLoading && userData) {
       dispatch(getWishlist());
       dispatch(loadCart());
     }
   }, [authLoading, userData, dispatch]);
 
-  
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  const wishlistCount = useSelector((s) => s.wishlist?.items?.length || 0);
-  const cartlistCount = useSelector((s) => s.cart?.items?.length || 0);
-
-  // Clear search suggestions when leaving /search
+  // Clear search suggestions when leaving search page
   useEffect(() => {
     if (!location.pathname.includes("/search")) {
       dispatch(clearResults());
     }
   }, [location.pathname, dispatch]);
 
-  const handleSearch = (e) => {
+  // Lock scroll when drawer open
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+  }, [mobileMenuOpen]);
+
+  const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (search.trim()) {
-      // if you have a virtual "all" category ID you can use it here
-      // or just point to `/c/rootId`
-      navigate(`/c?search=${encodeURIComponent(search.trim())}`);
-    }
+    const q = search.trim();
+    if (q) navigate(`/c?search=${encodeURIComponent(q)}`);
   };
 
   const handleSuggestionClick = (name) => {
     dispatch(setQuery(name));
     navigate(`/c?search=${encodeURIComponent(name)}`);
     dispatch(clearResults());
+    setMobileSearchOpen(false);
+  };
+
+  const clearSearch = () => {
+    dispatch(setQuery(""));
+    dispatch(clearResults());
+    navigate("/c");
   };
 
   const handleLogout = async () => {
@@ -101,139 +112,353 @@ const Navbar = () => {
     }
   };
 
+  // Close drawer on ESC
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+        setMobileSearchOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
-    <div className="container mx-auto flex items-center justify-between py-5 font-medium">
-      <Link to="/">
-        <h1 className="bodoni-moda-heading text-2xl uppercase">Bella Closet</h1>
-      </Link>
+    <header className="">
+      {/* Top bar */}
+      <div className="container mx-auto flex items-center justify-between pt-9 pb-5 gap-3">
+        {/* Left: Logo */}
+        <div className="flex items-center gap-3">
+          {/* Mobile menu button */}
+          <button
+            aria-label="Open menu"
+            className="sm:hidden p-2 -ml-2 rounded hover:bg-gray-100"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <img src={assets.menu_icon} className="w-6" alt="menu" />
+          </button>
 
-      {/* Search */}
-      <div className="text-center w-[48vw] relative">
-        <form
-          onSubmit={handleSearch}
-          className="inline-flex items-center justify-center w-full px-5 py-2 mx-3 my-5 border border-black rounded-md sm:w-full"
-        >
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => {
-              const v = e.target.value;
-              dispatch(setQuery(v));
-              if (v.trim()) dispatch(fetchSearchSuggestions(v));
-              else dispatch(clearResults());
-            }}
-            placeholder="What are you looking for?"
-            className="flex-1 text-md outline-none bg-inherit"
-          />
-          <img
-            src={assets.cross_icon}
-            alt="clear"
-            className="inline w-3 cursor-pointer"
-            onClick={() => {
-              dispatch(setQuery(""));
-              navigate("/c"); // optional: drop the ?search param too
-              dispatch(clearResults());
-            }}
-          />
-        </form>
+          <Link to="/" className="shrink-0">
+            <h1 className="bodoni-moda-heading text-xl sm:text-2xl uppercase">
+              Bella Closet
+            </h1>
+          </Link>
+        </div>
 
-        {search && (
-          <ul className="absolute z-50 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto shadow">
-            {suggestions.length > 0 ? (
-              suggestions.map((sugg, i) => (
-                <li
-                  key={i}
-                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
-                  onClick={() => handleSuggestionClick(sugg)}
-                >
-                  {sugg}
+        {/* Center: Desktop search */}
+        <div className="hidden sm:block w-full max-w-2xl relative">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="inline-flex items-center w-full px-4 py-2 border border-black rounded-md"
+          >
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                const v = e.target.value;
+                dispatch(setQuery(v));
+                if (v.trim()) dispatch(fetchSearchSuggestions(v));
+                else dispatch(clearResults());
+              }}
+              placeholder="What are you looking for?"
+              className="flex-1 text-base outline-none bg-transparent"
+              aria-label="Search products"
+            />
+            {search ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={clearSearch}
+                className="p-1"
+              >
+                <img src={assets.cross_icon} alt="clear" className="w-3" />
+              </button>
+            ) : null}
+          </form>
+
+          {/* Suggestions (desktop) */}
+          {search && (
+            <ul className="absolute z-50 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto shadow">
+              {suggestions.length > 0 ? (
+                suggestions.map((sugg, i) => (
+                  <li
+                    key={i}
+                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
+                    onClick={() => handleSuggestionClick(sugg)}
+                  >
+                    {sugg}
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-3 text-left text-gray-500 select-none">
+                  No suggestions for “{search}”
                 </li>
-              ))
-            ) : (
-             <li className="px-4 py-3 text-left text-gray-500 select-none">
-        No suggestions for “{search}”
-      </li>
-    )}
-            
-          </ul>
-        )}
+              )}
+            </ul>
+          )}
+        </div>
+
+        {/* Right: Icons & profile */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          {/* Mobile search toggle */}
+          <button
+            aria-label="Open search"
+            className="sm:hidden rounded hover:bg-gray-100"
+            onClick={() => setMobileSearchOpen((v) => !v)}
+          >
+            {/* using cart icon for assets simplicity; replace with a search icon if you have one */}
+            <img src={assets.search_icon} className="w-6 opacity-100" alt="" />
+            {/* <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="-ml-8 w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path strokeWidth="2" d="M21 21l-4.35-4.35M10 18a8 8 0 110-16 8 8 0 010 16z" />
+            </svg> */}
+          </button>
+
+          {/* Username (desktop only) */}
+          <span className="hidden sm:block">{userData?.name}</span>
+
+          {/* Profile */}
+          <div className="relative group hidden sm:block">
+            <Link to={userData ? "" : "/login"}>
+              <img
+                src={assets.profile_icon}
+                className="w-6 cursor-pointer"
+                alt="profile"
+              />
+            </Link>
+            {userData && (
+              <div className="absolute right-0 pt-4 hidden group-hover:block dropdown-menu z-50">
+                <div className="flex flex-col gap-2 px-5 py-3 text-gray-700 rounded w-40 bg-white border shadow">
+                  {!userData?.isAccountVerified && (
+                    <button
+                      onClick={SendVerificationOtp}
+                      className="text-left hover:text-black"
+                    >
+                      Verify Email
+                    </button>
+                  )}
+                  <Link to="/profile" className="hover:text-black">
+                    My Profile
+                  </Link>
+                  <Link to="/orders" className="hover:text-black">
+                    Orders
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="text-left hover:text-black"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Wishlist */}
+          <Link to="/wishlist" className="relative">
+            <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
+            {wishlistCount > 0 && (
+              <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+                {wishlistCount}
+              </p>
+            )}
+          </Link>
+
+          {/* Cart */}
+          <Link to="/cart" className="relative">
+            <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
+            <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+              {cartlistCount}
+            </p>
+          </Link>
+        </div>
       </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-6">
-        <h1>{userData?.name}</h1>
+      {/* Mobile search bar */}
+      {mobileSearchOpen && (
+        <div className="sm:hidden border-t">
+          <div className="container mx-auto py-3 px-2 relative">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="flex items-center gap-2 px-3 py-2 border border-black rounded-md"
+            >
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  dispatch(setQuery(v));
+                  if (v.trim()) dispatch(fetchSearchSuggestions(v));
+                  else dispatch(clearResults());
+                }}
+                placeholder="Search Bella Closet"
+                className="flex-1 text-base outline-none bg-transparent"
+                aria-label="Search products mobile"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={clearSearch}
+                  className="p-1"
+                >
+                  <img src={assets.cross_icon} alt="clear" className="w-3" />
+                </button>
+              ) : null}
+            </form>
 
-        {/* Profile */}
-        <div className="relative group">
-          <Link to={userData ? "" : "/login"}>
-            <img
-              src={assets.profile_icon}
-              className="w-6 cursor-pointer"
-              alt="profile"
-            />
-          </Link>
-          {userData && (
-            <div className="absolute right-0 pt-4 hidden group-hover:block dropdown-menu z-10">
-              <div className="flex flex-col gap-2 px-5 py-3 text-gray-500 rounded w-36 bg-slate-100">
+            {/* Suggestions (mobile) */}
+            {search && (
+              <ul className="absolute left-1/2 -translate-x-1/2 z-50 bg-white border mt-1 rounded w-[calc(100%-1rem)] max-h-60 overflow-y-auto shadow">
+                {suggestions.length > 0 ? (
+                  suggestions.map((sugg, i) => (
+                    <li
+                      key={i}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
+                      onClick={() => handleSuggestionClick(sugg)}
+                    >
+                      {sugg}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-4 py-3 text-left text-gray-500 select-none">
+                    No suggestions for “{search}”
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Drawer */}
+      <div
+        className={`fixed inset-0 z-50 sm:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}
+        aria-hidden={!mobileMenuOpen}
+      >
+        {/* Backdrop */}
+        <div
+          className={`absolute inset-0 bg-black/40 transition-opacity ${mobileMenuOpen ? "opacity-100" : "opacity-0"}`}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+
+        {/* Panel */}
+        <aside
+          ref={drawerRef}
+          className={`absolute left-0 top-0 h-full w-[78%] max-w-xs bg-white shadow-xl transition-transform
+            ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile menu"
+        >
+          <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center gap-2">
+              <img src={assets.profile_icon} className="w-6" alt="" />
+              <div className="font-medium">
+                {userData ? `Hi, ${userData.name}` : "Welcome"}
+              </div>
+            </div>
+            <button
+              aria-label="Close menu"
+              className="p-2 rounded hover:bg-gray-100"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <img src={assets.cross_icon} alt="close" className="w-3.5" />
+            </button>
+          </div>
+
+          <nav className="p-4 flex flex-col gap-3 text-gray-800">
+            {!userData ? (
+              <Link
+                to="/login"
+                className="py-2 px-3 rounded border hover:bg-gray-50"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Login / Sign up
+              </Link>
+            ) : (
+              <>
                 {!userData?.isAccountVerified && (
-                  <Link
-                    to="/email-verify"
-                    onClick={SendVerificationOtp}
-                    className="cursor-pointer hover:text-gray-700 px-0"
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      SendVerificationOtp();
+                    }}
+                    className="text-left py-2 px-3 rounded border hover:bg-gray-50"
                   >
                     Verify Email
-                  </Link>
+                  </button>
                 )}
                 <Link
                   to="/profile"
-                  className="cursor-pointer hover:text-gray-700"
+                  className="py-2 px-3 rounded hover:bg-gray-50"
+                  onClick={() => setMobileMenuOpen(false)}
                 >
                   My Profile
                 </Link>
                 <Link
                   to="/orders"
-                  className="cursor-pointer hover:text-gray-700"
+                  className="py-2 px-3 rounded hover:bg-gray-50"
+                  onClick={() => setMobileMenuOpen(false)}
                 >
                   Orders
                 </Link>
                 <button
-                  onClick={handleLogout}
-                  className="cursor-pointer hover:text-gray-700 text-left"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="text-left py-2 px-3 rounded hover:bg-gray-50"
                 >
                   Logout
                 </button>
-              </div>
-            </div>
-          )}
-        </div>
+              </>
+            )}
 
-        {/* Wishlist */}
-        <Link to="/wishlist" className="relative">
-          <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
-          {wishlistCount > 0 && (
-            <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]">
-              {wishlistCount}
-            </p>
-          )}
-        </Link>
+            <hr className="my-2" />
 
-        {/* Cart */}
-        <Link to="/cart" className="relative">
-          <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
-          <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]">
-            {cartlistCount}
-          </p>
-        </Link>
+            <Link
+              to="/wishlist"
+              className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-50"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span>Wishlist</span>
+              {wishlistCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-5 h-5 text-xs rounded-full bg-black text-white px-1">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
 
-        {/* Mobile Menu */}
-        <img
-          onClick={() => setVisible(true)}
-          src={assets.menu_icon}
-          className="w-6 cursor-pointer sm:hidden"
-          alt="menu"
-        />
+            <Link
+              to="/cart"
+              className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-50"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span>Cart</span>
+              <span className="inline-flex items-center justify-center min-w-5 h-5 text-xs rounded-full bg-black text-white px-1">
+                {cartlistCount}
+              </span>
+            </Link>
+
+            <Link
+              to="/c"
+              className="py-2 px-3 rounded hover:bg-gray-50"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Browse Collection
+            </Link>
+          </nav>
+        </aside>
       </div>
-    </div>
+    </header>
   );
 };
 
