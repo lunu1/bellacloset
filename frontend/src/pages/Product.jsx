@@ -2,6 +2,7 @@
 import { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import axios from "axios";
 import { toast } from "react-toastify";
 
 import {
@@ -33,19 +34,11 @@ import ProductActions from "../components/product/ProductActions";
 import ProductTabs from "../components/product/ProductTabs";
 import RelatedProducts from "../components/RelatedProducts";
 
-
-import {
-  getReviewsByProduct,
-  clearReviews,
-  addReview,
-} from "../features/reviews/reviewsSlice";
-
 import {
   getAvailableColors,
   getAvailableSizes,
   findMatchedVariant,
   getDisplayImages,
-  calcDiscount,
 } from "../utils/productView";
 
 import { AppContext } from "../context/AppContext";
@@ -53,15 +46,19 @@ import { brandLabel } from "../utils/brandLabel";
 
 const CURRENCY = "AED";
 
+const api = axios.create({
+  baseURL: "http://localhost:4000",
+  withCredentials: true,
+});
+
 export default function Product() {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
-
   // From AppContext
-  const { authLoading, isLoggedin,userData } = useContext(AppContext);
+  const { authLoading, isLoggedin } = useContext(AppContext);
 
   // Products (via selectors)
   const products = useSelector(selectProductsWrapped); // [{ product }]
@@ -76,9 +73,6 @@ export default function Product() {
   const reviews = useSelector((s) => s.reviews.items);
   const reviewsLoading = useSelector((s) => s.reviews.loading);
   const reviewPosting = useSelector((s) => s.reviews.posting);
-  const revPage       = useSelector((s) => s.reviews.page);
-  const revPages      = useSelector((s) => s.reviews.pages);
-  const revSummary    = useSelector((s) => s.reviews.summary);
 
   // Only variants for this product id
   const variants = useMemo(
@@ -103,17 +97,13 @@ export default function Product() {
   const [showZoom, setShowZoom] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
 
-  const currentUserId =
-    userData?._id || userData?.id || userData?.userId || null;
-  const currentUserName =
-    userData?.name ||
-    userData?.fullName ||
-    (userData?.email ? userData.email.split("@")[0] : null) ||
-    "You";
-
   // Wishlist optimistic UI state + in-flight ref
   const [wishState, setWishState] = useState(false);
   const wishInFlightRef = useRef(false);
+
+  // Offer-aware snapshot (from /api/products/:id that returns effectivePrice fields)
+  const [offerProduct, setOfferProduct] = useState(null); // { effectivePrice, appliedOffer, ... }
+  const [offerVariants, setOfferVariants] = useState(new Map()); // Map(variantId -> { effectivePrice, appliedOffer })
 
   // Load products on first mount
   useEffect(() => {
@@ -127,8 +117,9 @@ export default function Product() {
     // clear & fetch fresh data
     dispatch(clearVariants());
     dispatch(getVariantsByProduct(productData.product._id));
-    dispatch(clearReviews());
-    dispatch(getReviewsByProduct({ productId: productData.product._id, page: 1, limit: 10, sort: "newest" }));
+    // reviews are independent; if you have reviews slice:
+    // dispatch(clearReviews());
+    // dispatch(getReviewsByProduct(productData.product._id));
 
     // reset local selection
     setSelectedVariant(null);
@@ -140,6 +131,29 @@ export default function Product() {
     // default image (product-level) to start with
     setImage(productData.product?.images?.[0] || "");
   }, [dispatch, productData?.product?._id]);
+
+  // Fetch offer-aware product snapshot (effectivePrice for product and variants)
+  useEffect(() => {
+    const pid = productData?.product?._id;
+    if (!pid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get(`/api/products/${pid}`);
+        if (cancelled) return;
+        setOfferProduct(data?.product || null);
+        const map = new Map();
+        (data?.variants || []).forEach((v) => map.set(String(v._id), v));
+        setOfferVariants(map);
+      } catch {
+        setOfferProduct(null);
+        setOfferVariants(new Map());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [productData?.product?._id]);
 
   // Keep local wishState in sync with store (after nav/refresh)
   useEffect(() => {
@@ -241,8 +255,49 @@ export default function Product() {
   const availableSizes = getAvailableSizes(variants);
   const variantStock = selectedVariant?.stock ?? product.defaultStock ?? 0;
 
-  const { currentPrice, originalPrice, discountPercent } =
-    calcDiscount(selectedVariant);
+  // --- Offer-aware pricing for PDP ---
+// Back-end now returns:
+// - product.pricing = { basePrice, salePrice, discount }
+// - variants[].salePrice (and variants[].discount)
+
+const baseOriginalPrice = selectedVariant
+  ? Number(selectedVariant?.price ?? 0)
+  : Number(product?.defaultPrice ?? 0);
+
+// Use salePrice from backend when available
+const effectivePrice = (() => {
+  if (selectedVariant) {
+    const ov = offerVariants.get(String(selectedVariant?._id || ""));
+    // variants carry salePrice (not "effectivePrice" anymore)
+    return Number(
+      ov?.salePrice ??
+        selectedVariant?.price ??
+        0
+    );
+  }
+  // product.pricing.salePrice for non-variant products
+  return Number(
+    offerProduct?.pricing?.salePrice ??
+      offerProduct?.salePrice ??           // legacy fallback
+      product?.defaultPrice ??
+      0
+  );
+})();
+
+// If the product has no variants, prefer the backend's basePrice as the "original"
+const originalPriceForUi = selectedVariant
+  ? baseOriginalPrice
+  : Number(offerProduct?.pricing?.basePrice ?? baseOriginalPrice);
+
+const discountPercent =
+  originalPriceForUi > 0 && effectivePrice < originalPriceForUi
+    ? Math.round((1 - effectivePrice / originalPriceForUi) * 100)
+    : 0;
+
+
+
+
+
 
   // zoom helpers
   const handleMouseMove = (e) => {
@@ -278,20 +333,6 @@ export default function Product() {
 
   const avg = product?.avgRating ?? 0;
   const count = product?.reviewCount ?? (reviews?.length || 0);
-
-  const hasMoreReviews = (revPage || 1) < (revPages || 1);
-
-  const loadMoreReviews = () =>
-   dispatch(getReviewsByProduct({
-     productId: product._id,
-     page: (revPage || 1) + 1,
-     limit: 10,
-     sort: "newest",
-     append: true
-   }));
-
-   const submitReview = ({ rating, comment }) =>
-   dispatch(addReview({ productId: product._id, rating, comment })).unwrap();
 
   return (
     <div className="pt-10 transition-opacity duration-500 ease-in border-t-2 opacity-100">
@@ -345,12 +386,12 @@ export default function Product() {
               : `${count} review${count !== 1 ? "s" : ""}`}
           </div>
 
-          <PriceBlock
-            currency={CURRENCY}
-            currentPrice={currentPrice ?? product.defaultPrice}
-            originalPrice={originalPrice}
-            discountPercent={discountPercent}
-          />
+         <PriceBlock
+  currency={CURRENCY}
+  currentPrice={effectivePrice}
+  originalPrice={discountPercent > 0 ? originalPriceForUi : undefined}
+  discountPercent={discountPercent > 0 ? discountPercent : undefined}
+/>
 
           <p className="mt-5 text-gray-600 md:w-4/5 leading-relaxed">
             {product.description}
@@ -443,20 +484,24 @@ export default function Product() {
                   color,
                   quantity,
                   productName: product.name,
-                  price: selectedVariant?.price ?? product.defaultPrice,
+                  // show offer-aware price in the preview; server still computes final total
+                  price: selectedVariant
+  ? effectivePrice
+  : (offerProduct?.pricing?.salePrice ?? product.defaultPrice),
+
                   thumbnail: product.images?.[0],
                 },
               });
             }}
           />
 
-          {/* <hr className="mt-8 sm:w-4/5" />
+          <hr className="mt-8 sm:w-4/5" />
           <div className="flex flex-col gap-2 mt-5 text-sm text-gray-600">
             <p>✓ 100% original product</p>
             <p>✓ Cash on delivery available</p>
             <p>✓ Easy return &amp; exchange within 7 days</p>
             <p>🚚 Free shipping on orders above {CURRENCY}999</p>
-          </div> */}
+          </div>
         </div>
       </div>
 
@@ -467,15 +512,16 @@ export default function Product() {
         reviews={reviews}
         reviewsLoading={reviewsLoading}
         availableSizes={availableSizes}
-        onLoadMore={loadMoreReviews}
-        onSubmitReview={submitReview}
-        hasMore={hasMoreReviews}
-        summary={revSummary}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
+        onLoadMore={() => dispatch(getReviewsByProduct(product._id))}
+        onSubmitReview={({ rating, comment }) =>
+          dispatch(addReview({ productId: product._id, rating, comment })).unwrap()
+        }
       />
 
-   <RelatedProducts product={product} />
+      <RelatedProducts
+        category={product.category}
+        subcategory={product.subcategory || product.subCategory || null}
+      />
     </div>
   );
 }
