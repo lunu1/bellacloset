@@ -38,7 +38,9 @@ const debugging = debug("development:app");
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
-  'http://localhost:5175', // ✅ ADD THIS LINE
+  'http://localhost:5175',
+  'http://localhost:5176',
+  
   'https://your-production-site.com',
   'https://your-admin-site.com'
 ];
