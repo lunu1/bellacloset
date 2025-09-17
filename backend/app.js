@@ -24,6 +24,8 @@ import adminOrderRoutes from './routes/adminOrderRoutes.js';
 import brandRoutes from './routes/brandRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import notifyRoutes from "./routes/notifyRoutes.js";
+import offerRoutes from "./routes/offerRoutes.js";
+import adminOfferRoutes from "./routes/adminOfferRoutes.js";
 
 // Connect to MongoDB database
 connectDB();
@@ -91,7 +93,8 @@ app.use("/api/settings", settingRoutes)
 app.use("/api/admin/orders", adminOrderRoutes)
 app.use("/api/notify", notifyRoutes);
 app.use("/api/reviews",reviewRoutes);
-
+app.use("/api/offers", adminOfferRoutes);
+app.use("/api/public/offer", offerRoutes);  
 
 app.get("/", (req, res) => {
   res.send("API Working");

@@ -1,8 +1,10 @@
-// routes/notifyRoutes.js
 import express from "express";
-import userAuth from "../middlewares/userAuth.js"; // allow guest? then make it optional
-import { subscribeBackInStock } from "../controllers/notifyController.js";
+import userAuth from "../middlewares/userAuth.js";
+import { subscribeNotify } from "../controllers/notify.controller.js";
 
 const router = express.Router();
-router.post("/subscribe", userAuth, subscribeBackInStock); 
+
+// POST /api/notify/subscribe
+router.post("/subscribe", userAuth, subscribeNotify);
+
 export default router;
