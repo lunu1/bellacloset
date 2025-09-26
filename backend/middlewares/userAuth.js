@@ -30,7 +30,7 @@
 
 // export default userAuth;
 
-
+//old code for user login
 
 import jwt from "jsonwebtoken";
 import userModel from "../models/userModel.js";
@@ -62,7 +62,4 @@ const userAuth = async (req, res, next) => {
 };
 
 export default userAuth;
-
-
-
 

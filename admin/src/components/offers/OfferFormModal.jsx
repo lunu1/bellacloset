@@ -217,6 +217,29 @@ export default function OfferFormModal({
             </div>
           </div>
 
+          {/* Schedule */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+  <div>
+    <SectionTitle>Starts at</SectionTitle>
+    <input
+      type="datetime-local"
+      className="w-full border rounded px-3 py-2"
+      value={startsAt}
+      onChange={(e) => setStartsAt(e.target.value)}
+    />
+  </div>
+  <div>
+    <SectionTitle>Ends at</SectionTitle>
+    <input
+      type="datetime-local"
+      className="w-full border rounded px-3 py-2"
+      value={endsAt}
+      onChange={(e) => setEndsAt(e.target.value)}
+    />
+  </div>
+</div>
+
+
           {/* Optional: preview payload */}
           <details className="mt-4">
             <summary className="cursor-pointer text-sm text-gray-600">Preview payload</summary>

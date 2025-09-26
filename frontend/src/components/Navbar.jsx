@@ -139,11 +139,17 @@ const Navbar = () => {
             <img src={assets.menu_icon} className="w-6" alt="menu" />
           </button>
 
-          <Link to="/" className="shrink-0">
-            <h1 className="bodoni-moda-heading text-xl sm:text-2xl uppercase">
-              Bella Closet
-            </h1>
-          </Link>
+          <Link to="/" className="shrink-0" aria-label="Bella Closet home">
+  <img
+    src="/logo.png"
+    alt="Bella Closet"
+    className="block w-32 sm:w-40 object-contain"
+    width={160}  // adjust to your actual logo size
+    height={40}
+    loading="eager"
+    decoding="async"
+  />
+</Link>
         </div>
 
         {/* Center: Desktop search */}
@@ -265,7 +271,7 @@ const Navbar = () => {
           <Link to="/wishlist" className="relative">
             <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
             {wishlistCount > 0 && (
-              <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+              <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
                 {wishlistCount}
               </p>
             )}
@@ -274,7 +280,7 @@ const Navbar = () => {
           {/* Cart */}
           <Link to="/cart" className="relative">
             <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
-            <p className="absolute right-[-7px] bottom-[-7px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+            <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
               {cartlistCount}
             </p>
           </Link>

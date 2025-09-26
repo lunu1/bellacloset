@@ -46,9 +46,9 @@ export default function OfferList({
               <div className="col-span-3">
                 <div className="font-medium">{o.name}</div>
                 <div className="flex gap-2 mt-1">
-                  {o.active ? <Chip tint="green">Active</Chip> : <Chip tint="gray">Inactive</Chip>}
-                  {o.exclusive ? <Chip tint="orange">Exclusive</Chip> : null}
-                  {o.applyToSaleItems ? <Chip tint="blue">Applies to sale items</Chip> : null}
+                 {o.active ? <Chip tone="green">Active</Chip> : <Chip tone="gray">Inactive</Chip>}
+                  {o.exclusive ? <Chip tone="orange">Exclusive</Chip> : null}
+                  {o.applyToSaleItems ? <Chip tone="blue">Applies to sale items</Chip> : null}
                 </div>
               </div>
 

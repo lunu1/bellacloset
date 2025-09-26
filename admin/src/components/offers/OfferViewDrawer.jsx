@@ -28,9 +28,9 @@ export default function OfferViewDrawer({ open, offer, onClose, onEdit, onDelete
           <div>
             <SectionTitle>Status & flags</SectionTitle>
             <div className="flex gap-2">
-              {offer.active ? <Chip tint="green">Active</Chip> : <Chip tint="gray">Inactive</Chip>}
-              {offer.exclusive ? <Chip tint="orange">Exclusive</Chip> : null}
-              {offer.applyToSaleItems ? <Chip tint="blue">Applies to sale</Chip> : null}
+              {offer.active ? <Chip tone="green">Active</Chip> : <Chip tone="gray">Inactive</Chip>}
+              {offer.exclusive ? <Chip tone="orange">Exclusive</Chip> : null}
+              {offer.applyToSaleItems ? <Chip tone="blue">Applies to sale</Chip> : null}
             </div>
           </div>
           <div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import api from "../lib/api";
+import api, { adminApi } from "../lib/api";
 import OfferList from "../components/offers/OfferList";
 import OfferFormModal from "../components/offers/OfferFormModal";
 import OfferViewDrawer from "../components/offers/OfferViewDrawer";
@@ -21,7 +21,7 @@ export default function OfferPage() {
   // data loaders
   const loadOffers = async () => {
     try {
-      const { data } = await api.get("/api/offers");
+      const { data } = await adminApi.get("/api/offers");
       setOffers(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);

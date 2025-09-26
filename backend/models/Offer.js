@@ -24,7 +24,7 @@ const OfferSchema = new mongoose.Schema({
   },
 
   // optional flags
-  applyToSaleItems: { type: Boolean, default: false },
+  applyToSaleItems: { type: Boolean, default: true },
 }, { timestamps: true });
 
 // keep your existing indexes

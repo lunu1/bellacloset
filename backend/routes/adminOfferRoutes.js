@@ -1,13 +1,14 @@
 import express from "express";
-import userAuth from "../middlewares/userAuth.js";
+//import userAuth from "../middlewares/userAuth.js";
 import { createOffer, listOffers, updateOffer, deleteOffer, getOffer } from "../controllers/offerController.js";
+import adminAuth from "../middlewares/adminAuth.middleware.js";
 
 const router = express.Router();
 
-router.get("/",      userAuth, listOffers);
-router.get("/:id",   userAuth, getOffer);
-router.post("/",     userAuth, createOffer);
-router.put("/:id",   userAuth, updateOffer);
-router.delete("/:id", userAuth, deleteOffer);
+router.get("/",      adminAuth, listOffers);
+router.get("/:id",   adminAuth, getOffer);
+router.post("/",      adminAuth, createOffer);
+router.put("/:id",    adminAuth, updateOffer);
+router.delete("/:id",  adminAuth, deleteOffer);
 
 export default router;
