@@ -60,14 +60,14 @@ const active =
           <img src={assets.user_icon} alt="" className="w-5 h-5" />
           <p className="hidden md:block">List User</p>
         </NavLink>
-         <NavLink
+         {/* <NavLink
           to={"/coupons"}
           end
           className={linkCls}
         >
           <img src={assets.coupon_icon} alt="" className="w-5 h-5" />
           <p className="hidden md:block">Add Coupon</p>
-          </NavLink>
+          </NavLink> */}
         <NavLink
           to={"/products/add"}
           end
@@ -76,6 +76,13 @@ const active =
           <img src={assets.order_icon} alt="" className="w-5 h-5" />
           <p className="hidden md:block">Add Product</p> 
         </NavLink>
+
+
+<NavLink to={"/offer"} end className={linkCls}>
+          <img src={assets.order_icon} alt="" className="w-5 h-5" />
+          <p className="hidden md:block">Add Offer</p>
+        </NavLink>
+
         <NavLink to={"/settings"} end className={linkCls}>
           <img src={assets.order_icon} alt="" className="w-5 h-5" />
           <p className="hidden md:block">Store Settings</p>

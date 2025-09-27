@@ -5,6 +5,14 @@ import Brand from "../models/Brand.js";
 import slugify from "slugify";
 import mongoose from "mongoose";
 import { notifyBackInStockForProduct , computeProductStock} from "../services/backInStockService.js";
+import  { fetchActiveOffers,pickBestOfferForProduct,applyOfferToPrice } from "../utils/offer.util.js";
+
+
+
+const summarizeOffer = (o) =>
+  o ? ({ _id: o._id, name: o.name, type: o.type, value: o.value, maxDiscount: o.maxDiscount ?? undefined }) : null;
+
+
 
 // Build full lineage path [rootId, ..., leafId] from a leaf category id
 async function buildCategoryPathFromLeaf(leafId) {
@@ -224,7 +232,8 @@ if (search) {
     const r = new RegExp(brand, "i");
     const ids = await Brand.find({ name: r }).select("_id");
     // If no match, force empty result rather than regex on ObjectId
-    filter.brand = ids.length ? { $in: ids.map(b => b._id) } : null;
+    // filter.brand = ids.length ? { $in: ids.map(b => b._id) } : null;
+    filter.brand = { $in: ids.map(b => b._id) };
   }
 }
 
@@ -295,44 +304,58 @@ if (search) {
       }));
     }
 
-    return res.json({ items, total, page: pageNum, limit: limitNum });
-  } catch (error) {
-    console.error("Failed to fetch products:", error);
-    return res.status(500).json({ message: "Failed to fetch products", error: error.message });
+
+  // ----- OFFER DECORATION -----
+const productIds = items.map(it => it.product._id);
+
+// collect all category ids from all items (use path if present, else leaf)
+const categoryIds = Array.from(new Set(
+  items.flatMap(it => {
+    const p = it.product;
+    if (Array.isArray(p.categoryPath) && p.categoryPath.length) return p.categoryPath;
+    return [p.subcategory || p.category].filter(Boolean);
+  })
+));
+
+// fetch once
+const offers = await fetchActiveOffers({ productIds, categoryIds });
+
+// decorate
+const decorated = items.map(({ product, variants }) => {
+  const best = pickBestOfferForProduct(offers, product);
+  const offerSummary = best ? { _id: best._id, name: best.name, type: best.type, value: best.value, maxDiscount: best.maxDiscount ?? undefined } : null;
+
+  if (variants.length) {
+    const variantsDecorated = variants.map(v => {
+      const price = Number(v.price) || 0;
+      const alreadyOnSale = v.compareAtPrice && Number(v.compareAtPrice) > price;
+      if (best && !best.applyToSaleItems && alreadyOnSale) return { ...v, salePrice: price, discount: 0, appliedOffer: null };
+      const { salePrice, discount } = applyOfferToPrice(price, best);
+      return { ...v, salePrice, discount, appliedOffer: offerSummary };
+    });
+
+    const base = Number(variants[0].price) || 0;                 // or compute min
+    const sale = Number(variantsDecorated[0].salePrice) || base;
+    return {
+      product: { ...product, pricing: { basePrice: base, salePrice: sale, discount: Math.max(0, base - sale) }, appliedOffer: offerSummary },
+      variants: variantsDecorated,
+    };
   }
-};
+
+  const base = Number(product.defaultPrice ?? product.price ?? 0);
+  const alreadyOnSale = product.compareAtPrice && Number(product.compareAtPrice) > base;
+  if (best && !best.applyToSaleItems && alreadyOnSale) {
+    return { product: { ...product, salePrice: base, discount: 0, appliedOffer: null, pricing: { basePrice: base, salePrice: base, discount: 0 } }, variants: [] };
+  }
+  const { salePrice, discount } = applyOfferToPrice(base, best);
+  return { product: { ...product, salePrice, discount, appliedOffer: offerSummary, pricing: { basePrice: base, salePrice, discount } }, variants: [] };
+});
+
+return res.json({ items: decorated, total, page: pageNum, limit: limitNum });
 
 
-// GET /api/products/by-category/:id?deep=1&page=1&limit=24
-export const getProductsByCategory = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deep = req.query.deep === "1";
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 24));
-    const skip = (page - 1) * limit;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid category id" });
-    }
 
-    const filter = deep ? { categoryPath: id } : { subcategory: id };
-    const [products, total] = await Promise.all([
-      Product.find(filter).populate("brand", "name slug logo").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      Product.countDocuments(filter),
-    ]);
-
-    const ids = products.map(p => p._id);
-    const allVariants = await Variant.find({ product: { $in: ids } }).lean();
-    const map = new Map();
-    for (const v of allVariants) {
-      const k = String(v.product);
-      if (!map.has(k)) map.set(k, []);
-      map.get(k).push(v);
-    }
-
-    const items = products.map(p => ({ product: p, variants: map.get(String(p._id)) || [] }));
-    res.json({ items, total, page, pages: Math.ceil(total / limit) });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Failed to fetch products by category", error: e.message });
@@ -342,18 +365,145 @@ export const getProductsByCategory = async (req, res) => {
 
 
 // Get single product with variants
+// export const getProductById = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id).populate("brand", "name slug logo").lean();
+//     if (!product) return res.status(404).json({ message: "Product not found" });
+
+//     const variants = await Variant.find({ product: product._id }).lean();
+//     return res.json({ product, variants });
+//   } catch (error) {
+//     return res.status(404).json({ message: "Product not found", error: error.message });
+//   }
+// };
+
+
+// Get single product with variants + offer-aware prices
+// export const getProductById = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id)
+//       .populate("brand", "name slug logo")
+//       .lean();
+//     if (!product) return res.status(404).json({ message: "Product not found" });
+
+//     const variants = await Variant.find({ product: product._id }).lean();
+
+//     // Load active offers relevant to this product (by id + its categoryPath)
+//     const activeOffers = await fetchActiveOffers({
+//       productIds: [product._id],
+//       categoryIds: product.categoryPath || [],
+//     });
+
+//     const best = pickBestOfferForProduct(activeOffers, product);
+
+//     // Compute effective product price (for no-variant case / baseline)
+//     let productEffectivePrice = null;
+//     let productDiscount = 0;
+//     if (typeof product.defaultPrice === "number") {
+//       const { salePrice, discount } = applyOfferToPrice(product.defaultPrice, best);
+//       productEffectivePrice = salePrice;
+//       productDiscount = discount;
+//     }
+
+//     // Attach effective price to each variant too
+//     const variantsWithPrice = variants.map((v) => {
+//       const { salePrice, discount } = applyOfferToPrice(v.price, best);
+//       return {
+//         ...v,
+//         effectivePrice: salePrice,
+//         discountAmount: discount,
+//       };
+//     });
+
+//     // Minimal offer payload for the client (omit large arrays)
+//     const appliedOffer = best
+//       ? {
+//           _id: best._id,
+//           name: best.name,
+//           percent: best.percent || 0,
+//           value: best.value || 0,
+//           scope: best.scope, // "all" | "products" | "categories"
+//         }
+//       : null;
+
+//     return res.json({
+//       product: {
+//         ...product,
+//         effectivePrice: productEffectivePrice, // might be null if only variants are used
+//         discountAmount: productDiscount,
+//         appliedOffer,
+//       },
+//       variants: variantsWithPrice,
+//     });
+//   } catch (error) {
+//     return res.status(500).json({ message: "Product not found", error: error.message });
+//   }
+// };
+
+
+
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).populate("brand", "name slug logo").lean();
+    const product = await Product.findById(req.params.id)
+      .populate("brand", "name slug logo")
+      .lean();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     const variants = await Variant.find({ product: product._id }).lean();
-    return res.json({ product, variants });
+
+    const activeOffers = await fetchActiveOffers({
+      productIds: [product._id],
+      categoryIds: product.categoryPath || [],
+    });
+
+    const best = pickBestOfferForProduct(activeOffers, product);
+    const offerSummary = summarizeOffer(best);
+
+    // variant-level pricing
+    const variantsWithPrice = variants.map((v) => {
+      const price = Number(v.price) || 0;
+      const alreadyOnSale = v.compareAtPrice && Number(v.compareAtPrice) > price;
+
+      if (best && !best.applyToSaleItems && alreadyOnSale) {
+        return { ...v, salePrice: price, discount: 0, appliedOffer: null };
+      }
+      const { salePrice, discount } = applyOfferToPrice(price, best);
+      return { ...v, salePrice, discount, appliedOffer: offerSummary };
+    });
+
+    // product-level pricing summary (works for both cases)
+    let pricing;
+    if (variantsWithPrice.length) {
+      const idx = 0; // or compute min
+      const base = Number(variants[idx].price) || 0;
+      const sale = Number(variantsWithPrice[idx].salePrice) || base;
+      pricing = { basePrice: base, salePrice: sale, discount: Math.max(0, base - sale) };
+    } else {
+      const base = Number(product.defaultPrice ?? product.price ?? 0);
+      const alreadyOnSale = product.compareAtPrice && Number(product.compareAtPrice) > base;
+      if (best && !best.applyToSaleItems && alreadyOnSale) {
+        pricing = { basePrice: base, salePrice: base, discount: 0 };
+      } else {
+        const { salePrice, discount } = applyOfferToPrice(base, best);
+        pricing = { basePrice: base, salePrice, discount };
+      }
+    }
+
+    return res.json({
+      product: {
+        ...product,
+        // keep legacy fields for compatibility if you like:
+        salePrice: variantsWithPrice.length ? null : pricing.salePrice,
+        discount: variantsWithPrice.length ? 0 : pricing.discount,
+        appliedOffer: offerSummary,
+        pricing, // <- consistent field the frontend can always use
+      },
+      variants: variantsWithPrice,
+    });
   } catch (error) {
-    return res.status(404).json({ message: "Product not found", error: error.message });
+    return res.status(500).json({ message: "Product not found", error: error.message });
   }
 };
-
 
 
 
@@ -450,8 +600,12 @@ export const getVariantsByProduct = async (req, res) => {
 
 // Update product (whitelist fields)
 // 🔔 Triggers notify if defaultStock transitions <=0 -> >0 OR isActive false->true
+// Update product (whitelist fields)
+// 🔔 Triggers notify when total stock crosses 0 -> >0, or product is reactivated with stock > 0
 export const updateProduct = async (req, res) => {
   try {
+    const productId = req.params.id;
+
     const allowed = [
       "name", "slug", "description", "brand", "brandName", "category",
       "tags", "options", "images", "defaultPrice", "compareAtPrice",
@@ -461,6 +615,7 @@ export const updateProduct = async (req, res) => {
     const patch = {};
     for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
 
+    // Normalize/resolve brand if passed
     if ("brand" in patch || "brandName" in patch) {
       const brandId = await ensureBrandFromPayload({
         brandId: patch.brand,
@@ -479,27 +634,29 @@ export const updateProduct = async (req, res) => {
     if ("defaultStock" in patch) patch.defaultStock = parseInt(patch.defaultStock ?? 0, 10);
     if (Array.isArray(patch.images)) patch.images = patch.images.slice(0, 4);
 
-    const before = await Product.findById(req.params.id).lean();
+    // ---- BEFORE snapshot (for status gating + stock comparison)
+    const before = await Product.findById(productId).lean();
     if (!before) return res.status(404).json({ message: "Product not found" });
 
-    const prevDefaultStock = Number(before.defaultStock) || 0;
     const prevActive = before.isActive !== false;
+    const { total: prevTotal } = await computeProductStock(productId);
 
+    // ---- Apply update
     const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
+      productId,
       patch,
       { new: true, runValidators: true }
     ).populate("brand", "name slug logo").lean();
 
-    // Decide if we should notify (product-level restock/reactivation)
-    const newDefaultStock = Number(updatedProduct?.defaultStock) || 0;
+    // ---- AFTER snapshot
     const newActive = updatedProduct?.isActive !== false;
+    const { total: newTotal } = await computeProductStock(productId);
 
-    const stockCameBack = ('defaultStock' in patch) && prevDefaultStock <= 0 && newDefaultStock > 0;
-    const reactivated = ('isActive' in patch) && !prevActive && newActive === true;
+    const crossedZero = prevTotal <= 0 && newTotal > 0;
+    const reactivated = ("isActive" in patch) && !prevActive && newActive && newTotal > 0;
 
-    if (stockCameBack || reactivated) {
-      await notifyBackInStockForProduct(updatedProduct._id);
+    if (crossedZero || reactivated) {
+      await notifyBackInStockForProduct(productId);
     }
 
     return res.json(updatedProduct);
@@ -507,6 +664,11 @@ export const updateProduct = async (req, res) => {
     return res.status(500).json({ message: "Failed to update product", error: error.message });
   }
 };
+
+
+
+
+
 // controllers/productController.js (same file, add this)
 export const upsertProductVariants = async (req, res) => {
   const session = await mongoose.startSession();
@@ -630,3 +792,63 @@ const newTotal = Number(after?.total || 0);
 };
 
 
+// List minimal product options for pickers (id + name)
+// controllers/productController.js
+export const listProductOptions = async (req, res) => {
+  try {
+    const { q = "", limit = 200 } = req.query;
+    const lim = Math.min(Number(limit) || 200, 1000);
+    const filter = q ? { name: new RegExp(q, "i") } : {};
+    const docs = await Product.find(filter).select("_id name").sort({ name: 1 }).limit(lim).lean();
+    res.json({ items: docs.map(d => ({ _id: d._id, name: d.name })) });
+  } catch (e) {
+    console.error("listProductOptions error:", e);
+    res.status(500).json({ message: "Failed to fetch product options" });
+  }
+};
+
+export const listAllProducts = async (req, res) => {
+  try {
+    // fetch your products however you do today
+    const items = await Product.find(/* ... */).lean();
+
+    // collect ids to prune the offers query
+    const productIds = items.map(p => p._id);
+    // if you store categoryPath, take all unique ids in the paths for pruning
+    const categoryIds = Array.from(new Set(
+  items.flatMap(it => {
+    const p = it.product;
+    if (Array.isArray(p.categoryPath) && p.categoryPath.length) return p.categoryPath;
+    return [p.subcategory || p.category].filter(Boolean);
+  })
+));
+
+
+    const offers = await fetchActiveOffers({ productIds, categoryIds });
+
+    const decorated = items.map((p) => {
+      const matched = pickBestOfferForProduct(offers, p);
+
+      // if you have variants, compute a representative price for list view
+      const basePrice = p.variants?.length ? Number(p.variants[0].price) : Number(p.price);
+      const isSaleItem = !!(p.variants?.[0]?.compareAtPrice || p.compareAtPrice);
+      const { salePrice, discount } = applyOfferToPrice(basePrice, matched, { isSaleItem });
+
+      return {
+        ...p,
+        pricing: {
+          basePrice,
+          salePrice,
+          discount,
+          offer: matched
+            ? { _id: matched._id, name: matched.name, type: matched.type, value: matched.value }
+            : null,
+        },
+      };
+    });
+
+    res.json({ items: decorated });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+};
