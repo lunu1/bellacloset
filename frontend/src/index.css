@@ -34,3 +34,11 @@ a.active {
   font-style: normal;
 }
 
+/* Hide scrollbars in all modern browsers */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;            /* Chrome/Safari */
+}
