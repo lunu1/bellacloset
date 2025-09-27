@@ -26,6 +26,35 @@ export const createCategory = async (req, res) => {
   }
 };
 
+export const listAllCategoriesFlat = async (req, res) => {
+  try {
+    const cats = await Category.find({}, { label: 1, name: 1, parent: 1 }).lean();
+
+    const byId = new Map(cats.map(c => [String(c._id), c]));
+    const fullPath = (id) => {
+      const parts = [];
+      let cur = byId.get(String(id));
+      while (cur) {
+        const text = cur.label ?? cur.name ?? "";
+        parts.unshift(text);
+        cur = cur.parent ? byId.get(String(cur.parent)) : null;
+      }
+      return parts.join(" > ");
+    };
+
+    const items = cats.map(c => ({
+      _id: c._id,
+      value: String(c._id),
+      label: c.label ?? c.name ?? "",
+      pathLabel: fullPath(c._id),
+    }));
+
+    res.json({ items });
+  } catch (e) {
+    res.status(500).json({ message: "Failed to load categories", error: e.message });
+  }
+};
+
 // Get all categories with nested children
 export const getCategories = async (req, res) => {
   try {

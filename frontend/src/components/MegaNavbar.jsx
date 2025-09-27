@@ -109,13 +109,13 @@ export default function DesignerNavbar() {
 
       {/* DESKTOP: single-row scroller with arrows + hover mega menu */}
       <nav className="hidden md:block bg-white relative">
-        <div className="container mx-auto px-3 relative">
+        <div className="container mx-auto  relative">
           {/* arrows */}
           {showLeft && (
             <button
               aria-label="Scroll left"
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-9 w-9 rounded-full bg-white border border-gray-300 shadow hover:border-black"
-              onClick={() => scrollByAmount(-1)}
+              onClick={() =>  showLeft && scrollByAmount(-1)}
             >
               ‹
             </button>
@@ -133,8 +133,8 @@ export default function DesignerNavbar() {
           {/* single-line scroll row */}
           <div
             ref={rowRef}
-            className="flex flex-nowrap items-center gap-x-4 py-2 overflow-x-auto scrollbar-thin"
-            style={{ scrollbarWidth: "thin" }} // Firefox thin scrollbar
+            className="flex flex-nowrap items-center gap-x-4 py-2 overflow-x-auto no-scrollbar "
+            // style={{ scrollbarWidth: "thin" }} // Firefox thin scrollbar
             onMouseLeave={handleMouseLeave}
           >
             {loading && <div className="px-2 py-2">Loading...</div>}
@@ -148,7 +148,7 @@ export default function DesignerNavbar() {
                 >
                   <button
                     type="button"
-                    className="px-3 py-3 text-md tracking-wide hover:font-bold uppercase whitespace-nowrap"
+                    className="px-2 py-3 text-md tracking-wide hover:font-bold uppercase whitespace-nowrap text-start"
                     onClick={() => goToCategory(category._id)}
                   >
                     {category.label}

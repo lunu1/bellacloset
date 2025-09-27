@@ -26,7 +26,8 @@ function Navbar({ token, setToken }) {
   return (
     <div className="flex items-center justify-between px-[4%] py-2 bg-white">
       <Link to="/">
-        <h1 className="bodoni-moda-heading text-2xl uppercase">Bella Closet</h1>
+        {/* <h1 className="bodoni-moda-heading text-2xl uppercase">Bella Closet</h1> */}
+        <img src="/logo.png" alt="Logo" className="h-10" />
       </Link>
    
    {isAdminLoggedIn ?(

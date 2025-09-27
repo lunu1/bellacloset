@@ -1,140 +1,124 @@
-// services/backInStockService.js
 import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import Variant from "../models/Variants.js";
-import BackInStock from "../models/BackInStock.js";
-import sendEmail from "../utils/sendEmail.js";
+import BackInStockSubscription from "../models/BackInStockSubscription.js";
+import BackInStockLog from "../models/BackInStockLog.js";
+import { emailBackInStock } from "./email.service.js";
 
-const DEBUG = process.env.BACKINSTOCK_DEBUG === "1";
+const { APP_URL } = process.env; // e.g. https://your-frontend.com
 
-/**
- * Compute available stock for a product using the chosen policy.
- *
- * policy:
- *  - "max"      -> max(defaultStock, sum(variants))
- *  - "sum"      -> defaultStock + sum(variants)
- *  - "variants" -> sum(variants) only
- *  - "default"  -> defaultStock only
- *
- * Choose the one that matches how you treat stock in your shop.
- */
-export async function computeProductStock(productId, policy = process.env.BACKINSTOCK_POLICY || "max") {
-  // Sum ACTIVE variants (isActive !== false)
-  const agg = await Variant.aggregate([
-    { $match: { product: new mongoose.Types.ObjectId(productId), isActive: { $ne: false } } },
-    { $group: { _id: "$product", stock: { $sum: { $ifNull: ["$stock", 0] } } } },
-  ]);
-  const variantTotal = agg?.[0]?.stock ?? 0;
+/** Compute total available stock for a product (sum of active variant stock;
+ *  if no variants exist, fallback to product.defaultStock). */
+export async function computeProductStock(productId) {
+  const pid = new mongoose.Types.ObjectId(productId);
 
-  // Product default stock
-  const p = await Product.findById(productId).select("defaultStock");
-  const base = Number(p?.defaultStock) || 0;
-
-  let total = 0;
-  switch (String(policy).toLowerCase()) {
-    case "sum":
-      total = base + variantTotal;
-      break;
-    case "variants":
-      total = variantTotal;
-      break;
-    case "default":
-      total = base;
-      break;
-    case "max":
-    default:
-      total = Math.max(base, variantTotal);
-      break;
+  // check if variants exist for this product
+  const variantCount = await Variant.countDocuments({ product: pid });
+  if (variantCount > 0) {
+    const agg = await Variant.aggregate([
+      { $match: { product: pid, isActive: { $ne: false } } },
+      { $group: { _id: "$product", total: { $sum: { $ifNull: ["$stock", 0] } } } },
+    ]);
+    return { total: agg?.[0]?.total ?? 0, hasVariants: true };
   }
 
-  if (DEBUG) {
-    console.log("[BackInStock] computeProductStock", {
-      productId: String(productId),
-      policy,
-      defaultStock: base,
-      variantTotal,
-      total,
-    });
-  }
-  return { total, defaultStock: base, variantTotal, policy };
+  // fallback to product.defaultStock
+  const p = await Product.findById(pid).select("defaultStock").lean();
+  return { total: Number(p?.defaultStock || 0), hasVariants: false };
 }
 
-/**
- * Notify all subscribers that a product is back in stock.
- * - Skips if product is missing or inactive.
- * - Uses computeProductStock() to decide availability.
- * - Sends email via utils/sendEmail.js
- * - Clears all subscriptions for that product afterward.
- */
-export async function notifyBackInStockForProduct(productId) {
-  const product = await Product.findById(productId).select("_id name isActive");
-  if (!product) {
-    if (DEBUG) console.log("[BackInStock] product not found", productId);
-    return;
-  }
-  if (product.isActive === false) {
-    if (DEBUG) console.log("[BackInStock] product inactive, abort", productId);
-    return;
+/** Create/reactivate a subscription (idempotent on product+email). */
+export async function subscribeBackInStock({ userId, email, productId, variantId = null, source = "notify_button", locale }) {
+  if (!email) throw new Error("Email required");
+  if (!productId) throw new Error("productId required");
+
+  const existing = await BackInStockSubscription.findOne({ product: productId, email }).lean();
+  if (existing && existing.active) {
+    return { subscription: existing, created: false, reactivated: false };
   }
 
-  const { total, defaultStock, variantTotal, policy } = await computeProductStock(productId);
-
-  if (total <= 0) {
-    if (DEBUG) console.log("[BackInStock] still out of stock (total<=0), abort", { productId: String(productId), defaultStock, variantTotal, policy });
-    return;
+  if (existing && !existing.active) {
+    const sub = await BackInStockSubscription.findByIdAndUpdate(
+      existing._id,
+      { active: true, unsubscribedAt: null, variant: variantId || existing.variant, source, locale },
+      { new: true }
+    );
+    return { subscription: sub, created: false, reactivated: true };
   }
 
-  // Find subscribers
-  const subs = await BackInStock.find({ product: productId }).populate("user", "email name");
-  if (DEBUG) console.log("[BackInStock] subs found", subs.length, "for product", String(productId));
-  if (!subs.length) return;
-
-  const productUrl = `${process.env.CLIENT_URL || "http://localhost:5173"}/product/${productId}`;
-
-  const sendJobs = subs.map(async (sub) => {
-    const to = sub.user?.email || sub.email;
-    if (!to) {
-      if (DEBUG) console.log("[BackInStock] skip sub without email", String(sub._id));
-      return;
-    }
-    await sendEmail({
-      to,
-      subject: `Back in stock: ${product.name}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;font-size:14px;color:#333">
-          <p>Good news! <strong>${product.name}</strong> is back in stock.</p>
-          <p><a href="${productUrl}" target="_blank" style="background:#111;color:#fff;padding:10px 16px;border-radius:4px;text-decoration:none">Shop now</a></p>
-          <p style="color:#666;font-size:12px;">You're receiving this because you subscribed to back-in-stock alerts.</p>
-        </div>
-      `,
-    });
-    if (DEBUG) console.log("[BackInStock] email sent to", to);
+  const sub = await BackInStockSubscription.create({
+    user: userId || undefined,
+    email,
+    product: productId,
+    variant: variantId || undefined,
+    source,
+    locale,
+    active: true,
   });
-
-  const results = await Promise.allSettled(sendJobs);
-  const failures = results.filter(r => r.status === "rejected");
-  if (failures.length) {
-    console.error("[BackInStock] email failures:", failures.map(f => f.reason));
-  }
-
-  // Clear all subs for this product so users aren’t notified multiple times
-  await BackInStock.deleteMany({ product: productId });
-  if (DEBUG) console.log("[BackInStock] subs cleared for product", String(productId));
+  return { subscription: sub.toObject(), created: true, reactivated: false };
 }
 
-/**
- * Optional helper: sweep all products that currently have subscriptions.
- * Useful for a cron job if stock can change outside your normal update flows.
- */
-export async function sweepAndNotifyAll() {
-  const subs = await BackInStock.find().select("product").lean();
-  const unique = [...new Set(subs.map(s => String(s.product)))];
-  if (DEBUG) console.log("[BackInStock] sweep unique products", unique.length);
-  for (const pid of unique) {
+/** Build a minimal product snapshot for email content/links. */
+async function getProductSnapshot(productId) {
+  const p = await Product.findById(productId).select("_id name slug images").lean();
+  if (!p) return null;
+  // Build a product URL that matches your frontend:
+  // You currently use /product/:id
+  const url = APP_URL ? `${APP_URL}/product/${p._id}` : `/product/${p._id}`;
+  return { id: String(p._id), name: p.name || "Product", url, image: p.images?.[0] };
+}
+
+/** Notify all active subscribers if stock > 0. After send, auto-deactivate the subscription (one-shot). */
+export async function notifyBackInStockForProduct(productId) {
+  const { total } = await computeProductStock(productId);
+  if (total <= 0) return { sent: 0, skipped: 0, reason: "no_stock" };
+
+  const product = await getProductSnapshot(productId);
+  if (!product) return { sent: 0, skipped: 0, reason: "product_missing" };
+
+  const subs = await BackInStockSubscription.find({ product: productId, active: true }).lean();
+  if (!subs.length) return { sent: 0, skipped: 0, reason: "no_subscribers" };
+
+  let sent = 0, skipped = 0;
+
+  for (const s of subs) {
     try {
-      await notifyBackInStockForProduct(pid);
-    } catch (e) {
-      console.error("[BackInStock] sweep error for", pid, e);
+      const resp = await emailBackInStock({
+        to: s.email,
+        user: s.user ? { _id: s.user } : null,
+        product,
+      });
+
+      await BackInStockLog.create({
+        subscription: s._id,
+        product: productId,
+        variant: s.variant || undefined,
+        email: s.email,
+        status: "sent",
+        providerId: resp?.messageId || undefined,
+        stockAtSend: total,
+      });
+
+      // one-shot: deactivate after sending
+      await BackInStockSubscription.findByIdAndUpdate(s._id, {
+        active: false,
+        lastNotifiedAt: new Date(),
+      });
+
+      sent += 1;
+    } catch (err) {
+      await BackInStockLog.create({
+        subscription: s._id,
+        product: productId,
+        variant: s.variant || undefined,
+        email: s.email,
+        status: "failed",
+        error: err?.message || String(err),
+        stockAtSend: total,
+      });
+      skipped += 1;
     }
   }
+
+  return { sent, skipped, reason: null };
 }

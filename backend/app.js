@@ -24,6 +24,8 @@ import adminOrderRoutes from './routes/adminOrderRoutes.js';
 import brandRoutes from './routes/brandRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import notifyRoutes from "./routes/notifyRoutes.js";
+import offerRoutes from "./routes/offerRoutes.js";
+import adminOfferRoutes from "./routes/adminOfferRoutes.js";
 
 // Connect to MongoDB database
 connectDB();
@@ -38,7 +40,9 @@ const debugging = debug("development:app");
 const allowedOrigins = [
   'http://localhost:5173', 
   'http://localhost:5174',
-  'http://localhost:5175', // ✅ ADD THIS LINE
+  'http://localhost:5175',
+  'http://localhost:5176',
+  
   'https://your-production-site.com',
   'https://your-admin-site.com'
 ];
@@ -54,6 +58,7 @@ app.use(cors({
     }
   },
   credentials: true,
+  
 }));
 
 
@@ -89,7 +94,8 @@ app.use("/api/settings", settingRoutes)
 app.use("/api/admin/orders", adminOrderRoutes)
 app.use("/api/notify", notifyRoutes);
 app.use("/api/reviews",reviewRoutes);
-
+app.use("/api/offers", adminOfferRoutes);
+app.use("/api/public/offer", offerRoutes);  
 
 app.get("/", (req, res) => {
   res.send("API Working");

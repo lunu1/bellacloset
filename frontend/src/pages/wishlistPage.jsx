@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+// src/pages/WishlistPage.jsx
+import { useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { getWishlist, removeFromWishlist } from "../features/wishlist/wishlistSlice";
 import { toast } from "react-toastify";
-import { Trash2, ShoppingBag } from "lucide-react";
+import { Trash2, ShoppingBag, RotateCw } from "lucide-react";
 import { brandLabel } from "../utils/brandLabel";
 import NotifyMeButton from "../components/NotifyMeButton";
 
@@ -54,33 +55,63 @@ export default function WishlistPage() {
   const loading = useSelector((s) => s.wishlist.loading);
   const items = useSelector((s) => s.wishlist.items || []);
 
+  // initial load
   useEffect(() => {
     dispatch(getWishlist());
   }, [dispatch]);
+
+  // refetch when tab/window becomes active
+  useEffect(() => {
+    const onFocus = () => dispatch(getWishlist());
+    const onVisible = () => {
+      if (document.visibilityState === "visible") dispatch(getWishlist());
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [dispatch]);
+
+  // while any item is out of stock, poll every 45s
+  const hasOOS = useMemo(() => items.some((it) => it.status === "out_of_stock"), [items]);
+  useEffect(() => {
+    if (!hasOOS) return;
+    const id = setInterval(() => dispatch(getWishlist()), 45000);
+    return () => clearInterval(id);
+  }, [hasOOS, dispatch]);
 
   const handleRemove = async (wishlistId, productId) => {
     try {
       await dispatch(removeFromWishlist({ wishlistId, productId })).unwrap();
       toast.success("Removed from wishlist");
+      // optional: refresh after removal to update stock labels if same product appears multiple times
+      dispatch(getWishlist());
     } catch (error) {
       const msg = error?.message || error?.error || "Failed to remove item";
       toast.error(msg);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <p className="text-center text-gray-600">Loading wishlist...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 text-gray-900">My Wishlist</h1>
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900">My Wishlist</h1>
+        <button
+          onClick={() => dispatch(getWishlist())}
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-md hover:bg-gray-50"
+          title="Refresh"
+        >
+          <RotateCw size={16} />
+          Refresh
+        </button>
+      </div>
 
-      {items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <div className="text-center text-gray-600">Loading wishlist...</div>
+      ) : items.length === 0 ? (
         <div className="text-center py-12">
           <ShoppingBag size={48} className="mx-auto text-gray-400 mb-4" />
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Your wishlist is empty</h2>
@@ -102,8 +133,7 @@ export default function WishlistPage() {
               typeof product?.defaultPrice === "number" ? product.defaultPrice : null;
 
             const isUnavailable = status === "product_unavailable";
-            const cardBorder =
-              isUnavailable ? "border-red-200" : "border-gray-200";
+            const cardBorder = isUnavailable ? "border-red-200" : "border-gray-200";
             const imgFilter = isUnavailable ? "grayscale" : "";
 
             return (

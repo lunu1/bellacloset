@@ -21,6 +21,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { AdminContext } from "./context/AdminContext";
 import ProductEdit from "./pages/admin/ProductEdit";
 import SettingsPage from "./pages/SettingPage";
+import Offer from "./pages/Offer";
 
 export let currency = "PKR. ";
 
@@ -64,6 +65,7 @@ const App = () => {
                 <Route path="/products" element={<Products />} />
                 <Route path="/login" element={<Navigate to="/" />} />
                 <Route path="/settings" element={<SettingsPage/>} />
+                
                 <Route path="*" element={<Navigate to="/" />} />
 
                 <Route
