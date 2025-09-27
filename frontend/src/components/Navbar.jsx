@@ -179,7 +179,7 @@ const Navbar = () => {
 
           {/* Suggestions (desktop) */}
           {search && (
-            <ul className="absolute z-50 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto shadow">
+            <ul className="absolute z-50 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto no-scrollbar shadow">
               {suggestions.length > 0 ? (
                 suggestions.map((sugg, i) => (
                   <li
