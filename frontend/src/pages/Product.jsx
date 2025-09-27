@@ -34,6 +34,13 @@ import ProductActions from "../components/product/ProductActions";
 import ProductTabs from "../components/product/ProductTabs";
 import RelatedProducts from "../components/RelatedProducts";
 
+
+import {
+  getReviewsByProduct,
+  clearReviews,
+  addReview,
+} from "../features/reviews/reviewsSlice";
+
 import {
   getAvailableColors,
   getAvailableSizes,
@@ -73,6 +80,9 @@ export default function Product() {
   const reviews = useSelector((s) => s.reviews.items);
   const reviewsLoading = useSelector((s) => s.reviews.loading);
   const reviewPosting = useSelector((s) => s.reviews.posting);
+  const revPage       = useSelector((s) => s.reviews.page);
+  const revPages      = useSelector((s) => s.reviews.pages);
+  const revSummary    = useSelector((s) => s.reviews.summary);
 
   // Only variants for this product id
   const variants = useMemo(
@@ -118,8 +128,8 @@ export default function Product() {
     dispatch(clearVariants());
     dispatch(getVariantsByProduct(productData.product._id));
     // reviews are independent; if you have reviews slice:
-    // dispatch(clearReviews());
-    // dispatch(getReviewsByProduct(productData.product._id));
+    dispatch(clearReviews());
+    dispatch(getReviewsByProduct({ productId: productData.product._id, page: 1, limit: 10, sort: "newest" }));
 
     // reset local selection
     setSelectedVariant(null);
