@@ -127,9 +127,9 @@ const Navbar = () => {
   return (
     <header className="">
       {/* Top bar */}
-      <div className="container mx-auto flex items-center justify-between pt-9 pb-5 gap-3">
+      <div className="container mx-auto flex items-center  pt-9 pb-5 gap-3">
         {/* Left: Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Mobile menu button */}
           <button
             aria-label="Open menu"
@@ -139,21 +139,20 @@ const Navbar = () => {
             <img src={assets.menu_icon} className="w-6" alt="menu" />
           </button>
 
-          <Link to="/" className="shrink-0" aria-label="Bella Closet home">
+         <Link to="/" className="shrink-0" aria-label="Bella Closet home">
   <img
-    src="/logo.png"
-    alt="Bella Closet"
-    className="block w-32 sm:w-40 object-contain"
-    width={160}  // adjust to your actual logo size
-    height={40}
-    loading="eager"
-    decoding="async"
-  />
+        src="/logo.png"
+        alt="Bella Closet"
+        className="block h-8 sm:h-10 md:h-12 w-auto max-w-[40vw] md:max-w-[26vw] object-contain"
+        loading="eager"
+        decoding="async"
+      />
 </Link>
+
         </div>
 
         {/* Center: Desktop search */}
-        <div className="hidden sm:block w-full max-w-2xl relative">
+        <div className="hidden sm:block flex-1 min-w-0 relative">
           <form
             onSubmit={handleSearchSubmit}
             className="inline-flex items-center w-full px-4 py-2 border border-black rounded-md"
