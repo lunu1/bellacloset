@@ -1,0 +1,5 @@
+
+# env files
+admin/.env
+frontend/.env
+**/.env

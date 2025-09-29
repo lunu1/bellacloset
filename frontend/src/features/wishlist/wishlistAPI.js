@@ -1,12 +1,12 @@
 import axios from "axios";
 
 const wishlist = axios.create({
-  baseURL: "http://localhost:4000/api/wishlist",
+  baseURL: "https://bellaluxurycloset.com/api/wishlist",
   withCredentials: true,
 });
 
 const notify = axios.create({
-  baseURL: "http://localhost:4000/api/notify",
+  baseURL: "https://bellaluxurycloset.com/api/notify",
   withCredentials: true,
 });
 

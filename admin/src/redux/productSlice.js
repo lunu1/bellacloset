@@ -5,7 +5,7 @@ export const createProduct = createAsyncThunk(
   'products/create',
   async (data, { rejectWithValue }) => {
     try {
-      const res = await axios.post('http://localhost:4000/api/products/create', data);
+      const res = await axios.post('https://bellaluxurycloset.com/api/products/create', data);
       return res.data;
     } catch (err) {
       return rejectWithValue(err.response.data);

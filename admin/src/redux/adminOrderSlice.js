@@ -2,7 +2,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const BASE_URL = `${import.meta.env.VITE_API_URL || "http://localhost:4000"}/api/admin/orders`;
+const BASE_URL = `${import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com"}/api/admin/orders`;
 
 // Helpers
 const errPayload = (err) => err?.response?.data || { message: "Request failed" };

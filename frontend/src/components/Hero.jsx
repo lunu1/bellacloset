@@ -10,8 +10,8 @@ const Hero = () => {
     const fetchBanners = async () => {
       
         const [heroRes, promoRes] = await Promise.allSettled([
-          axios.get("http://localhost:4000/api/banner/hero"),
-          axios.get("http://localhost:4000/api/banner/promo"),
+          axios.get("https://bellaluxurycloset.com/api/banner/hero"),
+          axios.get("https://bellaluxurycloset.com/api/banner/promo"),
         ]);
         if (heroRes.status === "fulfilled" && heroRes.value?.data?.imageUrl) {
           setHeroBanner(heroRes.value.data.imageUrl);

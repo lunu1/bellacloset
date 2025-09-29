@@ -101,9 +101,9 @@ export default function Bannersection() {
   useEffect(() => {
     const fetchBanners = async () => {
       const [banner1Res, banner2Res, banner3Res] = await Promise.allSettled([
-        axios.get("http://localhost:4000/api/banner/banner-1"),
-        axios.get("http://localhost:4000/api/banner/banner-2"),
-        axios.get("http://localhost:4000/api/banner/banner-3"),
+        axios.get("https://bellaluxurycloset.com/api/banner/banner-1"),
+        axios.get("https://bellaluxurycloset.com/api/banner/banner-2"),
+        axios.get("https://bellaluxurycloset.com/api/banner/banner-3"),
       ]);
 
       if (banner1Res.status === "fulfilled" && banner1Res.value?.data?.imageUrl) {

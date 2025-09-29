@@ -241,7 +241,7 @@ const VariantBuilderGrouped = ({
     files.forEach((file) => formData.append("images", file));
     try {
       const res = await axios.post(
-        `${import.meta.env.VITE_API_URL || "http://localhost:4000/api"}/upload/images`,
+        `${import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com/api"}/upload/images`,
         formData
       );
       setVariantData((prev) => ({

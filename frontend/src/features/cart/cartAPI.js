@@ -1,7 +1,7 @@
 // src/features/cart/cartAPI.js
 import axios from "axios";
 
-const BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+const BASE = import.meta.env.VITE_BACKEND_URL || "https://bellaluxurycloset.com";
 const api = axios.create({
   baseURL: `${BASE}/api/cart`,
   withCredentials: true,

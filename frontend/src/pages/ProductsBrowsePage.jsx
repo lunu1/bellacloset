@@ -9,7 +9,7 @@ import ProductCard from "../pages/ProductShowcase/ProductCard"
 import { useLocation } from "react-router-dom";
 
 
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = "https://bellaluxurycloset.com/api";
 
 const formatAED = (n) =>
   typeof n === "number" && !Number.isNaN(n)

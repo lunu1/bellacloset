@@ -1,7 +1,7 @@
 // src/lib/api.js
 import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const BASE_URL = import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com";
 
 // Public/general client (cookies ok if you need them)
 export const api = axios.create({

@@ -7,6 +7,7 @@ const BASE = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE}/api`;
 
 export const adminProductsApi = createApi({
   reducerPath: "adminProductsApi",
+
  baseQuery: fetchBaseQuery({
   baseUrl: BASE,            // <-- was VITE_API_URL or http://.../api
   credentials: "include",
