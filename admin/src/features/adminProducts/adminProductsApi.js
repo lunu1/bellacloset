@@ -1,11 +1,16 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
+// Ensure base always ends with /api (works with host or "/api")
+const RAW_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const BASE = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE}/api`;
+
+
 export const adminProductsApi = createApi({
   reducerPath: "adminProductsApi",
-  baseQuery: fetchBaseQuery({
-    baseUrl: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
-    credentials: "include", // send cookies for admin auth (JWT)
-  }),
+ baseQuery: fetchBaseQuery({
+  baseUrl: BASE,            // <-- was VITE_API_URL or http://.../api
+  credentials: "include",
+}),
   tagTypes: ["Product"],
   endpoints: (builder) => ({
     // GET /products/all?search=&page=&limit=&sortBy=&sortOrder=&category=&subcategory=&brand=&isActive=
