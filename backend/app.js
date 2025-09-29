@@ -42,7 +42,8 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:5175', // ✅ ADD THIS LINE
  "https://bellaluxurycloset.com",
- " https://admin.bellaluxurycloset.com/"
+ "https://admin.bellaluxurycloset.com"
+ 
 ];
 
 // Middlewares
