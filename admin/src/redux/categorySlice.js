@@ -4,7 +4,7 @@ import axios from 'axios';
 
 //Async function to fetch categroies
 export const fetchCategories = createAsyncThunk('category/fetch', async () => {
-    const response = await axios.get('http://localhost:4000/api/category');
+    const response = await axios.get('https://bellaluxurycloset.com/api/category');
     return response.data;
 });
 

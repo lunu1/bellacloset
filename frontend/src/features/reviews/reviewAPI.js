@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE = "http://localhost:4000/api";
+const BASE = "https://bellaluxurycloset.com/api";
 
 export const fetchReviewsByProduct = async (productId, { page = 1, limit = 10, sort = "newest" } = {}, signal) => {
   const { data } = await axios.get(`${BASE}/reviews/product/${productId}`, {

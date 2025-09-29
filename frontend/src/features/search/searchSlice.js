@@ -2,7 +2,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const backendUrl = 'http://localhost:4000'; // Update if different
+const backendUrl = 'https://bellaluxurycloset.com'; // Update if different
 
 // 👉 Fetch full search results
 export const fetchSearchResults = createAsyncThunk(

@@ -4,7 +4,7 @@ import axios from "axios";
 const api = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL
     ? `${import.meta.env.VITE_BACKEND_URL}/api/notify`
-    : "http://localhost:4000/api/notify",
+    : "https://bellaluxurycloset.com/api/notify",
   withCredentials: true,
 });
 
