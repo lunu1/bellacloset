@@ -23,7 +23,7 @@ import ProductEdit from "./pages/admin/ProductEdit";
 import SettingsPage from "./pages/SettingPage";
 import Offer from "./pages/Offer";
 
-export let currency = "PKR. ";
+export let currency = "AED. ";
 
 const App = () => {
   const { isAdminLoggedIn, loading } = useContext(AdminContext);
