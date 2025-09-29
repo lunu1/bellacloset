@@ -233,6 +233,56 @@ const VariantBuilderGrouped = ({
     setLocalErrors({ colorImages });
   }, [colors, variantData]);
 
+  // ---------- NEW: remove color / size helpers ----------
+  const removeColor = (color) => {
+    setColors((prev) => prev.filter((c) => c !== color));
+    setVariantData((prev) => {
+      const next = { ...prev };
+      delete next[color];
+      return next;
+    });
+    setExpanded((prev) => {
+      const next = { ...prev };
+      delete next[color];
+      return next;
+    });
+  };
+
+  const removeSize = (size) => {
+    setSizes((prevSizes) => {
+      const nextSizes = prevSizes.filter((s) => s !== size);
+      setVariantData((prevVD) => {
+        const vd = { ...prevVD };
+
+        if (colors.length > 0) {
+          // remove this size from every color block
+          for (const c of colors) {
+            const block = vd[c] || { images: [], sizes: {} };
+            const sizesCopy = { ...(block.sizes || {}) };
+            delete sizesCopy[size];
+
+            // if no sizes remain after removal, create a 'default' entry
+            if (Object.keys(sizesCopy).length === 0) {
+              sizesCopy["default"] = {
+                price: defaultPriceLocal,
+                stock: defaultStockLocal,
+                compareAtPrice: defaultCompareAtPriceLocal,
+              };
+            }
+
+            vd[c] = { ...block, sizes: sizesCopy };
+          }
+          return vd;
+        } else {
+          // sizes-only mode: delete the size node
+          delete vd[size];
+          return vd;
+        }
+      });
+      return nextSizes;
+    });
+  };
+
   // ---------- handlers ----------
   const handleImageUpload = async (e, color) => {
     const files = Array.from(e.target.files).slice(0, 4);
@@ -378,6 +428,25 @@ const VariantBuilderGrouped = ({
           </button>
         </div>
 
+        {/* NEW: chips to remove existing colors */}
+        {colors.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {colors.map((c) => (
+              <span key={c} className="inline-flex items-center gap-2 bg-gray-100 px-2 py-1 rounded text-sm">
+                {c}
+                <button
+                  type="button"
+                  onClick={() => removeColor(c)}
+                  className="text-red-600 hover:underline text-xs"
+                  title="Remove color"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-2">
           <input
             type="text"
@@ -399,17 +468,17 @@ const VariantBuilderGrouped = ({
                     if (colors.length > 0) {
                       for (const color of colors) {
                         const block = next[color] || { images: [], sizes: {} };
-                        block.sizes = { ...(block.sizes || {}) };
+                        const copy = { ...(block.sizes || {}) };
                         for (const s of toAdd) {
-                          if (!block.sizes[s]) {
-                            block.sizes[s] = {
+                          if (!copy[s]) {
+                            copy[s] = {
                               price: defaultPriceLocal,
                               stock: defaultStockLocal,
                               compareAtPrice: defaultCompareAtPriceLocal,
                             };
                           }
                         }
-                        next[color] = block;
+                        next[color] = { ...block, sizes: copy };
                       }
                     } else {
                       for (const s of toAdd) {
@@ -433,6 +502,25 @@ const VariantBuilderGrouped = ({
             Add Sizes
           </button>
         </div>
+
+        {/* NEW: chips to remove existing sizes */}
+        {sizes.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {sizes.map((s) => (
+              <span key={s} className="inline-flex items-center gap-2 bg-gray-100 px-2 py-1 rounded text-sm">
+                {s}
+                <button
+                  type="button"
+                  onClick={() => removeSize(s)}
+                  className="text-red-600 hover:underline text-xs"
+                  title="Remove size"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Per-Color groups */}
@@ -444,13 +532,24 @@ const VariantBuilderGrouped = ({
           <div key={color} className="border rounded-md p-4 bg-gray-50">
             <div className="flex justify-between items-center mb-2">
               <h4 className="font-medium text-gray-800">Color: {color}</h4>
-              <button
-                type="button"
-                className="text-blue-600 text-sm"
-                onClick={() => setExpanded((prev) => ({ ...prev, [color]: !prev[color] }))}
-              >
-                {expanded[color] ? "Hide" : "Add Price & Stock"}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="text-blue-600 text-sm"
+                  onClick={() => setExpanded((prev) => ({ ...prev, [color]: !prev[color] }))}
+                >
+                  {expanded[color] ? "Hide" : "Add Price & Stock"}
+                </button>
+                {/* NEW: remove color button */}
+                <button
+                  type="button"
+                  className="text-red-600 text-xs"
+                  onClick={() => removeColor(color)}
+                  title="Remove this color"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
 
             <div
@@ -527,6 +626,16 @@ const VariantBuilderGrouped = ({
                             />
                             {eStock && <p className="text-[10px] text-red-600 mt-1">{eStock}</p>}
                           </div>
+
+                          {/* NEW: remove size globally */}
+                          <button
+                            type="button"
+                            onClick={() => removeSize(size)}
+                            className="ml-auto text-red-600 text-xs"
+                            title="Remove this size (all colors)"
+                          >
+                            Remove size
+                          </button>
                         </div>
                       );
                     })
@@ -644,6 +753,16 @@ const VariantBuilderGrouped = ({
                   />
                   {eStock && <p className="text-[10px] text-red-600 mt-1">{eStock}</p>}
                 </div>
+
+                {/* NEW: remove size globally */}
+                <button
+                  type="button"
+                  onClick={() => removeSize(size)}
+                  className="ml-auto text-red-600 text-xs"
+                  title="Remove this size"
+                >
+                  Remove size
+                </button>
               </div>
             );
           })}

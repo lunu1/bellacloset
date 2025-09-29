@@ -9,7 +9,7 @@ import VariantBuilderGrouped from "../components/VariantBuilderGrouped";
 import BrandSelect from "../components/brand/BrandSelect";
 import { validateProductForm } from "../utils/validateProductForm";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com/api";
+const API_BASE = import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com";
 
 const ProductUpdateForm = ({
   initialProduct,
@@ -62,7 +62,7 @@ const ProductUpdateForm = ({
     (async () => {
       try {
         setBrandsLoading(true);
-        const { data } = await axios.get(`${API_BASE}/brands`);
+        const { data } = await axios.get(`${API_BASE}/api/brands`);
         const arr = Array.isArray(data) ? data : data?.brands || [];
         if (mounted) {
           setBrands(arr.sort((a, b) => a.name.localeCompare(b.name)));
@@ -136,7 +136,7 @@ const ProductUpdateForm = ({
 
     setUploadingDefault(true);
     try {
-      const { data } = await axios.post(`${API_BASE}/upload/images`, formData);
+      const { data } = await axios.post(`${API_BASE}/api/upload/images`, formData);
       const urls = data?.urls || [];
       setDefaultImages((prev) => [...prev, ...urls].slice(0, 4));
       toast.success("Images uploaded");
@@ -150,7 +150,7 @@ const ProductUpdateForm = ({
 
   // BrandSelect helper to create a brand
   async function createBrand(name) {
-    const { data } = await axios.post(`${API_BASE}/brands`, { name });
+    const { data } = await axios.post(`${API_BASE}/api/brands`, { name });
     const created = Array.isArray(data) ? data[0] : data;
     setBrands((prev) => {
       const exists = prev.some((b) => String(b._id) === String(created._id));
