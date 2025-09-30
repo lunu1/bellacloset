@@ -39,7 +39,7 @@ const AdminBannerUpload = () => {
         >
           <option value="hero">Hero</option>
           <option value="promo">Promo</option>
-
+{/* 
           <optgroup label="🛍️ Shop by Category">
             <option value="handbags">Category - Shop Handbags</option>
             <option value="shoes">Category - Shop Shoes</option>
@@ -47,7 +47,7 @@ const AdminBannerUpload = () => {
             <option value="accessories">Category - Shop Accessories</option>
             <option value="jewelery">Category - Shop Fine Jewelery</option>
             <option value="clothing">Category - Shop Clothing</option>
-          </optgroup>
+          </optgroup> */}
 
           <option value="banner-1">Banner - 1</option>
           <option value="banner-2">Banner - 2</option>
