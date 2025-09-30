@@ -1,14 +1,37 @@
+// src/features/wishlist/wishlistAPI.js (or wherever this lives)
 import axios from "axios";
 
-const wishlist = axios.create({
-  baseURL: "https://bellaluxurycloset.com/api/wishlist",
+// Build API base from envs; falls back to production host.
+const RAW =
+  import.meta.env.VITE_API_URL ??
+  import.meta.env.VITE_BACKEND_URL ??
+  "https://bellaluxurycloset.com";
+
+const BASE = RAW.replace(/\/+$/, "");                // strip trailing slash(es)
+const API_BASE = /\/api$/i.test(BASE) ? BASE : `${BASE}/api`; // ensure /api
+
+export const wishlist = axios.create({
+  baseURL: `${API_BASE}/wishlist`,
   withCredentials: true,
 });
 
-const notify = axios.create({
-  baseURL: "https://bellaluxurycloset.com/api/notify",
+export const notify = axios.create({
+  baseURL: `${API_BASE}/notify`,
   withCredentials: true,
 });
+
+
+// import axios from "axios";
+
+// const wishlist = axios.create({
+//   baseURL: "https://bellaluxurycloset.com/api/wishlist",
+//   withCredentials: true,
+// });
+
+// const notify = axios.create({
+//   baseURL: "https://bellaluxurycloset.com/api/notify",
+//   withCredentials: true,
+// });
 
 // export const getWishlistAPI = async () => {
 //   const { data } = await wishlist.get("/");

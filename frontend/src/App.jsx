@@ -61,7 +61,11 @@ const App = () => {
        <Route path="/cart" element={
         <ProtectedRoute> 
           <Cart />
-        </ProtectedRoute>} />
+        </ProtectedRoute>} 
+        
+        />
+
+        
 
         <Route path="/wishlist" element= { 
         <ProtectedRoute>

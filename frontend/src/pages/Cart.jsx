@@ -16,9 +16,13 @@ import ActionModal from "../components/ActionModal";
 import { AppContext } from "../context/AppContext";
 import useShopSettings from "../hooks/useShopSettings";
 import { adaptSettingsForPreview } from "../utils/settingAdapter";
+import { getVariantsByProduct } from "../features/variants/variantSlice";
+import { getDisplayImages } from "../utils/productView";
 
 const formatAED = (n) =>
-  new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(Number(n) || 0);
+  new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(
+    Number(n) || 0
+  );
 
 function Cart() {
   const dispatch = useDispatch();
@@ -27,6 +31,18 @@ function Cart() {
 
   const items = useSelector((s) => s.cart.items); // normalized from slice (contains availability + lineId)
   const loading = useSelector((s) => s.cart.loading);
+
+  // 🔼 Move these ABOVE any effects that depend on them
+  const variantsAll = useSelector((s) => s.variants.items || []);
+  const variantsByProductId = useMemo(() => {
+    const map = {};
+    for (const v of variantsAll) {
+      const pid = typeof v.product === "string" ? v.product : v.product?._id;
+      if (!pid) continue;
+      (map[pid] ||= []).push(v);
+    }
+    return map;
+  }, [variantsAll]);
 
   const { settings: apiSettings } = useShopSettings();
   const settings = adaptSettingsForPreview(apiSettings);
@@ -38,6 +54,26 @@ function Cart() {
   useEffect(() => {
     if (!authLoading && isLoggedin) dispatch(loadCart());
   }, [authLoading, isLoggedin, dispatch]);
+
+  // fetch variants for products that have no product-level images (fallback source for images)
+  useEffect(() => {
+    const toFetch = [];
+    for (const ln of items || []) {
+      const pid = ln?.product?._id || ln?.productId;
+      if (!pid) continue;
+
+      const hasProductImgs =
+        Array.isArray(ln?.product?.images) && ln.product.images.length > 0;
+      const alreadyHaveVars =
+        Array.isArray(variantsByProductId[pid]) &&
+        variantsByProductId[pid].length > 0;
+
+      if (!hasProductImgs && !alreadyHaveVars) {
+        toFetch.push(pid);
+      }
+    }
+    toFetch.forEach((pid) => dispatch(getVariantsByProduct(pid)));
+  }, [items, variantsByProductId, dispatch]);
 
   // compute summary (exclude unavailable lines)
   const summaryItems = useMemo(() => {
@@ -82,8 +118,13 @@ function Cart() {
         await removeOnly(line);
         return;
       }
-      // add to wishlist
-      await dispatch(addToWishlist({ productId: line.productId, variantId: line.variantId ?? null })).unwrap();
+      // add to wishlist (preserve variant)
+      await dispatch(
+        addToWishlist({
+          productId: line.productId,
+          variantId: line.variantId ?? null,
+        })
+      ).unwrap();
       toast.success("Moved to wishlist");
       // then remove
       await dispatch(
@@ -135,15 +176,46 @@ function Cart() {
         {(items || []).map((line, idx) => {
           const { product, unitPrice, quantity, unavailable, reason } = line;
           const name = product?.name || "Item";
-          const image = product?.images?.[0] || "/placeholder.jpg";
+          const pid = product?._id || line.productId;
+
+          // 1) try the specific line’s variant image (if API populated `line.variant`)
+          const variantImgFromLine = line?.variant?.images?.[0] || null;
+
+          // 2) else try to find the variant in store by variantId, else just first variant
+          const productVariants = variantsByProductId[pid] || [];
+          const matchedVariant = line?.variantId
+            ? productVariants.find(
+                (v) => String(v._id) === String(line.variantId)
+              )
+            : productVariants[0];
+          const variantImgFromStore = matchedVariant?.images?.[0] || null;
+
+          // 3) PDP-like default chain for product-level images (no variant selected)
+          const defaultList = product
+            ? getDisplayImages?.(null, product) || []
+            : [];
+          const defaultImg =
+            defaultList[0] ||
+            product?.images?.[0] ||
+            product?.defaultImages?.[0];
+
+          // final pick
+          const image =
+            variantImgFromLine ||
+            variantImgFromStore ||
+            defaultImg ||
+            "/placeholder.jpg";
 
           // styles for unavailable
           const borderCls = unavailable ? "border-red-200" : "border-gray-200";
-          const priceStr = typeof unitPrice === "number" ? formatAED(unitPrice) : "N/A";
+          const priceStr =
+            typeof unitPrice === "number" ? formatAED(unitPrice) : "N/A";
 
           return (
             <div
-              key={`${line.lineId || line.productId || "x"}-${idx}`}
+              key={`${
+                line.lineId || line.productId || "x"
+              }-${line.variantId || "no-variant"}-${idx}`}
               className={`grid py-4 text-gray-700 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4 ${borderCls}`}
             >
               {/* product */}
@@ -156,7 +228,9 @@ function Cart() {
                   )}
                   <img
                     src={image}
-                    className={`w-16 sm:w-20 h-16 sm:h-20 object-cover ${unavailable ? "grayscale" : ""} rounded`}
+                    className={`w-16 sm:w-20 h-16 sm:h-20 object-cover ${
+                      unavailable ? "grayscale" : ""
+                    } rounded`}
                     alt=""
                   />
                 </div>
@@ -216,9 +290,7 @@ function Cart() {
           );
         })}
 
-        {loading && (
-          <div className="py-4 text-sm text-gray-500">Updating…</div>
-        )}
+        {loading && <div className="py-4 text-sm text-gray-500">Updating…</div>}
       </div>
 
       {/* Summary + Checkout */}
@@ -231,12 +303,11 @@ function Cart() {
                 canCheckout ? "bg-black" : "bg-gray-400 cursor-not-allowed"
               }`}
               disabled={!canCheckout}
-                        onClick={() => {
-            if (!canCheckout) return;
-            // ✅ Don’t prefill a single line via state; let PlaceOrder read the cart
-            navigate("/place-order");
-          }}
-
+              onClick={() => {
+                if (!canCheckout) return;
+                // ✅ Don’t prefill a single line via state; let PlaceOrder read the cart
+                navigate("/place-order");
+              }}
             >
               PROCEED TO CHECKOUT
             </button>

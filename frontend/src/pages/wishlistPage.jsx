@@ -2,11 +2,16 @@
 import { useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { getWishlist, removeFromWishlist } from "../features/wishlist/wishlistSlice";
+import {
+  getWishlist,
+  removeFromWishlist,
+} from "../features/wishlist/wishlistSlice";
 import { toast } from "react-toastify";
 import { Trash2, ShoppingBag, RotateCw } from "lucide-react";
 import { brandLabel } from "../utils/brandLabel";
 import NotifyMeButton from "../components/NotifyMeButton";
+import { getVariantsByProduct } from "../features/variants/variantSlice";
+import { getDisplayImages } from "../utils/productView";
 
 const formatAED = (n) =>
   typeof n === "number" && !Number.isNaN(n)
@@ -54,6 +59,17 @@ export default function WishlistPage() {
   const dispatch = useDispatch();
   const loading = useSelector((s) => s.wishlist.loading);
   const items = useSelector((s) => s.wishlist.items || []);
+  const variantsAll = useSelector((s) => s.variants.items || []);
+
+  const variantsByProductId = useMemo(() => {
+    const map = {};
+    for (const v of variantsAll) {
+      const pid = typeof v.product === "string" ? v.product : v.product?._id;
+      if (!pid) continue;
+      (map[pid] ||= []).push(v);
+    }
+    return map;
+  }, [variantsAll]);
 
   // initial load
   useEffect(() => {
@@ -75,12 +91,36 @@ export default function WishlistPage() {
   }, [dispatch]);
 
   // while any item is out of stock, poll every 45s
-  const hasOOS = useMemo(() => items.some((it) => it.status === "out_of_stock"), [items]);
+  const hasOOS = useMemo(
+    () => items.some((it) => it.status === "out_of_stock"),
+    [items]
+  );
   useEffect(() => {
     if (!hasOOS) return;
     const id = setInterval(() => dispatch(getWishlist()), 45000);
     return () => clearInterval(id);
   }, [hasOOS, dispatch]);
+
+  // fetch variants for products that have no product-level images,
+  // so we can show the first variant image as a fallback
+  useEffect(() => {
+    // de-dupe product ids and avoid re-fetching if we already have variants
+    const toFetch = [];
+    for (const it of items) {
+      const pid = it?.product?._id || it?.productId;
+      if (!pid) continue;
+      const productHasImages =
+        Array.isArray(it?.product?.images) && it.product.images.length > 0;
+      const alreadyHaveVariants =
+        Array.isArray(variantsByProductId[pid]) &&
+        variantsByProductId[pid].length > 0;
+      if (!productHasImages && !alreadyHaveVariants) {
+        toFetch.push(pid);
+      }
+    }
+    // fire one by one (these are lightweight thunks)
+    toFetch.forEach((pid) => dispatch(getVariantsByProduct(pid)));
+  }, [items, variantsByProductId, dispatch]);
 
   const handleRemove = async (wishlistId, productId) => {
     try {
@@ -114,7 +154,9 @@ export default function WishlistPage() {
       ) : items.length === 0 ? (
         <div className="text-center py-12">
           <ShoppingBag size={48} className="mx-auto text-gray-400 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">Your wishlist is empty</h2>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">
+            Your wishlist is empty
+          </h2>
           <p className="text-gray-500 mb-6">Start adding items you love!</p>
           <Link
             to="/products"
@@ -128,12 +170,31 @@ export default function WishlistPage() {
           {items.map((it) => {
             const { wishlistId, productId, product, status, stock } = it;
 
-            const imageUrl = product?.images?.[0] || "/placeholder.jpg";
+            // preferred: variant image if we have variants for this product
+            const pid = product?._id || productId;
+            const productVariants = variantsByProductId[pid] || [];
+            const firstVariantImg = productVariants?.[0]?.images?.[0] || null;
+
+            // PDP-like default chain (no variant selected yet)
+            const defaultList = getDisplayImages?.(null, product) || [];
+            const defaultImg =
+              defaultList[0] ||
+              product?.images?.[0] ||
+              product?.defaultImages?.[0];
+
+            // final url
+            const imageUrl =
+              firstVariantImg || defaultImg || "/placeholder.png";
+
             const price =
-              typeof product?.defaultPrice === "number" ? product.defaultPrice : null;
+              typeof product?.defaultPrice === "number"
+                ? product.defaultPrice
+                : null;
 
             const isUnavailable = status === "product_unavailable";
-            const cardBorder = isUnavailable ? "border-red-200" : "border-gray-200";
+            const cardBorder = isUnavailable
+              ? "border-red-200"
+              : "border-gray-200";
             const imgFilter = isUnavailable ? "grayscale" : "";
 
             return (
@@ -178,7 +239,9 @@ export default function WishlistPage() {
                         {product.name}
                       </h3>
                       {product.brand && (
-                        <p className="text-sm text-gray-600 mb-2">{brandLabel(product)}</p>
+                        <p className="text-sm text-gray-600 mb-2">
+                          {brandLabel(product)}
+                        </p>
                       )}
                       {price != null && (
                         <p className="text-lg font-bold text-gray-900">
