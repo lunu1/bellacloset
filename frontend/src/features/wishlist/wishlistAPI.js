@@ -48,8 +48,8 @@ export const getWishlistAPI = async () => {
 };
 
 
-export const addToWishlistAPI = async (payload) => {
-  const { data } = await wishlist.post("/", payload);
+export const addToWishlistAPI = async ({ productId, variantId = null }) => {
+  const { data } = await wishlist.post("/", { productId, variantId });
   return data; // { item }
 };
 

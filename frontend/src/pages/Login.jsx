@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { AppContext } from "../context/AppContext";
 
+
 function Login() {
   const [currentState, setCurrentState] = useState("SIGN IN");
   const titleValue = currentState.split(" ");
@@ -61,6 +62,7 @@ function Login() {
     }
   }
 };
+
 
 
   return (

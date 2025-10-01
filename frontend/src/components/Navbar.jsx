@@ -34,7 +34,11 @@ const Navbar = () => {
   // --- Local UI state ---
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false); // click-based dropdown (better for touch)
   const drawerRef = useRef(null);
+
+  // simple debounce timer for suggestions
+  const debounceTimer = useRef(null);
 
   // Fetch wishlist & cart after auth loads
   useEffect(() => {
@@ -51,15 +55,49 @@ const Navbar = () => {
     }
   }, [location.pathname, dispatch]);
 
-  // Lock scroll when drawer open
+  // Lock scroll when mobile drawer open
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+  }, [mobileMenuOpen]);
+
+  // Close menus on ESC
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+        setMobileSearchOpen(false);
+        setProfileOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Focus the close button when drawer opens (a11y)
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      drawerRef.current
+        ?.querySelector('button[aria-label="Close menu"]')
+        ?.focus();
+    }
   }, [mobileMenuOpen]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     const q = search.trim();
     if (q) navigate(`/c?search=${encodeURIComponent(q)}`);
+  };
+
+  const queueSuggestions = (value) => {
+    // debounce to reduce dispatch spam
+    clearTimeout(debounceTimer.current);
+    if (value.trim()) {
+      debounceTimer.current = setTimeout(() => {
+        dispatch(fetchSearchSuggestions(value));
+      }, 200);
+    } else {
+      dispatch(clearResults());
+    }
   };
 
   const handleSuggestionClick = (name) => {
@@ -112,184 +150,188 @@ const Navbar = () => {
     }
   };
 
-  // Close drawer on ESC
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setMobileMenuOpen(false);
-        setMobileSearchOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
   return (
-    <header className="">
-      {/* Top bar */}
-      <div className="container mx-auto flex items-center  pt-9 pb-5 gap-3">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Mobile menu button */}
-          <button
-            aria-label="Open menu"
-            className="sm:hidden p-2 -ml-2 rounded hover:bg-gray-100"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <img src={assets.menu_icon} className="w-6" alt="menu" />
-          </button>
-
-         <Link to="/" className="shrink-0" aria-label="Bella Closet home">
-  <img
-        src="/logo.png"
-        alt="Bella Closet"
-        className="block h-8 sm:h-10 md:h-12 w-auto max-w-[40vw] md:max-w-[26vw] object-contain"
-        loading="eager"
-        decoding="async"
-      />
-</Link>
-
-        </div>
-
-        {/* Center: Desktop search */}
-        <div className="hidden sm:block flex-1 min-w-0 relative">
-          <form
-            onSubmit={handleSearchSubmit}
-            className="inline-flex items-center w-full px-4 py-2 border border-black rounded-md"
-          >
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => {
-                const v = e.target.value;
-                dispatch(setQuery(v));
-                if (v.trim()) dispatch(fetchSearchSuggestions(v));
-                else dispatch(clearResults());
-              }}
-              placeholder="What are you looking for?"
-              className="flex-1 text-base outline-none bg-transparent"
-              aria-label="Search products"
-            />
-            {search ? (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={clearSearch}
-                className="p-1"
-              >
-                <img src={assets.cross_icon} alt="clear" className="w-3" />
-              </button>
-            ) : null}
-          </form>
-
-          {/* Suggestions (desktop) */}
-          {search && (
-            <ul className="absolute z-50 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto no-scrollbar shadow">
-              {suggestions.length > 0 ? (
-                suggestions.map((sugg, i) => (
-                  <li
-                    key={i}
-                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
-                    onClick={() => handleSuggestionClick(sugg)}
-                  >
-                    {sugg}
-                  </li>
-                ))
-              ) : (
-                <li className="px-4 py-3 text-left text-gray-500 select-none">
-                  No suggestions for “{search}”
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
-
-        {/* Right: Icons & profile */}
-        <div className="flex items-center gap-4 sm:gap-6">
-          {/* Mobile search toggle */}
-          <button
-            aria-label="Open search"
-            className="sm:hidden rounded hover:bg-gray-100"
-            onClick={() => setMobileSearchOpen((v) => !v)}
-          >
-            {/* using cart icon for assets simplicity; replace with a search icon if you have one */}
-            <img src={assets.search_icon} className="w-6 opacity-100" alt="" />
-            {/* <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="-ml-8 w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
+    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
+      <div className="container mx-auto px-4 sm:px-6">
+        {/* Top bar */}
+        <div className="flex items-center justify-between gap-3 sm:gap-5 py-3 sm:py-4">
+          {/* Left: Logo + mobile menu */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Mobile menu button */}
+            <button
+              aria-label="Open menu"
+              className="sm:hidden p-2 -ml-2 rounded hover:bg-gray-100"
+              onClick={() => setMobileMenuOpen(true)}
             >
-              <path strokeWidth="2" d="M21 21l-4.35-4.35M10 18a8 8 0 110-16 8 8 0 010 16z" />
-            </svg> */}
-          </button>
+              <img src={assets.menu_icon} className="w-6" alt="menu" />
+            </button>
 
-          {/* Username (desktop only) */}
-          <span className="hidden sm:block">{userData?.name}</span>
-
-          {/* Profile */}
-          <div className="relative group hidden sm:block">
-            <Link to={userData ? "" : "/login"}>
+            <Link to="/" className="shrink-0" aria-label="Bella Closet home">
               <img
-                src={assets.profile_icon}
-                className="w-6 cursor-pointer"
-                alt="profile"
+                src="/logo.png"
+                alt="Bella Closet"
+                className="block h-8 sm:h-10 w-auto max-w-[40vw] sm:max-w-[30vw] object-contain"
+                loading="eager"
+                decoding="async"
               />
             </Link>
-            {userData && (
-              <div className="absolute right-0 pt-4 hidden group-hover:block dropdown-menu z-50">
-                <div className="flex flex-col gap-2 px-5 py-3 text-gray-700 rounded w-40 bg-white border shadow">
-                  {!userData?.isAccountVerified && (
-                    <button
-                      onClick={SendVerificationOtp}
-                      className="text-left hover:text-black"
+          </div>
+
+          {/* Center: Desktop search */}
+          <div className="hidden sm:block flex-1 min-w-0 relative">
+            <form
+              onSubmit={handleSearchSubmit}
+              className="inline-flex items-center w-full px-4 py-2 border border-black rounded-md"
+            >
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  dispatch(setQuery(v));
+                  queueSuggestions(v);
+                }}
+                placeholder="What are you looking for?"
+                className="flex-1 text-base outline-none bg-transparent"
+                aria-label="Search products"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={clearSearch}
+                  className="p-1"
+                >
+                  <img src={assets.cross_icon} alt="clear" className="w-3" />
+                </button>
+              ) : null}
+            </form>
+
+            {/* Suggestions (desktop) */}
+            {search && (
+              <ul className="absolute z-40 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto no-scrollbar shadow">
+                {suggestions.length > 0 ? (
+                  suggestions.map((sugg, i) => (
+                    <li
+                      key={i}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
+                      onClick={() => handleSuggestionClick(sugg)}
                     >
-                      Verify Email
-                    </button>
-                  )}
-                  <Link to="/profile" className="hover:text-black">
-                    My Profile
-                  </Link>
-                  <Link to="/orders" className="hover:text-black">
-                    Orders
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="text-left hover:text-black"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </div>
+                      {sugg}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-4 py-3 text-left text-gray-500 select-none">
+                    No suggestions for “{search}”
+                  </li>
+                )}
+              </ul>
             )}
           </div>
 
-          {/* Wishlist */}
-          <Link to="/wishlist" className="relative">
-            <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
-            {wishlistCount > 0 && (
-              <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
-                {wishlistCount}
-              </p>
-            )}
-          </Link>
+          {/* Right: Icons & profile */}
+          <div className="flex items-center gap-4 sm:gap-6 whitespace-nowrap">
+            {/* Mobile search toggle */}
+            <button
+              aria-label="Open search"
+              className="sm:hidden rounded hover:bg-gray-100"
+              onClick={() => setMobileSearchOpen((v) => !v)}
+            >
+              <img src={assets.search_icon} className="w-6" alt="search" />
+            </button>
 
-          {/* Cart */}
-          <Link to="/cart" className="relative">
-            <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
-            <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
-              {cartlistCount}
-            </p>
-          </Link>
+            {/* Username (desktop only) */}
+            <span className="hidden sm:block">{userData?.name}</span>
+
+            {/* Profile (click to open; touch-friendly) */}
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setProfileOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                aria-label="Account menu"
+              >
+                <img
+                  src={assets.profile_icon}
+                  className="w-6 cursor-pointer"
+                  alt="profile"
+                />
+              </button>
+              {userData && profileOpen && (
+                <div className="absolute right-0 pt-4 z-50">
+                  <div className="flex flex-col gap-2 px-5 py-3 text-gray-700 rounded w-44 bg-white border shadow">
+                    {!userData?.isAccountVerified && (
+                      <button
+                        onClick={() => {
+                          setProfileOpen(false);
+                          SendVerificationOtp();
+                        }}
+                        className="text-left hover:text-black"
+                      >
+                        Verify Email
+                      </button>
+                    )}
+                    <Link
+                      to="/profile"
+                      className="hover:text-black"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      to="/orders"
+                      className="hover:text-black"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Orders
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        handleLogout();
+                      }}
+                      className="text-left hover:text-black"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Wishlist */}
+            <Link
+              to="/wishlist"
+              className="relative"
+              aria-label={`Wishlist${wishlistCount ? ` with ${wishlistCount} items` : ""}`}
+            >
+              <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
+              {wishlistCount > 0 && (
+                <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+                  {wishlistCount}
+                </p>
+              )}
+            </Link>
+
+            {/* Cart */}
+            <Link
+              to="/cart"
+              className="relative"
+              aria-label={`Cart with ${cartlistCount} items`}
+            >
+              <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
+              <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+                {cartlistCount}
+              </p>
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Mobile search bar */}
       {mobileSearchOpen && (
         <div className="sm:hidden border-t">
-          <div className="container mx-auto py-3 px-2 relative">
+          <div className="container mx-auto px-4 py-3 relative">
             <form
               onSubmit={handleSearchSubmit}
               className="flex items-center gap-2 px-3 py-2 border border-black rounded-md"
@@ -300,8 +342,7 @@ const Navbar = () => {
                 onChange={(e) => {
                   const v = e.target.value;
                   dispatch(setQuery(v));
-                  if (v.trim()) dispatch(fetchSearchSuggestions(v));
-                  else dispatch(clearResults());
+                  queueSuggestions(v);
                 }}
                 placeholder="Search Bella Closet"
                 className="flex-1 text-base outline-none bg-transparent"
@@ -321,7 +362,7 @@ const Navbar = () => {
 
             {/* Suggestions (mobile) */}
             {search && (
-              <ul className="absolute left-1/2 -translate-x-1/2 z-50 bg-white border mt-1 rounded w-[calc(100%-1rem)] max-h-60 overflow-y-auto shadow">
+              <ul className="absolute inset-x-0 mx-4 z-40 bg-white border mt-1 rounded max-h-60 overflow-y-auto shadow">
                 {suggestions.length > 0 ? (
                   suggestions.map((sugg, i) => (
                     <li
@@ -345,7 +386,7 @@ const Navbar = () => {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-50 sm:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}
+        className={`fixed inset-0 z-[60] sm:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}
         aria-hidden={!mobileMenuOpen}
       >
         {/* Backdrop */}

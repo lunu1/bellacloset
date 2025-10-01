@@ -90,6 +90,30 @@ function Cart() {
   const isEmpty = (items || []).length === 0;
   const canCheckout = !isEmpty && !hasUnavailable;
 
+
+
+   // Empty state
+ if (!loading && isEmpty) {
+  return (
+     <div className="border-t pt-14">
+       <div className="mb-3 text-3xl">
+        <Title text1={"YOUR"} text2={"CART"} />
+       </div>
+       <div className="flex flex-col items-center justify-center py-20 text-center">
+         <div className="text-5xl mb-3">🛒</div>
+         <p className="text-lg text-gray-800 font-medium">Your cart is empty</p>
+         <p className="text-sm text-gray-500 mt-1">Browse products and add your favorites.</p>
+         <button
+           className="mt-6 px-6 py-2 text-sm text-white bg-black hover:bg-gray-800"
+           onClick={() => navigate("/")}
+         >
+           Start shopping
+         </button>
+       </div>
+     </div>
+   );
+ }
+
   // handlers
   const removeOnly = async (line) => {
     try {
@@ -135,7 +159,7 @@ function Cart() {
         })
       ).unwrap();
     } catch (e) {
-      const msg = e?.error || e?.message || "Action failed";
+      const msg = e?.error || e?.message || "Already in wishlist ";
       toast.info(typeof msg === "string" ? msg : "Action failed");
       dispatch(loadCart());
     } finally {

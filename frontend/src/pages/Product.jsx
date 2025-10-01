@@ -170,7 +170,8 @@ export default function Product() {
     if (!productData?.product?._id) return;
     if (wishInFlightRef.current) return; // avoid clobbering optimistic state during request
     setWishState(
-      wishlistItems.some((w) => w?.product?._id === productData.product._id)
+      wishlistItems.some((w) => String(w?.productId) === String(productData.product._id) && 
+      String(w?.variantId ?? "") === String(selectedVariant?._id ?? "") )
     );
   }, [wishlistItems, productData?.product?._id]);
 
@@ -324,11 +325,14 @@ const discountPercent =
       wishInFlightRef.current = true;
       if (wishState) {
         setWishState(false); // optimistic
-        await dispatch(removeFromWishlist({ productId: product._id })).unwrap();
+        await dispatch(removeFromWishlist({ productId: product._id, variantId: selectedVariant?._id || null  })).unwrap();
         toast.success("Removed from wishlist");
       } else {
         setWishState(true); // optimistic
-        await dispatch(addToWishlist({ productId: product._id })).unwrap();
+        await dispatch(addToWishlist({ productId: product._id ,
+          variantId: selectedVariant?._id || null,
+          
+        })).unwrap();
         toast.success("Added to wishlist");
       }
     } catch (err) {

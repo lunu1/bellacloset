@@ -1,4 +1,4 @@
-// central axios instance (base URL + credentials)
+// // central axios instance (base URL + credentials)
 
 
 
@@ -6,6 +6,8 @@
 import axios from "axios";
 
 export const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com"}/api`,
+  baseURL: `${import.meta.env.VITE_BACKEND_URL || "https://bellaluxurycloset.com"}/api`,
   withCredentials: true, // send cookies for userAuth middleware
 });
+
+

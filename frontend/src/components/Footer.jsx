@@ -175,7 +175,7 @@ export default function Footer() {
     <footer className="bg-black text-white py-12 mt-10">
       <div className="w-screen px-4 sm:px-6 lg:px-8 flex justify-center items-center flex-col">
         {/* Main footer columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
           {/* Top Categories (dynamic) */}
           <div>
             <h3 className="font-medium text-lg mb-4">Top Categories</h3>

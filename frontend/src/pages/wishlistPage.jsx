@@ -101,24 +101,24 @@ export default function WishlistPage() {
     return () => clearInterval(id);
   }, [hasOOS, dispatch]);
 
-  // fetch variants for products that have no product-level images,
-  // so we can show the first variant image as a fallback
+  // fetch variants for products with no product-level images (fallback to first variant image)
   useEffect(() => {
-    // de-dupe product ids and avoid re-fetching if we already have variants
     const toFetch = [];
     for (const it of items) {
       const pid = it?.product?._id || it?.productId;
       if (!pid) continue;
+
       const productHasImages =
         Array.isArray(it?.product?.images) && it.product.images.length > 0;
+
       const alreadyHaveVariants =
         Array.isArray(variantsByProductId[pid]) &&
         variantsByProductId[pid].length > 0;
+
       if (!productHasImages && !alreadyHaveVariants) {
         toFetch.push(pid);
       }
     }
-    // fire one by one (these are lightweight thunks)
     toFetch.forEach((pid) => dispatch(getVariantsByProduct(pid)));
   }, [items, variantsByProductId, dispatch]);
 
@@ -126,7 +126,7 @@ export default function WishlistPage() {
     try {
       await dispatch(removeFromWishlist({ wishlistId, productId })).unwrap();
       toast.success("Removed from wishlist");
-      // optional: refresh after removal to update stock labels if same product appears multiple times
+      // refresh to update counts/labels if the same product appears multiple times
       dispatch(getWishlist());
     } catch (error) {
       const msg = error?.message || error?.error || "Failed to remove item";
@@ -170,7 +170,7 @@ export default function WishlistPage() {
           {items.map((it) => {
             const { wishlistId, productId, product, status, stock } = it;
 
-            // preferred: variant image if we have variants for this product
+            // Prefer a variant image if we have the variants for this product
             const pid = product?._id || productId;
             const productVariants = variantsByProductId[pid] || [];
             const firstVariantImg = productVariants?.[0]?.images?.[0] || null;
@@ -182,7 +182,7 @@ export default function WishlistPage() {
               product?.images?.[0] ||
               product?.defaultImages?.[0];
 
-            // final url
+            // Final image URL
             const imageUrl =
               firstVariantImg || defaultImg || "/placeholder.png";
 

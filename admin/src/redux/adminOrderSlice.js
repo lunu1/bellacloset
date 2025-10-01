@@ -2,7 +2,17 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const BASE_URL = `${import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com"}/api/admin/orders`;
+// Build API base from env (works if the env already ends with /api or not)
+const RAW =
+  import.meta.env.VITE_API_URL ??
+  import.meta.env.VITE_BACKEND_URL ??
+  "https://bellaluxurycloset.com";
+
+const BASE = RAW.replace(/\/+$/, "");                   // strip trailing slashes
+const API_BASE = /\/api$/i.test(BASE) ? BASE : `${BASE}/api`;
+
+export const BASE_URL = `${API_BASE}/admin/orders`;
+
 
 // Helpers
 const errPayload = (err) => err?.response?.data || { message: "Request failed" };

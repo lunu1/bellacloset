@@ -1,23 +1,57 @@
 // src/components/checkout/AddressPicker.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { LuPlus } from "react-icons/lu";
 import { toast } from "react-toastify";
+
+/** Phone helpers (exactly 10 digits) */
+const sanitizePhone10 = (raw = "") => String(raw).replace(/\D/g, "").slice(0, 10);
+const isValidPhone10 = (raw = "") => /^\d{10}$/.test(sanitizePhone10(raw));
+
+/** Normalize to the new shape your app uses everywhere */
+const normalizeAddress = (a) => {
+  if (!a) return null;
+  return {
+    _id: a._id || a.id,
+    street: a.street?.trim() || "",
+    city: a.city?.trim() || "",
+    state: a.state?.trim() || "",
+    zip: a.zip?.trim() || "",
+    country: a.country?.trim() || "",
+    ...(a.phone ? { phone: sanitizePhone10(a.phone) } : {}),
+    isDefault: Boolean(a.isDefault),
+  };
+};
 
 export default function AddressPicker({ backendUrl, onChange }) {
   const [addresses, setAddresses] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [useNew, setUseNew] = useState(false);
-  const [draft, setDraft] = useState({
-    street: "", city: "", state: "", zip: "", country: ""
-  });
 
+  const [draft, setDraft] = useState({
+    street: "",
+    city: "",
+    state: "",
+    zip: "",
+    country: "",
+    phone: "",
+  });
+  const [errors, setErrors] = useState({});
+
+  /** Fetch existing addresses */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await axios.get(`${backendUrl}/api/user/addresses`, { withCredentials: true });
-        const list = res.data.addresses || [];
+        const list = Array.isArray(res.data?.addresses) ? res.data.addresses : [];
         setAddresses(list);
+
+        // Preselect default or first
+        const def = list.find((a) => a.isDefault) || list[0];
+        if (def?._id || def?.id) {
+          setSelectedId(def._id || def.id);
+          setUseNew(false);
+        }
       } catch (e) {
         console.error("Failed to fetch addresses", e);
       }
@@ -25,102 +59,96 @@ export default function AddressPicker({ backendUrl, onChange }) {
     load();
   }, [backendUrl]);
 
+  /** Push normalized selection upwards */
+  const selectedAddress = useMemo(
+    () => addresses.find((a) => (a._id || a.id) === selectedId) || null,
+    [addresses, selectedId]
+  );
+
   useEffect(() => {
-    if (!useNew && selectedId) {
-      const sel = addresses.find(a => (a._id || a.id) === selectedId) || null;
-      onChange?.(sel);
+    if (useNew) {
+      onChange?.(normalizeAddress(draft));
+    } else if (selectedAddress) {
+      onChange?.(normalizeAddress(selectedAddress));
+    } else {
+      onChange?.(null);
     }
-    if (useNew) onChange?.(draft);
-  }, [useNew, selectedId, addresses, draft, onChange]);
+  }, [useNew, selectedAddress, draft, onChange]);
 
-  // const saveNewAddress = async () => {
-  //   const { street, city, state, zip, country } = draft;
-  //   if (!street || !city || !state || !zip || !country) {
-  //     toast.error("Please fill in all address fields.");
-  //     return;
-  //   }
-  //   try {
-  //     const res = await axios.post(`${backendUrl}/api/user/address`, draft, { withCredentials: true });
+  /** Basic inline validation for the draft form */
+  const validateDraft = (d) => {
+    const e = {};
+    if (!d.street.trim()) e.street = "Street is required.";
+    if (!d.city.trim()) e.city = "City is required.";
+    if (!d.state.trim()) e.state = "State is required.";
+    if (!d.zip.trim()) e.zip = "ZIP/Postal code is required.";
+    if (!d.country.trim()) e.country = "Country is required.";
+    if (d.phone) {
+      if (!isValidPhone10(d.phone)) e.phone = "Phone must be exactly 10 digits.";
+    }
+    return e;
+  };
 
-  //     const created = res.data.address;
-  //     setAddresses(prev => [...prev, created]);
-  //     setSelectedId(created._id || created.id);
-  //     setUseNew(false);
-  //     setDraft({ street: "", city: "", state: "", zip: "", country: "" });
-  //     toast.success("Address saved!");
-  //   } catch (e) {
-  //     toast.error("Failed to save address");
-  //     console.error(e);
-  //   }
-  // };
-
+  /** Save a brand new address */
   const saveNewAddress = async () => {
-  const { street, city, state, zip, country } = draft;
-  if (!street || !city || !state || !zip || !country) {
-    toast.error("Please fill in all address fields.");
-    return;
-  }
-
-  try {
-    const res = await axios.post(
-      `${backendUrl}/api/user/address`,
-      draft,
-      { withCredentials: true }
-    );
-
-    // Be defensive about the response shape
-    const payload = res?.data;
-    // Try common shapes: {address}, {data}, plain object
-    const created =
-      payload?.address ??
-      payload?.data ??
-     (Array.isArray(payload?.addresses) && payload.addresses.length
-        ? payload.addresses[payload.addresses.length - 1]   // assume server appends
-        : null);
-
-    if (!created || (!created._id && !created.id)) {
-      console.error("Unexpected response shape:", payload);
-      toast.error("Address saved, but response was unexpected.");
-      // Still refetch to stay consistent
-      try {
-        const ref = await axios.get(`${backendUrl}/api/user/addresses`, { withCredentials: true });
-        const list = ref.data?.addresses ?? [];
-        setAddresses(list);
-        // Try to pick the last one if we can’t get id
-        if (list.length > 0) setSelectedId(list[list.length - 1]._id || list[list.length - 1].id);
-      } catch (refErr) {
-        console.error("Refetch failed:", refErr);
-      }
-      setUseNew(false);
+    const v = { ...draft, phone: draft.phone ? sanitizePhone10(draft.phone) : "" };
+    const e = validateDraft(v);
+    setErrors(e);
+    if (Object.keys(e).length) {
+      toast.error("Please fix the errors in the address form.");
       return;
     }
 
-    // Happy path
-    setAddresses(prev => [...prev, created]);
-    setSelectedId(created._id || created.id);
-    setUseNew(false);
-    setDraft({ street: "", city: "", state: "", zip: "", country: "" });
-    toast.success("Address saved!");
-  } catch (e) {
-    console.error(e);
-    const msg = e?.response?.data?.message || "Failed to save address";
-    toast.error(msg);
-  }
-};
+    try {
+      const res = await axios.post(`${backendUrl}/api/user/address`, v, { withCredentials: true });
 
+      // Backend usually returns {success, addresses:[...]}. Fall back defensively.
+      let nextList = Array.isArray(res.data?.addresses) ? res.data.addresses : [];
+      if (!nextList.length) {
+        // try to refetch if the response shape is unexpected
+        const ref = await axios.get(`${backendUrl}/api/user/addresses`, { withCredentials: true });
+        nextList = Array.isArray(ref.data?.addresses) ? ref.data.addresses : [];
+      }
+
+      setAddresses(nextList);
+
+      // pick the one that looks new (last is OK if server appends)
+      const last = nextList[nextList.length - 1];
+      const newId = last?._id || last?.id || null;
+      if (newId) {
+        setSelectedId(newId);
+        setUseNew(false);
+      }
+
+      // reset draft
+      setDraft({ street: "", city: "", state: "", zip: "", country: "", phone: "" });
+      setErrors({});
+      toast.success("Address saved!");
+    } catch (e) {
+      console.error(e);
+      const msg = e?.response?.data?.message || "Failed to save address";
+      toast.error(msg);
+    }
+  };
 
   return (
     <div className="w-full">
-      <div className="my-3 text-xl sm:text-2xl">SHIPPING <span className="font-semibold">ADDRESS</span></div>
+      <div className="my-3 text-xl sm:text-2xl">
+        SHIPPING <span className="font-semibold">ADDRESS</span>
+      </div>
 
       <button
         className="mb-4 flex items-center gap-1 text-blue-600 text-sm hover:text-blue-800"
-        onClick={() => setUseNew(true)}
+        onClick={() => {
+          setUseNew(true);
+          setSelectedId(null);
+        }}
       >
         <LuPlus className="w-4 h-4" />
         Add a new address
       </button>
 
+      {/* Existing addresses */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {addresses.map((a) => {
           const id = a._id || a.id;
@@ -145,29 +173,51 @@ export default function AddressPicker({ backendUrl, onChange }) {
               />
               <div>
                 <p className="font-semibold">{a.street}</p>
-                <p className="text-sm text-gray-700">{a.city}</p>
-                <p className="text-sm text-gray-700">{a.state}</p>
-                <p className="text-sm text-gray-700">{a.zip}</p>
+                <p className="text-sm text-gray-700">
+                  {[a.city, a.state, a.zip].filter(Boolean).join(", ")}
+                </p>
                 <p className="text-sm text-gray-700">{a.country}</p>
+                {a.phone ? <p className="text-sm text-gray-700 mt-1">Phone: {sanitizePhone10(a.phone)}</p> : null}
+                {a.isDefault ? (
+                  <span className="mt-1 inline-block text-xs text-green-700 font-semibold">(Default)</span>
+                ) : null}
               </div>
             </label>
           );
         })}
       </div>
 
+      {/* New address form */}
       {useNew && (
         <div className="mt-6 border border-gray-300 p-4 rounded">
           <h3 className="text-lg font-semibold mb-2">New Address</h3>
           <div className="space-y-3">
-            {["street", "city", "state", "zip", "country"].map((field) => (
-              <div key={field}>
-                <label className="block text-sm text-gray-600 capitalize mb-1">{field}</label>
+            {[
+              { key: "street", label: "Street" },
+              { key: "city", label: "City" },
+              { key: "state", label: "State" },
+              { key: "zip", label: "ZIP/Postal code" },
+              { key: "country", label: "Country" },
+              { key: "phone", label: "Phone (optional, 10 digits)" },
+            ].map(({ key, label }) => (
+              <div key={key}>
+                <label className="block text-sm text-gray-600 mb-1">{label}</label>
                 <input
-                  placeholder={`Enter ${field}`}
-                  value={draft[field]}
-                  onChange={(e) => setDraft(prev => ({ ...prev, [field]: e.target.value }))}
-                  className="w-full border p-2 rounded text-sm"
+                  placeholder={`Enter ${key}`}
+                  value={draft[key] || ""}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      [key]: key === "phone" ? sanitizePhone10(e.target.value) : e.target.value,
+                    }))
+                  }
+                  onBlur={() => setErrors(validateDraft(draft))}
+                  className={`w-full border p-2 rounded text-sm ${
+                    errors[key] ? "border-red-400" : "border-gray-300"
+                  }`}
+                  inputMode={key === "phone" ? "tel" : undefined}
                 />
+                {errors[key] ? <p className="text-xs text-red-600 mt-1">{errors[key]}</p> : null}
               </div>
             ))}
           </div>
@@ -180,7 +230,10 @@ export default function AddressPicker({ backendUrl, onChange }) {
               Save Address
             </button>
             <button
-              onClick={() => { setUseNew(false); }}
+              onClick={() => {
+                setUseNew(false);
+                setErrors({});
+              }}
               className="px-4 py-2 mt-4 text-gray-700 hover:bg-gray-200 rounded text-sm border"
             >
               Cancel
