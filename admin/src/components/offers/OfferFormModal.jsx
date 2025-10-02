@@ -142,9 +142,9 @@ export default function OfferFormModal({
               <label className="flex items-center gap-2 text-sm mb-2">
                 <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active
               </label>
-              <label className="flex items-center gap-2 text-sm mb-2">
+              {/* <label className="flex items-center gap-2 text-sm mb-2">
                 <input type="checkbox" checked={exclusive} onChange={(e) => setExclusive(e.target.checked)} /> Exclusive
-              </label>
+              </label> */}
               <label className="flex items-center gap-2 text-sm mb-2">
                 <input type="checkbox" checked={applyToSaleItems} onChange={(e) => setApplyToSaleItems(e.target.checked)} /> Apply to sale items
               </label>
@@ -184,9 +184,9 @@ export default function OfferFormModal({
                   <input type="radio" name="scope" value="categories" checked={scopeKind === "categories"} onChange={(e) => setScopeKind(e.target.value)} />
                   Categories
                 </label>
-                <label className="inline-flex items-center gap-2 opacity-50 cursor-not-allowed">
+                {/* <label className="inline-flex items-center gap-2 opacity-50 cursor-not-allowed">
                   <input type="radio" disabled name="scope" value="products" /> Specific products (separate picker)
-                </label>
+                </label> */}
               </div>
 
               {scopeKind === "categories" && (

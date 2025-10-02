@@ -6,7 +6,7 @@ import axios from "axios";
 const API =
   import.meta.env.VITE_ADMIN_API_URL ||
   import.meta.env.VITE_API_URL ||
-  "https://bellaluxurycloset.com";
+  "http://localhost:4000";
 
 const api = axios.create({
   baseURL: API,

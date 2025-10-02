@@ -20,7 +20,7 @@ export default function ProductCard({ product, variants = [] }) {
   const dispatch = useDispatch();
   const wishlistItems = useSelector((s) => s.wishlist.items);
 
-  // Normalize wishlist comparison to string ids
+  // --- Wishlist ---
   const isWishlisted = wishlistItems.some((w) => {
     const id =
       typeof w.product === "object" && w.product?._id
@@ -46,7 +46,7 @@ export default function ProductCard({ product, variants = [] }) {
       });
   };
 
-  // Variant-first display
+  // --- Images (variant-first) ---
   const hasVariants = Array.isArray(variants) && variants.length > 0;
   const firstVariant = hasVariants ? variants[0] : null;
 
@@ -55,25 +55,33 @@ export default function ProductCard({ product, variants = [] }) {
     ? firstVariant?.images?.[1] || firstVariant?.images?.[0]
     : product?.images?.[1] || product?.images?.[0];
 
-  const price = hasVariants ? firstVariant?.price : product?.defaultPrice ?? null;
-  const compareAtPrice = hasVariants
-    ? firstVariant?.compareAtPrice
-    : product?.compareAtPrice ?? null;
-  const stock = hasVariants ? firstVariant?.stock : product?.defaultStock ?? 0;
+  // --- OFFER-AWARE PRICING (this is the important part) ---
+  // Original (before offer) and Current (after offer)
+  const original = hasVariants
+    ? Number(firstVariant?.price ?? 0)
+    : Number(product?.pricing?.basePrice ?? product?.defaultPrice ?? 0);
 
-  const hasPrice = typeof price === "number" && !Number.isNaN(price);
-  const hasCompare = typeof compareAtPrice === "number" && !Number.isNaN(compareAtPrice);
-  const showDiscount = hasPrice && hasCompare && compareAtPrice > price;
-  const discount = showDiscount
-    ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
+  const current = hasVariants
+    ? Number(firstVariant?.salePrice ?? firstVariant?.price ?? 0)
+    : Number(
+        product?.pricing?.salePrice ??
+          product?.salePrice ?? // legacy fallback
+          product?.defaultPrice ??
+          0
+      );
+
+  const showStrike = original > 0 && current < original;
+  const percent = showStrike
+    ? Math.round(((original - current) / original) * 100)
     : 0;
 
-  const label = brandLabel(product); // safely renders string for string/object brand
+  const stock = hasVariants ? (firstVariant?.stock ?? 0) : (product?.defaultStock ?? 0);
+  const label = brandLabel(product);
 
   return (
     <article className="group relative border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md transition">
-      {/* Image */}
       <Link to={`/product/${product._id}`} className="block relative">
+        {/* Image */}
         <div className="relative overflow-hidden">
           <img
             src={primaryImg || "/placeholder.jpg"}
@@ -91,10 +99,10 @@ export default function ProductCard({ product, variants = [] }) {
           )}
         </div>
 
-        {/* Badges */}
-        {discount > 0 && (
+        {/* Discount badge (from offer-aware prices) */}
+        {percent > 0 && (
           <span className="absolute top-3 left-3 text-[11px] tracking-wide px-2 py-1 rounded-full bg-black text-white">
-            -{discount}%
+            -{percent}%
           </span>
         )}
 
@@ -113,21 +121,22 @@ export default function ProductCard({ product, variants = [] }) {
         <h3 className="text-sm font-semibold text-black line-clamp-1">{product.name}</h3>
         {label && <p className="text-xs text-gray-500 mt-0.5">{label}</p>}
 
-        {/* Price row */}
+        {/* Price row (offer-aware) */}
         <div className="mt-2 flex items-baseline gap-2">
-          {showDiscount ? (
-            <>
-              <span className="text-xs text-gray-500 line-through">{formatAED(compareAtPrice)}</span>
-              <span className="text-sm font-semibold text-black">{formatAED(price)}</span>
-            </>
-          ) : (
-            <span className="text-sm font-semibold text-black">
-              {hasPrice ? formatAED(price) : "—"}
-            </span>
+          <span className="text-sm font-semibold text-black">{formatAED(current)}</span>
+          {showStrike && (
+            <span className="text-xs text-gray-500 line-through">{formatAED(original)}</span>
           )}
         </div>
 
-        {/* Stock */}
+        {/* Optional: show which offer applied */}
+        {product?.appliedOffer?.name && (
+          <div className="mt-1 text-[11px] text-rose-600">
+            {product.appliedOffer.name}
+          </div>
+        )}
+
+        {/* Stock pill */}
         <div className="mt-2">
           {stock > 0 ? (
             <span className="inline-flex items-center px-2 py-0.5 text-[11px] border border-gray-300 rounded-full text-gray-700">
@@ -156,17 +165,24 @@ ProductCard.propTypes = {
         slug: PropTypes.string,
       }),
     ]),
-    description: PropTypes.string,
     images: PropTypes.arrayOf(PropTypes.string),
-    slug: PropTypes.string,
     defaultPrice: PropTypes.number,
     compareAtPrice: PropTypes.number,
     defaultStock: PropTypes.number,
+    pricing: PropTypes.shape({
+      basePrice: PropTypes.number,
+      salePrice: PropTypes.number,
+      discount: PropTypes.number,
+    }),
+    appliedOffer: PropTypes.shape({
+      _id: PropTypes.string,
+      name: PropTypes.string,
+    }),
   }).isRequired,
   variants: PropTypes.arrayOf(
     PropTypes.shape({
       price: PropTypes.number,
-      compareAtPrice: PropTypes.number,
+      salePrice: PropTypes.number, 
       stock: PropTypes.number,
       images: PropTypes.arrayOf(PropTypes.string),
     })
