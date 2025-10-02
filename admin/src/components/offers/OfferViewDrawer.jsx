@@ -1,8 +1,54 @@
 import Chip from "./Chip";
 import SectionTitle from "./SectionTitle";
+import PropTypes from "prop-types";
 
-export default function OfferViewDrawer({ open, offer, onClose, onEdit, onDelete }) {
+const formatAED = (n) =>
+  typeof n === "number" && !Number.isNaN(n)
+    ? new Intl.NumberFormat("en-AE", {
+        style: "currency",
+        currency: "AED",
+        maximumFractionDigits: 0,
+      }).format(n)
+    : null;
+
+export default function OfferViewDrawer({
+  open,
+  offer,
+  onClose,
+  onEdit,
+  onDelete,
+  // Map<string id, string label> built in the page and passed down
+  catNameById = new Map(),
+}) {
   if (!open || !offer) return null;
+
+  const renderCategoryNames = (ids = []) => {
+    if (!Array.isArray(ids) || ids.length === 0) return "No categories selected";
+    const names = ids.map((id) => catNameById.get(String(id)) || `#${String(id).slice(-4)}`);
+    // Show first few and collapse the rest for long lists
+    return names.length > 6 ? (
+      <>
+        {names.slice(0, 6).join(", ")}{" "}
+        <span className="text-gray-500">+{names.length - 6} more</span>
+      </>
+    ) : (
+      names.join(", ")
+    );
+  };
+
+  const renderDiscount = () => {
+    if (offer.type === "percent") {
+      return (
+        <>
+          {offer.value}% off{" "}
+          {typeof offer.maxDiscount === "number" ? (
+            <span className="text-xs text-gray-500"> (cap {formatAED(offer.maxDiscount)})</span>
+          ) : null}
+        </>
+      );
+    }
+    return <>{formatAED(Number(offer.value) || 0)} off</>;
+  };
 
   return (
     <div className="fixed inset-0 z-40 flex">
@@ -18,40 +64,51 @@ export default function OfferViewDrawer({ open, offer, onClose, onEdit, onDelete
             <SectionTitle>Name</SectionTitle>
             <div>{offer.name}</div>
           </div>
+
           <div>
             <SectionTitle>Discount</SectionTitle>
-            <div>
-              {offer.type === "percent" ? `${offer.value}%` : `₹${offer.value}`}
-              {typeof offer.maxDiscount === "number" ? ` (cap ₹${offer.maxDiscount})` : ""}
-            </div>
+            <div>{renderDiscount()}</div>
           </div>
+
           <div>
-            <SectionTitle>Status & flags</SectionTitle>
+            <SectionTitle>Status</SectionTitle>
             <div className="flex gap-2">
               {offer.active ? <Chip tone="green">Active</Chip> : <Chip tone="gray">Inactive</Chip>}
               {offer.exclusive ? <Chip tone="orange">Exclusive</Chip> : null}
-              {offer.applyToSaleItems ? <Chip tone="blue">Applies to sale</Chip> : null}
             </div>
           </div>
+
           <div>
             <SectionTitle>Scope</SectionTitle>
             <div className="capitalize">{offer.scope?.kind || "all"}</div>
+
             {offer.scope?.kind === "categories" && (
-              <div className="text-xs text-gray-500">
-                {offer.scope?.categories?.length || 0} category id(s)
-                {offer.scope?.includeDescendants === false ? " • no descendants" : ""}
+              <div className="mt-1 text-xs text-gray-700">
+                {/* <div className="font-medium">Categories:</div> */}
+                <div className="mt-0.5">
+                  {renderCategoryNames(offer.scope?.categories)}
+                  {offer.scope?.includeDescendants === false ? (
+                    <span className="text-gray-500"> • no descendants</span>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+            {offer.scope?.kind === "products" && (
+              <div className="mt-1 text-xs text-gray-700">
+                {Array.isArray(offer.scope?.products) && offer.scope.products.length > 0
+                  ? `${offer.scope.products.length} product(s)`
+                  : "No products selected"}
               </div>
             )}
           </div>
+
           <div>
             <SectionTitle>Schedule</SectionTitle>
             <div>Starts: {offer.startsAt ? new Date(offer.startsAt).toLocaleString() : "—"}</div>
             <div>Ends: {offer.endsAt ? new Date(offer.endsAt).toLocaleString() : "—"}</div>
           </div>
-          <div>
-            <SectionTitle>Priority</SectionTitle>
-            <div>{typeof offer.priority === "number" ? offer.priority : "—"}</div>
-          </div>
+
           {offer.description ? (
             <div>
               <SectionTitle>Description</SectionTitle>
@@ -62,9 +119,23 @@ export default function OfferViewDrawer({ open, offer, onClose, onEdit, onDelete
 
         <div className="mt-6 flex gap-2">
           <button onClick={() => onEdit(offer)} className="px-3 py-2 rounded border">Edit</button>
-          <button onClick={() => onDelete(offer)} className="px-3 py-2 rounded border border-red-300 text-red-700">Delete</button>
+          <button
+            onClick={() => onDelete(offer)}
+            className="px-3 py-2 rounded border border-red-300 text-red-700"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </div>
   );
 }
+
+OfferViewDrawer.propTypes = {
+  open: PropTypes.bool,
+  offer: PropTypes.object,
+  onClose: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  catNameById: PropTypes.instanceOf(Map),
+};

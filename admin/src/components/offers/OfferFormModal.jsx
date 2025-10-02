@@ -140,18 +140,18 @@ export default function OfferFormModal({
             <div>
               <SectionTitle>Status</SectionTitle>
               <label className="flex items-center gap-2 text-sm mb-2">
-                <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active
+                <input type="checkbox" checked={applyToSaleItems} onChange={(e) => setActive(e.target.checked)} /> Active
               </label>
               {/* <label className="flex items-center gap-2 text-sm mb-2">
                 <input type="checkbox" checked={exclusive} onChange={(e) => setExclusive(e.target.checked)} /> Exclusive
               </label> */}
-              <label className="flex items-center gap-2 text-sm mb-2">
+              {/* <label className="flex items-center gap-2 text-sm mb-2">
                 <input type="checkbox" checked={applyToSaleItems} onChange={(e) => setApplyToSaleItems(e.target.checked)} /> Apply to sale items
-              </label>
-              <div className="text-sm mt-2">
+              </label> */}
+              {/* <div className="text-sm mt-2">
                 <label className="block text-sm text-gray-700 mb-1">Priority</label>
                 <input type="number" className="w-full border rounded px-3 py-2" value={priority} onChange={(e) => setPriority(e.target.value)} />
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -241,7 +241,7 @@ export default function OfferFormModal({
 
 
           {/* Optional: preview payload */}
-          <details className="mt-4">
+          {/* <details className="mt-4">
             <summary className="cursor-pointer text-sm text-gray-600">Preview payload</summary>
             <pre className="mt-2 bg-gray-50 border rounded p-3 text-xs overflow-auto">
 {JSON.stringify({
@@ -259,7 +259,7 @@ export default function OfferFormModal({
   scope: { kind: scopeKind, categories: scopeKind === "categories" ? selectedCategoryIds : [], products: [], includeDescendants },
 }, null, 2)}
             </pre>
-          </details>
+          </details> */}
         </div>
 
         {/* Footer */}

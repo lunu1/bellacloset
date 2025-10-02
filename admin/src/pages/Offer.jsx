@@ -18,6 +18,15 @@ export default function OfferPage() {
 
   const [catOptions, setCatOptions] = useState([]);
 
+  const catNameById = useMemo(() => {
+  const m = new Map();
+  for (const c of catOptions) {
+    // prefer the full path label when available (e.g. "Women > Shoes > Heels")
+    m.set(String(c.value), c.pathLabel || c.label || "");
+  }
+  return m;
+}, [catOptions]);
+
   // data loaders
   const loadOffers = async () => {
     try {
@@ -132,6 +141,7 @@ export default function OfferPage() {
         onEdit={openEdit}
         onToggleActive={onToggleActive}
         onDelete={onDelete}
+        catNameById={catNameById}
       />
 
       <OfferFormModal
@@ -148,6 +158,7 @@ export default function OfferPage() {
         onClose={() => setOpenView(false)}
         onEdit={(o) => { setOpenView(false); openEdit(o); }}
         onDelete={onDelete}
+        catNameById={catNameById}
       />
     </div>
   );

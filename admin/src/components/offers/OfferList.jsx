@@ -1,4 +1,15 @@
+// src/components/offers/OfferList.jsx
+import PropTypes from "prop-types";
 import Chip from "./Chip";
+
+const formatAED = (n) =>
+  typeof n === "number" && !Number.isNaN(n)
+    ? new Intl.NumberFormat("en-AE", {
+        style: "currency",
+        currency: "AED",
+        maximumFractionDigits: 0,
+      }).format(n)
+    : null;
 
 export default function OfferList({
   offers,
@@ -9,7 +20,29 @@ export default function OfferList({
   onEdit,
   onToggleActive,
   onDelete,
+  // Map<string id, string label> — pass from OfferPage (built from /api/category/flat)
+  catNameById = new Map(),
 }) {
+  const renderDiscount = (o) => {
+    if (o?.type === "percent") {
+      return (
+        <>
+          {o.value}% off
+          {typeof o.maxDiscount === "number" ? (
+            <div className="text-xs text-gray-500">Cap: {formatAED(o.maxDiscount)}</div>
+          ) : null}
+        </>
+      );
+    }
+    return <>{formatAED(Number(o?.value) || 0)} off</>;
+  };
+
+  const renderCategoryNames = (ids = []) => {
+    if (!Array.isArray(ids) || ids.length === 0) return "No categories selected";
+    const names = ids.map((id) => catNameById.get(String(id)) || `#${String(id).slice(-4)}`);
+    return names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3} more` : names.join(", ");
+  };
+
   return (
     <>
       {/* Toolbar */}
@@ -30,9 +63,8 @@ export default function OfferList({
         <div className="grid grid-cols-12 px-4 py-2 text-xs font-semibold text-gray-600 border-b">
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Discount</div>
-          <div className="col-span-2">Scope</div>
-          <div className="col-span-2">Window</div>
-          <div className="col-span-1">Priority</div>
+          <div className="col-span-3">Scope</div>
+          <div className="col-span-2">Duration</div>
           <div className="col-span-2 text-right">Actions</div>
         </div>
 
@@ -42,47 +74,70 @@ export default function OfferList({
           <div className="p-6 text-gray-600">No offers found.</div>
         ) : (
           offers.map((o) => (
-            <div key={o._id} className="grid grid-cols-12 px-4 py-3 border-b items-center text-sm">
+            <div
+              key={o._id}
+              className="grid grid-cols-12 px-4 py-3 border-b items-center text-sm"
+            >
+              {/* Name + flags */}
               <div className="col-span-3">
                 <div className="font-medium">{o.name}</div>
                 <div className="flex gap-2 mt-1">
-                 {o.active ? <Chip tone="green">Active</Chip> : <Chip tone="gray">Inactive</Chip>}
+                  {o.active ? <Chip tone="green">Active</Chip> : <Chip tone="gray">Inactive</Chip>}
                   {o.exclusive ? <Chip tone="orange">Exclusive</Chip> : null}
-                  {o.applyToSaleItems ? <Chip tone="blue">Applies to sale items</Chip> : null}
                 </div>
+                {o.description ? (
+                  <div className="mt-1 text-xs text-gray-500 line-clamp-1">{o.description}</div>
+                ) : null}
               </div>
 
+              {/* Discount */}
               <div className="col-span-2">
-                <div>{o.type === "percent" ? `${o.value}% off` : `₹${o.value} off`}</div>
-                {o.type === "percent" && typeof o.maxDiscount === "number" && (
-                  <div className="text-xs text-gray-500">Cap: ₹{o.maxDiscount}</div>
-                )}
+                <div>{renderDiscount(o)}</div>
               </div>
 
-              <div className="col-span-2">
+              {/* Scope */}
+              <div className="col-span-3">
                 <div className="capitalize">{o.scope?.kind || "all"}</div>
+
                 {o.scope?.kind === "categories" && (
-                  <div className="text-xs text-gray-500">
-                    {o.scope?.categories?.length || 0} category id(s)
+                  <div className="text-xs text-gray-600">
+                    {renderCategoryNames(o.scope?.categories)}
                     {o.scope?.includeDescendants === false ? " • no descendants" : ""}
+                  </div>
+                )}
+
+                {o.scope?.kind === "products" && (
+                  <div className="text-xs text-gray-500">
+                    {Array.isArray(o.scope?.products)
+                      ? `${o.scope.products.length} product(s)`
+                      : "No products selected"}
                   </div>
                 )}
               </div>
 
+              {/* Duration */}
               <div className="col-span-2 text-xs text-gray-700">
                 <div>{o.startsAt ? new Date(o.startsAt).toLocaleString() : "—"}</div>
                 <div>{o.endsAt ? new Date(o.endsAt).toLocaleString() : "—"}</div>
               </div>
 
-              <div className="col-span-1">{typeof o.priority === "number" ? o.priority : "—"}</div>
-
+              {/* Actions */}
               <div className="col-span-2 text-right space-x-2">
-                <button onClick={() => onView(o)} className="text-gray-700 hover:underline">View</button>
-                <button onClick={() => onEdit(o)} className="text-blue-600 hover:underline">Edit</button>
-                <button onClick={() => onToggleActive(o)} className="text-amber-600 hover:underline">
+                <button onClick={() => onView(o)} className="text-gray-700 hover:underline">
+                  View
+                </button>
+                <button onClick={() => onEdit(o)} className="text-blue-600 hover:underline">
+                  Edit
+                </button>
+                <button
+                  onClick={() => onToggleActive(o)}
+                  className="text-amber-600 hover:underline"
+                >
                   {o.active ? "Disable" : "Enable"}
                 </button>
-                <button onClick={() => onDelete(o)} className="text-red-600 hover:underline">Delete</button>
+                <button onClick={() => onDelete(o)} className="text-red-600 hover:underline">
+                  Delete
+                </button>
               </div>
             </div>
           ))
@@ -91,3 +146,15 @@ export default function OfferList({
     </>
   );
 }
+
+OfferList.propTypes = {
+  offers: PropTypes.arrayOf(PropTypes.object),
+  loading: PropTypes.bool,
+  query: PropTypes.string,
+  onQueryChange: PropTypes.func.isRequired,
+  onView: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onToggleActive: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  catNameById: PropTypes.instanceOf(Map),
+};
