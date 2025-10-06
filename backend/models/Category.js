@@ -5,6 +5,7 @@ const categorySchema = new mongoose.Schema({
   parent: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null },
   image: { type: String, default: null },
   position: { type: Number, default: 0, },
+  description: { type: String, trim: true, default: "", maxlength: 2000 },
 });
 
 // Optional, but nice-to-have for faster menus and admin sorting

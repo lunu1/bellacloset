@@ -51,7 +51,7 @@ export default function ShopbyCategory() {
               <img
                 src={category.image}
                 alt={category.alt}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-[40vh]  md:[80vh] object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
               />
             </div>

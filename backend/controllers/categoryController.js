@@ -1,13 +1,15 @@
 import Category from "../models/Category.js";
 
+// =============================
+// Create a new Category
+// =============================
 export const createCategory = async (req, res) => {
-  const { label, parent = null} = req.body;
-  //Cloudinary stores the uploaded image and returns the URL in req.file.path
-    const image= req.file? req.file.path: null;
-  
+  const { label, parent = null, description = "" } = req.body;
+  // If using Cloudinary, req.file.path will contain the uploaded URL
+  const image = req.file ? req.file.path : null;
 
   try {
-    
+    // Check if a category with same label exists under same parent
     const existing = await Category.findOne({ label, parent });
     if (existing) {
       return res.status(400).json({
@@ -16,9 +18,12 @@ export const createCategory = async (req, res) => {
       });
     }
 
-    
-
-    const category = await Category.create({ label, parent, image });
+    const category = await Category.create({
+      label,
+      parent,
+      image,
+      description,
+    });
 
     res.status(201).json(category);
   } catch (err) {
@@ -26,11 +31,14 @@ export const createCategory = async (req, res) => {
   }
 };
 
+// =============================
+// List all categories (flat)
+// =============================
 export const listAllCategoriesFlat = async (req, res) => {
   try {
     const cats = await Category.find({}, { label: 1, name: 1, parent: 1 }).lean();
 
-    const byId = new Map(cats.map(c => [String(c._id), c]));
+    const byId = new Map(cats.map((c) => [String(c._id), c]));
     const fullPath = (id) => {
       const parts = [];
       let cur = byId.get(String(id));
@@ -42,7 +50,7 @@ export const listAllCategoriesFlat = async (req, res) => {
       return parts.join(" > ");
     };
 
-    const items = cats.map(c => ({
+    const items = cats.map((c) => ({
       _id: c._id,
       value: String(c._id),
       label: c.label ?? c.name ?? "",
@@ -51,11 +59,16 @@ export const listAllCategoriesFlat = async (req, res) => {
 
     res.json({ items });
   } catch (e) {
-    res.status(500).json({ message: "Failed to load categories", error: e.message });
+    res.status(500).json({
+      message: "Failed to load categories",
+      error: e.message,
+    });
   }
 };
 
-// Get all categories with nested children
+// =============================
+// Get all categories (nested tree)
+// =============================
 export const getCategories = async (req, res) => {
   try {
     const categories = await Category.find().sort({ position: 1 }).lean();
@@ -74,7 +87,9 @@ export const getCategories = async (req, res) => {
   }
 };
 
-//reorder the category
+// =============================
+// Reorder categories
+// =============================
 export const reorderCategories = async (req, res) => {
   try {
     const { orderedIds } = req.body;
@@ -83,25 +98,32 @@ export const reorderCategories = async (req, res) => {
       return res.status(400).json({ message: "orderedIds must be an array" });
     }
 
-    // Update each category's position
     for (let i = 0; i < orderedIds.length; i++) {
       await Category.findByIdAndUpdate(orderedIds[i], { position: i });
     }
 
     res.status(200).json({ message: "Categories reordered successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Reordering failed", error: err.message });
+    res.status(500).json({
+      message: "Reordering failed",
+      error: err.message,
+    });
   }
 };
 
-
+// =============================
 // Update a category
+// =============================
 export const updateCategory = async (req, res) => {
   const { id } = req.params;
-  const { label, parent = null } = req.body;
+  const { label, parent = null, description = "" } = req.body;
 
   try {
-    const existing = await Category.findOne({ label, parent, _id: { $ne: id } });
+    const existing = await Category.findOne({
+      label,
+      parent,
+      _id: { $ne: id },
+    });
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -112,21 +134,21 @@ export const updateCategory = async (req, res) => {
     const updateData = {
       label,
       parent,
+      description,
     };
 
-    // ✅ Add image update if file exists
     if (req.file) {
-      updateData.image = req.file.path;
+      updateData.image = req.file.path; // ✅ Update image if new file provided
     }
 
-    const updated = await Category.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true }
-    );
+    const updated = await Category.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
 
     if (!updated) {
-      return res.status(404).json({ success: false, message: "Category not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
     }
 
     res.status(200).json(updated);
@@ -135,12 +157,13 @@ export const updateCategory = async (req, res) => {
   }
 };
 
+// =============================
 // Delete a category
+// =============================
 export const deleteCategory = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Optional: Check if it has children before deleting
     const hasChildren = await Category.findOne({ parent: id });
     if (hasChildren) {
       return res.status(400).json({
@@ -151,7 +174,9 @@ export const deleteCategory = async (req, res) => {
 
     const deleted = await Category.findByIdAndDelete(id);
     if (!deleted) {
-      return res.status(404).json({ success: false, message: "Category not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found" });
     }
 
     res.status(200).json({ success: true, message: "Category deleted" });
@@ -159,4 +184,3 @@ export const deleteCategory = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
-

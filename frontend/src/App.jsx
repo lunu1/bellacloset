@@ -36,6 +36,7 @@ import PrivacyPolicyBella from "./pages/PrivacyPolicyBella.jsx";
 import TermsConditionsBella from "./pages/TermsConditionsBella.jsx";
 import FAQBella from "./pages/FAQBella.jsx";
 import DeliveryReturnsBella from "./pages/DeliveryReturnsBella.jsx";
+import WhatsAppFloating from "./components/WhatsAppInquire.jsx";
 
 
 const App = () => {
@@ -51,6 +52,12 @@ const App = () => {
       <Navbar />
       <MegaNavbar/>
       <SearchBox />
+
+      <WhatsAppFloating
+        phone="971556055777"
+        message="Hi! I want to inquire about a product."
+        label="Inquire now"
+      />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/collection" element={<Collection />} />

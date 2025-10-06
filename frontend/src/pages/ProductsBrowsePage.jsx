@@ -205,6 +205,20 @@ useEffect(() => {
     return trail;
   }, [categoryId, idToNode]);
 
+  // Choose a display image from the category node
+const pickCategoryImage = (cat) =>
+  cat?.bannerImage ||
+  cat?.image ||
+  cat?.thumbnail ||
+  cat?.media?.url ||
+  cat?.cover?.url ||
+  null;
+
+// Active category (from the URL) and its hero image
+const activeCategory = categoryId ? idToNode.get(categoryId) : null;
+const activeCategoryImage = pickCategoryImage(activeCategory);
+
+
   // Active filter chips (B/W)
   const chips = [
     search && { key: "search", label: `“${search}”`, clear: () => setSearch("") },
@@ -214,9 +228,42 @@ useEffect(() => {
     inStock && { key: "inStock", label: "In stock", clear: () => setInStock(false) },
   ].filter(Boolean);
 
+
+
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Header + breadcrumb */}
+
+{/* Category hero (image only) */}
+{activeCategoryImage && (
+  <>
+    <div className="relative mb-2 overflow-hidden">
+      <img
+        src={activeCategoryImage}
+        alt={activeCategory?.label || "Category"}
+        className="w-full h-48 md:h-[90vh] object-cover object-center"
+        loading="lazy"
+      />
+    </div>
+
+    {/* Title under the image */}
+    <div className="m-6">
+      <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-gray-900 text-center uppercase p-6">
+        {activeCategory?.label || "Browse Products"}
+      </h1>
+      {/* Optional: short description if your category has one */}
+      {activeCategory?.description && (
+        <p className="mt-1 text-md text-black font-bold text-center">{activeCategory.description}</p>
+      )}
+    </div>
+  </>
+)}
+
+
+
+
+
+
       <div className="mb-4">
         {breadcrumb.length > 0 ? (
           <div className="text-sm text-gray-600 mb-1">
