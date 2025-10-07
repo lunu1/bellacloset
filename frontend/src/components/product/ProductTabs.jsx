@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
  * - initialVisible: number (how many reviews to show before "See all")
  */
 export default function ProductTabs({
+ 
   reviews = [],
   reviewsLoading = false,
   summary = null,
@@ -60,6 +61,29 @@ export default function ProductTabs({
 
   return (
     <section className="mt-14">
+          {/* ----- Product text sections (dropdowns) ----- */}
+    {/* {product?.description?.trim() && (
+      <details className="mb-4 border rounded-lg bg-white">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+          Description
+        </summary>
+        <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+          {product.description}
+        </div>
+      </details>
+    )} */}
+
+    {/* {product?.detailedDescription?.trim() && (
+      <details className="mb-8 border rounded-lg bg-white">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+          Product details
+        </summary>
+        <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+          {product.detailedDescription}
+        </div>
+      </details>
+    )} */}
+      {/* ----- Reviews ----- */}
       <div className="flex items-end justify-between">
         <h2 className="text-xl md:text-2xl font-semibold tracking-tight">
           Reviews {computed.reviewCount ? `(${computed.reviewCount})` : ""}

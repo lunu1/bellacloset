@@ -1,7 +1,8 @@
 // src/components/product/QuantitySelector.jsx
-export default function QuantitySelector({ stock = 0, quantity, setQuantity, onStockLimit }) {
+export default function QuantitySelector({ stock = 0, quantity, setQuantity, onStockLimit,children }) {
   return (
-    <div className="flex items-center gap-4 mb-6">
+    <div className="mb-6">
+    <div className="flex items-center gap-4 ">
       <p className="font-medium">Quantity:</p>
       <div className="flex items-center border border-gray-300 rounded">
         <button
@@ -31,6 +32,9 @@ export default function QuantitySelector({ stock = 0, quantity, setQuantity, onS
           +
         </button>
       </div>
+   
+    </div>
+    {children ? <div className="mt-4">{children}</div> : null}
     </div>
   );
 }

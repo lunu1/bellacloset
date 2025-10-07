@@ -61,7 +61,7 @@ export const createProduct = async (req, res) => {
   try {
     const {
       // product core
-      name, slug: clientSlug, description, brand,brandName, tags,
+      name, slug: clientSlug, description, detailedDescription, brand,brandName, tags,
       options = [], variants = [], defaultImages = [],
       defaultPrice, compareAtPrice, defaultStock,
 
@@ -104,6 +104,7 @@ export const createProduct = async (req, res) => {
       name,
       slug: finalSlug,
       description,
+      detailedDescription,
       brand : brandId || null,
       // lineage fields:
       category: rootCategoryId,          // root/top-level
@@ -533,7 +534,7 @@ export const searchProducts = async (req, res) => {
     const regex = new RegExp(query, "i"); // partial + case-insensitive match
     const brandIds = await Brand.find({ name: regex }).select("_id");
     const results = await Product.find({
-      $or: [{ name: regex }, { description: regex },
+      $or: [{ name: regex }, { description: regex }, { detailedDescription: regex },
         ...(brandIds.length ? [{ brand: { $in: brandIds.map(b => b._id) } }] : [])
       ],
     })
@@ -607,7 +608,7 @@ export const updateProduct = async (req, res) => {
     const productId = req.params.id;
 
     const allowed = [
-      "name", "slug", "description", "brand", "brandName", "category",
+      "name", "slug", "description","detailedDescription", "brand", "brandName", "category",
       "tags", "options", "images", "defaultPrice", "compareAtPrice",
       "defaultStock", "isActive", "isFeatured", "seo"
     ];

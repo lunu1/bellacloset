@@ -5,7 +5,8 @@ import {
   getCategories,
   updateCategory,
   deleteCategory,
-  listAllCategoriesFlat
+  listAllCategoriesFlat,
+  reorderCategories
 
 } from "../controllers/categoryController.js";
 
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.post("/", upload.single("image"), createCategory);
 router.get("/", getCategories);
+router.post("/reorder", reorderCategories)
 
 router.get("/flat", listAllCategoriesFlat);
 router.put("/:id", upload.single("image"), updateCategory);

@@ -36,6 +36,7 @@ const ProductUpdateForm = ({
   const [brands, setBrands] = useState([]);
   const [brandsLoading, setBrandsLoading] = useState(false);
   const [brandId, setBrandId] = useState(null);
+  const [detailedDescription, setDetailedDescription] = useState("");
 
   // NON-VARIANT (simple product) pricing & media
   const [defaultImages, setDefaultImages] = useState([]);
@@ -119,6 +120,7 @@ const ProductUpdateForm = ({
 
     // variants presence is controlled by prop + toggle
     setHasVariants(initialVariants.length > 0);
+    setDetailedDescription(initialProduct.detailedDescription || "")
   }, [initialProduct, initialVariants]);
 
   const handleChange = (e) =>
@@ -127,7 +129,7 @@ const ProductUpdateForm = ({
   const handleDefaultImageUpload = async (e) => {
     const files = Array.from(e.target.files || []).slice(
       0,
-      Math.max(0, 4 - defaultImages.length)
+      Math.max(0, 14 - defaultImages.length)
     );
     if (files.length === 0) return;
 
@@ -138,7 +140,7 @@ const ProductUpdateForm = ({
     try {
       const { data } = await axios.post(`${API_BASE}/api/upload/images`, formData);
       const urls = data?.urls || [];
-      setDefaultImages((prev) => [...prev, ...urls].slice(0, 4));
+      setDefaultImages((prev) => [...prev, ...urls].slice(0, 14));
       toast.success("Images uploaded");
     } catch (err) {
       console.error(err);
@@ -178,6 +180,7 @@ const ProductUpdateForm = ({
       ...(brandId ? { brand: brandId } : { brand: null }),
       category: product.category,
       description: product.description,
+       detailedDescription,
       tags: tagsArray,
       options: hasVariants ? ["Color", "Size"] : [],
       isActive: initialProduct?.isActive ?? true,
@@ -186,7 +189,7 @@ const ProductUpdateForm = ({
     };
 
     if (!hasVariants) {
-      productPatch.images = defaultImages.slice(0, 4);
+      productPatch.images = defaultImages.slice(0, 14);
       productPatch.defaultPrice = Number(defaultPrice || 0);
       productPatch.compareAtPrice = Number(compareAtPrice || 0);
       productPatch.defaultStock = Number(defaultStock || 0);
@@ -203,7 +206,7 @@ const ProductUpdateForm = ({
           price: Number(v.price || 0),
           compareAtPrice: Number(v.compareAtPrice || 0),
           stock: Number(v.stock || 0),
-          images: Array.isArray(v.images) ? v.images.slice(0, 4) : [],
+          images: Array.isArray(v.images) ? v.images.slice(0, 14) : [],
         }))
       : [];
 
@@ -330,6 +333,24 @@ const ProductUpdateForm = ({
           <p className="text-xs text-red-600 mt-1">{errors.description}</p>
         )}
       </div>
+
+      {/* DETAILED DESCRIPTION */}
+<div>
+  <label className="block text-sm font-medium mb-1">Detailed Description</label>
+  <textarea
+    name="detailedDescription"
+    placeholder={`Paste long-form details (line breaks preserved).`}
+    className={`border p-2 w-full rounded min-h-[220px] ${
+      errors.detailedDescription ? "border-red-600" : "border-gray-300"
+    }`}
+    value={detailedDescription}
+    onChange={(e) => setDetailedDescription(e.target.value)}
+  />
+  {errors.detailedDescription && (
+    <p className="text-xs text-red-600 mt-1">{errors.detailedDescription}</p>
+  )}
+</div>
+
 
       {/* TAGS */}
       <div>

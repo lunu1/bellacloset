@@ -29,6 +29,8 @@ const ProductForm = ({ onSubmit }) => {
   const [defaultPrice, setDefaultPrice] = useState('');
   const [compareAtPrice, setCompareAtPrice] = useState('');
   const [defaultStock, setDefaultStock] = useState('');
+  const [detailedDescription, setDetailedDescription] = useState("");
+
 
   // Variants
   const [variants, setVariants] = useState([]);
@@ -85,7 +87,7 @@ const ProductForm = ({ onSubmit }) => {
   const handleDefaultImageUpload = async (e) => {
     const files = Array.from(e.target.files || []).slice(
       0,
-      Math.max(0, 4 - defaultImages.length)
+      Math.max(0, 14 - defaultImages.length)
     );
     if (files.length === 0) return;
 
@@ -96,7 +98,7 @@ const ProductForm = ({ onSubmit }) => {
     try {
       const { data } = await axios.post(`${backendURL}/api/upload/images`, formData);
       const urls = data?.urls || [];
-      setDefaultImages((prev) => [...prev, ...urls].slice(0, 4));
+      setDefaultImages((prev) => [...prev, ...urls].slice(0, 14));
       toast.success('Images uploaded successfully!');
     } catch (err) {
       console.error('Image upload failed', err);
@@ -174,6 +176,7 @@ const ProductForm = ({ onSubmit }) => {
     const payload = {
       name: product.name,
       description: product.description,
+      detailedDescription: detailedDescription,
       tags: tagsArray,
 
       // Brand (selected or created)
@@ -205,6 +208,7 @@ const ProductForm = ({ onSubmit }) => {
       // Reset form
       setProduct({ name: '', tags: '', description: '', options: [] });
       setDefaultImages([]);
+      setDetailedDescription("");
       setDefaultPrice('');
       setCompareAtPrice('');
       setDefaultStock('');
@@ -307,6 +311,25 @@ const ProductForm = ({ onSubmit }) => {
           <p className="text-xs text-red-600 mt-1">{errors.description}</p>
         )}
       </div>
+     {/* Detailed Description */}
+<div className="mt-3">
+  <label className="block text-sm font-medium mb-1">Detailed Description</label>
+  <textarea
+    name="detailedDescription"
+    placeholder={`Add a detailed description of the product here.`}
+    className={`border p-2 w-full rounded min-h-[220px] ${
+      errors.detailedDescription ? 'border-red-600' : 'border-gray-300'
+    }`}
+    value={detailedDescription}
+    onChange={(e) => setDetailedDescription(e.target.value)}
+  />
+  {errors.detailedDescription && (
+    <p className="text-xs text-red-600 mt-1">{errors.detailedDescription}</p>
+  )}
+</div>
+
+
+
 
       {/* Tags */}
       <div>
@@ -395,7 +418,7 @@ const ProductForm = ({ onSubmit }) => {
               </label>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              Accepts up to 4 images. First image is used as the default.
+              Accepts up to 14 images. First image is used as the default.
             </p>
             <div className="flex gap-2 mt-4 flex-wrap">
               {defaultImages.map((img, i) => (
