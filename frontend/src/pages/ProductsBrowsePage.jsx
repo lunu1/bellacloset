@@ -241,7 +241,7 @@ const activeCategoryImage = pickCategoryImage(activeCategory);
       <img
         src={activeCategoryImage}
         alt={activeCategory?.label || "Category"}
-        className="w-full h-48 md:h-[90vh] object-cover object-center"
+        className="w-full h-48 md:h-[68vh] object-cover object-center"
         loading="lazy"
       />
     </div>

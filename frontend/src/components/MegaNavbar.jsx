@@ -76,6 +76,14 @@ export default function DesignerNavbar() {
     };
   }, [navbarData.length, updateArrows]);
 
+
+  
+const staticLinks = [
+  { label: "About", path: "/about" },
+  { label: "Contact", path: "/contact" },
+];
+
+
   const scrollByAmount = (dir) => {
     const el = rowRef.current;
     if (!el) return;
