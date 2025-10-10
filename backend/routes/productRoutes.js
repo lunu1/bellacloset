@@ -23,6 +23,7 @@ router.get("/suggestions", getSearchSuggestions);
 
 // Paginated list with filters/sort/search
 router.get("/all", getAllProducts);
+router.get("/by-category/:id", getProductById);
 
 // Variants by product
 router.get("/:id/variants", getVariantsByProduct);

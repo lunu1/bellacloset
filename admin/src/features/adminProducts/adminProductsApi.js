@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 // Ensure base always ends with /api (works with host or "/api")
-const RAW_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const RAW_BASE = import.meta.env.VITE_BACKEND_URL|| "http://localhost:4000";
 const BASE = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE}/api`;
 
 

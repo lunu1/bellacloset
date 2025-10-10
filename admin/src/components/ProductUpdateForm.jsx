@@ -9,7 +9,7 @@ import VariantBuilderGrouped from "../components/VariantBuilderGrouped";
 import BrandSelect from "../components/brand/BrandSelect";
 import { validateProductForm } from "../utils/validateProductForm";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com";
+const API_BASE = import.meta.env.VITE_BACKEND_URL || "https://bellaluxurycloset.com";
 
 const ProductUpdateForm = ({
   initialProduct,
