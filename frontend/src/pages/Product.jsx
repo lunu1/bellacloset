@@ -149,7 +149,7 @@ export default function Product() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get(`/products/${pid}`);
+        const { data } = await api.get(`/api/products/${pid}`);
         if (cancelled) return;
         setOfferProduct(data?.product || null);
         const map = new Map();
