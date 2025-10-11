@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { Truck, ShieldCheck, Headphones, CreditCard } from "lucide-react";
 
 import {
   getAllProducts,
@@ -552,17 +553,43 @@ const discountPercent =
                 },
               });
             }}
+            productName={product.name}
           />
 
-          <hr className="mt-8 sm:w-4/5" />
+          {/* <hr className="mt-8 sm:w-4/5" />
           <div className="flex flex-col gap-2 mt-5 text-sm text-gray-600">
             <p>✓ 100% original product</p>
             <p>✓ Cash on delivery available</p>
             <p>✓ Easy return &amp; exchange within 7 days</p>
             <p>🚚 Free shipping on orders above {CURRENCY}999</p>
-          </div>
+          </div> */}
         </div>
       </div>
+
+    <div className="w-full rounded-2xl bg-gray-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-12 my-10 md:mt-18">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-5 sm:gap-6 lg:gap-8 text-xs sm:text-sm lg:text-base text-gray-800">
+        
+        <div className="flex items-center justify-start sm:justify-center gap-2 sm:gap-3">
+          <Truck className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 shrink-0" strokeWidth={1.75} />
+          <span className="leading-snug">Worldwide Delivery</span>
+        </div>
+
+        <div className="flex items-center justify-start sm:justify-center gap-2 sm:gap-3">
+          <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 shrink-0" strokeWidth={1.75} />
+          <span className="leading-snug">100% Authenticity Guaranteed</span>
+        </div>
+
+        <div className="flex items-center justify-start sm:justify-center gap-2 sm:gap-3">
+          <Headphones className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 shrink-0" strokeWidth={1.75} />
+          <span className="leading-snug">Responsive Customer Service 24/7</span>
+        </div>
+
+        <div className="flex items-center justify-start sm:justify-center gap-2 sm:gap-3">
+          <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 shrink-0" strokeWidth={1.75} />
+          <span className="leading-snug">Several Payment Methods Available</span>
+        </div>
+      </div>
+    </div>
 
       <ProductTabs
         activeTab={activeTab}
@@ -581,6 +608,7 @@ const discountPercent =
         category={product.category}
         subcategory={product.subcategory || product.subCategory || null}
       />
+     
     </div>
   );
 }

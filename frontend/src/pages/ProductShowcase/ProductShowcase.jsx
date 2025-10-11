@@ -31,7 +31,8 @@ const ProductShowcase = () => {
   if (!rows.length) return <div className="p-6 text-gray-500">No products found.</div>;
 
   return (
-    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+    <>
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
       {rows.map(({ product, variants }, i) => (
         <ProductCard 
         key={product?._id || product?.id || i } 
@@ -39,6 +40,10 @@ const ProductShowcase = () => {
         variants={variants} />
       ))}
     </div>
+
+
+    </>
+
   );
 };
 
