@@ -8,17 +8,19 @@ export default function ImageGallery({
   zoomPosition,
   onMouseMove,
 }) {
+  const VISIBLE_MAX = 13;
   return (
     <div className="flex flex-col-reverse gap-3 sm:flex-row">
       {/* Thumbs */}
-      <div className="flex sm:flex-col justify-start overflow-x-auto sm:overflow-y-auto sm:w-[18.7%] w-full">
-        {images.map((src, i) => (
+      <div className="flex sm:flex-col justify-start overflow-x-auto sm:overflow-y-auto sm:w-[18.7%] w-full sm:max-h-[85vh]">
+       {(images.slice(0, VISIBLE_MAX)).map((src, i) => (
           <img
             key={i}
             src={src}
             alt={`thumb-${i}`}
+            loading="lazy"
             onClick={() => onChange(src)}
-            className={`w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer border-2 ${
+            className={`w-[24%] sm:w-[50%] sm:mb-2 aspect-square object-cover flex-shrink-0 cursor-pointer border-2 ${
               activeImage === src ? "border-black" : "border-transparent"
             } hover:border-gray-300 transition-all duration-200`}
           />
