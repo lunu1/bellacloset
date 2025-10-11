@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
  * - initialVisible: number (how many reviews to show before "See all")
  */
 export default function ProductTabs({
- 
+ product,
   reviews = [],
   reviewsLoading = false,
   summary = null,
