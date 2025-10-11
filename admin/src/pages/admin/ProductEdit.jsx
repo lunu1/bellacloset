@@ -31,7 +31,7 @@ export default function ProductEdit() {
       try {
         // Option A: replace all variants in one call (recommended backend route)
         await axios.put(
-          `${import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com/api"}/api/products/${id}/variants`,
+          `${import.meta.env.VITE_API_URL || "https://bellaluxurycloset.com/api"}/products/${id}/variants`,
           { variants: variantsPayload }
         );
       } catch (err) {
