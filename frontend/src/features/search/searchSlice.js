@@ -9,7 +9,10 @@ export const fetchSearchResults = createAsyncThunk(
   'search/fetchSearchResults',
   async (query, thunkAPI) => {
     try {
-      const { data } = await axios.get(`${backendUrl}/api/products/search?q=${query}`);
+      //const { data } = await axios.get(`${backendUrl}/api/products/search?q=${query}`);
+       const { data } = await axios.get(`${backendUrl}/api/products/search`, {
+        params: { q: query }
+      });
       return data.results;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
@@ -22,7 +25,10 @@ export const fetchSearchSuggestions = createAsyncThunk(
   'search/fetchSearchSuggestions',
   async (query, thunkAPI) => {
     try {
-      const { data } = await axios.get(`${backendUrl}/api/products/suggestions?q=${query}`);
+     // const { data } = await axios.get(`${backendUrl}/api/products/suggestions?q=${query}`);
+      const { data } = await axios.get(`${backendUrl}/api/products/suggestions`, {
+        params: { q: query }
+      });
       return data.suggestions;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);

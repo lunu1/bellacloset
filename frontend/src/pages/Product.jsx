@@ -263,6 +263,8 @@ export default function Product() {
 
   const { product } = productData;
 
+  const freshProduct = offerProduct || product;
+
   const availableColors = getAvailableColors(variants);
   const availableSizes = getAvailableSizes(variants);
   const variantStock = selectedVariant?.stock ?? product.defaultStock ?? 0;
@@ -409,7 +411,7 @@ const discountPercent =
 />
 
           <p className="mt-5 text-gray-600 md:w-4/5 leading-relaxed">
-            {product.description}
+           {freshProduct?.description}
           </p>
 
           {/* Color / Size */}
@@ -446,46 +448,28 @@ const discountPercent =
             </p>
           )}
 
-           {product?.detailedDescription?.trim() && (
-  <details className="group rounded-md border border-black  backdrop-blur-sm shadow-sm open:shadow-md transition-shadow">
+          {freshProduct?.detailedDescription?.trim() && (
+  <details className="group rounded-md border border-black backdrop-blur-sm shadow-sm open:shadow-md transition-shadow">
     <summary
-      className="flex items-center justify-between gap-3 cursor-pointer px-4 py-3 text-md font-medium  select-none
+      className="flex items-center justify-between gap-3 cursor-pointer px-4 py-3 text-md font-medium select-none
                  focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-2 focus-visible:ring-offset-white rounded-xl"
     >
-      <span className="inline-flex items-center gap-2">
-        {/* <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100"> */}
-          {/* info icon */}
-          {/* <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80">
-            <path fill="currentColor" d="M12 2a10 10 0 1 0 .001 20.001A10 10 0 0 0 12 2m.75 15h-1.5v-6h1.5zm0-8h-1.5V7h1.5z"/>
-          </svg> */}
-        {/* </span> */}
-        Product details
-      </span>
-
-      {/* chevron */}
-      <svg
-        className="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180"
-        viewBox="0 0 20 20" fill="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          fillRule="evenodd"
-          d="M5.23 7.21a.75.75 0 011.06.02L10 10.17l3.71-2.94a.75.75 0 111 1.1l-4.24 3.36a.75.75 0 01-.94 0L5.21 8.33a.75.75 0 01.02-1.12z"
-          clipRule="evenodd"
-        />
+      <span className="inline-flex items-center gap-2">Product details</span>
+      <svg className="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.17l3.71-2.94a.75.75 0 111 1.1l-4.24 3.36a.75.75 0 01-.94 0L5.21 8.33a.75.75 0 01.02-1.12z" clipRule="evenodd" />
       </svg>
     </summary>
 
-    {/* animated content */}
     <div className="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-300 ease-in-out">
       <div className="overflow-hidden">
         <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-          {product.detailedDescription}
+          {freshProduct.detailedDescription}
         </div>
       </div>
     </div>
   </details>
 )}
+
 
 </QuantitySelector>
 

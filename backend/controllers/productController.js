@@ -148,7 +148,7 @@ export const createProduct = async (req, res) => {
               price: parseFloat(v.price || defaultPrice || 0),
               compareAtPrice: parseFloat(v.compareAtPrice || compareAtPrice || 0),
               stock: parseInt(v.stock || defaultStock || 0, 10),
-              images: Array.isArray(v.images) ? v.images.slice(0, 4) : [],
+              images: Array.isArray(v.images) ? v.images.slice(0, 14) : [],
             }], { session }).then(arr => arr[0]);
           })
       );
@@ -159,8 +159,8 @@ export const createProduct = async (req, res) => {
     const defaultVariantImages = createdVariants.find(v => v.images?.length)?.images || [];
     const images =
       createdVariants.length > 0 && hasColorOption
-        ? defaultVariantImages.slice(0, 4)
-        : defaultImages.slice(0, 4);
+        ? defaultVariantImages.slice(0, 14)
+        : defaultImages.slice(0, 14);
 
     await Product.findByIdAndUpdate(created._id, { images }, { session });
 
@@ -520,39 +520,83 @@ export const deleteProduct = async (req, res) => {
 };
 
 // Search products by name, brand, or description
+// export const searchProducts = async (req, res) => {
+//   try {
+//     const query = req.query.q?.trim();
+
+//     if (!query) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Search query is required" });
+//     }
+
+//     // Convert to case-insensitive partial regex
+//     const regex = new RegExp(query, "i"); // partial + case-insensitive match
+//     const brandIds = await Brand.find({ name: regex }).select("_id");
+//     const results = await Product.find({
+//       $or: [{ name: regex }, { description: regex }, { detailedDescription: regex },
+//         ...(brandIds.length ? [{ brand: { $in: brandIds.map(b => b._id) } }] : [])
+//       ],
+//     })
+//     .populate("brand", "name slug logo")
+//     .limit(30);
+
+//     res.status(200).json({ success: true, results });
+//   } catch (error) {
+//     console.error("❌ Search error:", error);
+//     res
+//       .status(500)
+//       .json({
+//         success: false,
+//         message: "Failed to perform search",
+//         error: error.message,
+//       });
+//   }
+// };
+
+
+
 export const searchProducts = async (req, res) => {
   try {
-    const query = req.query.q?.trim();
-
-    if (!query) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Search query is required" });
+    const qRaw = req.query.q ?? "";
+    const q = qRaw.trim();
+    if (!q) {
+      return res.status(400).json({ success: false, message: "Search query is required" });
     }
 
-    // Convert to case-insensitive partial regex
-    const regex = new RegExp(query, "i"); // partial + case-insensitive match
-    const brandIds = await Brand.find({ name: regex }).select("_id");
+    // helpers (local; no extra imports needed)
+    const normalize = (s = "") =>
+      s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+
+    // build regexes
+    const regex = new RegExp(q, "i");                 // regular (kept for desc, etc.)
+    const normRegex = new RegExp(normalize(q), "i");  // normalized (for nameNormalized)
+
+    // brand ids (use collation so 'Hermes' matches 'Hermès' in Brand.name)
+    const brandIds = await Brand.find({ name: { $regex: regex } })
+      .collation({ locale: "en", strength: 1 })
+      .select("_id");
+
     const results = await Product.find({
-      $or: [{ name: regex }, { description: regex }, { detailedDescription: regex },
-        ...(brandIds.length ? [{ brand: { $in: brandIds.map(b => b._id) } }] : [])
+      $or: [
+        { name: regex },
+        { nameNormalized: normRegex },          // <-- key line: normalized name match
+        { description: regex },
+        { detailedDescription: regex },
+        ...(brandIds.length ? [{ brand: { $in: brandIds.map(b => b._id) } }] : []),
       ],
     })
-    .populate("brand", "name slug logo")
-    .limit(30);
+      .populate("brand", "name slug logo")
+      .limit(30)
+      .lean(); // optional
 
-    res.status(200).json({ success: true, results });
+    return res.status(200).json({ success: true, results });
   } catch (error) {
     console.error("❌ Search error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to perform search",
-        error: error.message,
-      });
+    return res.status(500).json({ success: false, message: "Failed to perform search", error: error.message });
   }
 };
+
 
 async function ensureBrandFromPayload({ brandId, brandName }) {
   if (brandId && mongoose.Types.ObjectId.isValid(brandId)) return brandId;
@@ -633,7 +677,7 @@ export const updateProduct = async (req, res) => {
     if ("defaultPrice" in patch) patch.defaultPrice = parseFloat(patch.defaultPrice ?? 0);
     if ("compareAtPrice" in patch) patch.compareAtPrice = parseFloat(patch.compareAtPrice ?? 0);
     if ("defaultStock" in patch) patch.defaultStock = parseInt(patch.defaultStock ?? 0, 10);
-    if (Array.isArray(patch.images)) patch.images = patch.images.slice(0, 4);
+    if (Array.isArray(patch.images)) patch.images = patch.images.slice(0, 14);
 
     // ---- BEFORE snapshot (for status gating + stock comparison)
     const before = await Product.findById(productId).lean();
@@ -715,7 +759,7 @@ export const upsertProductVariants = async (req, res) => {
         price: parseFloat(v.price ?? 0),
         compareAtPrice: parseFloat(v.compareAtPrice ?? 0),
         stock: parseInt(v.stock ?? 0, 10),
-        images: Array.isArray(v.images) ? v.images.slice(0, 4) : [],
+        images: Array.isArray(v.images) ? v.images.slice(0, 14) : [],
         // be explicit if payload includes isActive; default to true when omitted
         ...(typeof v.isActive !== "undefined" ? { isActive: !!v.isActive } : {})
 
@@ -766,7 +810,7 @@ export const upsertProductVariants = async (req, res) => {
     if (hasColorOption) {
       // choose the first variant that has images
       const withImages = finalVariants.find(v => Array.isArray(v.images) && v.images.length > 0);
-      const newImages = withImages ? withImages.images.slice(0, 4) : product.images || [];
+      const newImages = withImages ? withImages.images.slice(0, 14) : product.images || [];
       await Product.findByIdAndUpdate(productId, { images: newImages }, { new: false, runValidators: false }).session(session);
     }
 
