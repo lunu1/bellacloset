@@ -1,4 +1,6 @@
 // src/components/product/ImageGallery.jsx
+import { useRef, useEffect } from "react";
+
 export default function ImageGallery({
   images = [],
   activeImage,
@@ -8,54 +10,77 @@ export default function ImageGallery({
   zoomPosition,
   onMouseMove,
 }) {
-  const VISIBLE_MAX = 13;
+  const containerRef = useRef(null);
+
+  // Handle scroll to detect which image is currently in view
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, clientHeight } = container;
+      const index = Math.round(scrollTop / clientHeight);
+      const current = images[index];
+      if (current && current !== activeImage) onChange(current);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [images, activeImage, onChange]);
+
   return (
-    <div className="flex flex-col-reverse gap-3 sm:flex-row">
-      {/* Thumbs */}
-      <div className="flex sm:flex-col justify-start overflow-x-auto sm:overflow-y-auto sm:w-[18.7%] w-full sm:max-h-[85vh]">
-       {(images.slice(0, VISIBLE_MAX)).map((src, i) => (
-          <img
-            key={i}
-            src={src}
-            alt={`thumb-${i}`}
-            loading="lazy"
-            onClick={() => onChange(src)}
-            className={`w-[24%] sm:w-[50%] sm:mb-2 aspect-square object-cover flex-shrink-0 cursor-pointer border-2 ${
-              activeImage === src ? "border-black" : "border-transparent"
-            } hover:border-gray-300 transition-all duration-200`}
-          />
-        ))}
-        {images.length === 0 && (
-          <div className="text-center text-gray-500 text-sm p-4">
+    <div className="relative w-full h-[80vh] overflow-hidden    ">
+      {/* Scrollable image list */}
+      <div
+        ref={containerRef}
+        className="w-full h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth "
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+      >
+        {/* Hide scrollbar for WebKit browsers */}
+        <style>{`
+          div::-webkit-scrollbar { display: none; }
+        `}</style>
+
+        {images && images.length > 0 ? (
+          images.map((src, i) => (
+            <div
+              key={i}
+              className="snap-start w-full h-[80vh] flex items-center justify-center bg-white"
+              onClick={() => onChange?.(src)}
+            >
+              <img
+                src={src}
+                alt={`slide-${i}`}
+                className="w-full h-[80vh] object-contain select-none"
+                draggable={false}
+              />
+            </div>
+          ))
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-500">
             No images available
           </div>
         )}
       </div>
 
-      {/* Main */}
-      <div className="w-full sm:w-[80%] relative">
-        {activeImage && (
-          <img
-            src={activeImage}
-            alt="active"
-            className="w-full h-auto cursor-zoom-in"
-            onMouseEnter={() => setShowZoom(true)}
-            onMouseLeave={() => setShowZoom(false)}
-            onMouseMove={onMouseMove}
-          />
-        )}
-        {showZoom && activeImage && (
+      {/* Optional Zoom (same logic preserved) */}
+      {showZoom && activeImage && (
+        <div className="hidden xl:block absolute top-0 right-0 translate-x-full ml-4 w-[40vw] h-[40vw] max-w-[520px] max-h-[520px] border rounded-md overflow-hidden bg-white">
           <div
-            className="absolute top-0 left-full ml-4 w-96 h-96 border border-gray-300 bg-white shadow-lg pointer-events-none hidden lg:block"
+            className="w-full h-full bg-no-repeat"
             style={{
               backgroundImage: `url(${activeImage})`,
-              backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
-              backgroundSize: "200%",
-              backgroundRepeat: "no-repeat",
+              backgroundSize: "200% 200%",
+              backgroundPosition: `${zoomPosition?.x || 50}% ${
+                zoomPosition?.y || 50
+              }%`,
             }}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

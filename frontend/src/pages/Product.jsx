@@ -242,7 +242,7 @@ export default function Product() {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          <h2 className="text-2xl  text-gray-800 mb-2">
             Product Not Found
           </h2>
           <p className="text-gray-600 mb-4">
@@ -354,201 +354,192 @@ const discountPercent =
   return (
     <div className="pt-10 transition-opacity duration-500 ease-in border-t-2 opacity-100">
       {/* Top section */}
-      <div className="flex flex-col gap-12 sm:flex-row">
-        {/* Left: Images */}
-        <div className="flex-1 relative">
-          <ImageGallery
-            images={galleryImages}
-            activeImage={image}
-            onChange={setImage}
-            showZoom={showZoom}
-            setShowZoom={setShowZoom}
-            zoomPosition={zoomPosition}
-            onMouseMove={handleMouseMove}
-          />
-          <div className="absolute top-4 right-4">
-            <WishlistShare
-              isInWishlist={wishState}
-              onToggleWishlist={handleToggleWishlist}
-            />
-          </div>
-        </div>
-
-        {/* Right: Details */}
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            {product.brand && (
-              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                {product.brand?.slug ? (
-                  <Link to={`/brand/${product.brand.slug}`}>
-                    {brandLabel(product)}
-                  </Link>
-                ) : (
-                  brandLabel(product)
-                )}
-              </span>
-            )}
-            {product.bestseller && (
-              <span className="text-xs bg-black text-white px-2 py-1 rounded">
-                Bestseller
-              </span>
-            )}
-          </div>
-
-          <h1 className="mt-2 text-2xl font-bold">{product.name}</h1>
-
-          <div className="mt-2 text-sm text-gray-600">
-            {avg
-              ? `${avg}★ (${count} review${count !== 1 ? "s" : ""})`
-              : `${count} review${count !== 1 ? "s" : ""}`}
-          </div>
-
-         <PriceBlock
-  currency={CURRENCY}
-  currentPrice={effectivePrice}
-  originalPrice={discountPercent > 0 ? originalPriceForUi : undefined}
-  discountPercent={discountPercent > 0 ? discountPercent : undefined}
-/>
-
-          <p className="mt-5 text-gray-600 md:w-4/5 leading-relaxed">
-           {freshProduct?.description}
-          </p>
-
-          {/* Color / Size */}
-          {availableColors.length > 0 && (
-            <ColorSelector
-              product={product}
-              colors={availableColors}
-              selectedVariant={selectedVariant}
-              onSelect={(v) => {
-                setColor(v.optionValues.Color);
-                setSelectedVariant(v);
-                const imgs = getDisplayImages(v, product);
-                setImage(imgs?.[0] || "");
-              }}
-            />
-          )}
-
-          {availableSizes.length > 0 && (
-            <SizeSelector sizes={availableSizes} value={size} onChange={setSize} />
-          )}
-
-
-          {/* Quantity */}
-          <QuantitySelector
-            stock={variantStock}
-            quantity={quantity}
-            setQuantity={setQuantity}
-            onStockLimit={(flag) => setStockLimitReached(flag)}
-          >
-
-            {stockLimitReached && (
-            <p className="text-sm text-red-600 my-2">
-              Only {variantStock} item(s) available in stock.
-            </p>
-          )}
-
-          {freshProduct?.detailedDescription?.trim() && (
-  <details className="group rounded-md border border-black backdrop-blur-sm shadow-sm open:shadow-md transition-shadow">
-    <summary
-      className="flex items-center justify-between gap-3 cursor-pointer px-4 py-3 text-md font-medium select-none
-                 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10 focus-visible:ring-offset-2 focus-visible:ring-offset-white rounded-xl"
-    >
-      <span className="inline-flex items-center gap-2">Product details</span>
-      <svg className="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.17l3.71-2.94a.75.75 0 111 1.1l-4.24 3.36a.75.75 0 01-.94 0L5.21 8.33a.75.75 0 01.02-1.12z" clipRule="evenodd" />
-      </svg>
-    </summary>
-
-    <div className="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-300 ease-in-out">
-      <div className="overflow-hidden">
-        <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-          {freshProduct.detailedDescription}
-        </div>
-      </div>
+     
+<div className="flex flex-col sm:flex-row sm:gap-4 lg:gap-6">
+  {/* Left: Images (3/4) */}
+  <div className="relative w-full sm:basis-2/3 sm:pr-2 lg:pr-4">
+    <ImageGallery
+      images={galleryImages}
+      activeImage={image}
+      onChange={setImage}
+      showZoom={showZoom}
+      setShowZoom={setShowZoom}
+      zoomPosition={zoomPosition}
+      onMouseMove={handleMouseMove}
+    />
+    <div className="absolute top-3 right-3 lg:right-4">
+      <WishlistShare
+        isInWishlist={wishState}
+        onToggleWishlist={handleToggleWishlist}
+      />
     </div>
-  </details>
-)}
+  </div>
 
+  {/* Right: Details (1/4) */}
+  <div className="w-full sm:basis-1/3 lg:sticky lg:top-24">
+    <div className="flex items-center gap-2 mb-2">
+      {product.brand && (
+        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+          {product.brand?.slug ? (
+            <Link to={`/brand/${product.brand.slug}`}>
+              {brandLabel(product)}
+            </Link>
+          ) : (
+            brandLabel(product)
+          )}
+        </span>
+      )}
+      {product.bestseller && (
+        <span className="text-xs bg-black text-white px-2 py-1 rounded">
+          Bestseller
+        </span>
+      )}
+    </div>
 
-</QuantitySelector>
+    <h1 className="mt-2 text-2xl ">{product.name}</h1>
 
-          
-          {/* Actions */}
-          <ProductActions
-            addDisabled={authLoading}
-            onAddToCart={async () => {
-              if (!size && availableSizes.length > 0)
-                return toast.error("Please select a size");
-              if (!color && availableColors.length > 0)
-                return toast.error("Please select a color");
+    <div className="mt-2 text-sm text-gray-600">
+      {avg
+        ? `${avg}★ (${count} review${count !== 1 ? "s" : ""})`
+        : `${count} review${count !== 1 ? "s" : ""}`}
+    </div>
 
-              if (authLoading) {
-                toast.info("Checking your session…");
-                return;
-              }
-              if (!isLoggedin) {
-                toast.info("Please login to add items to cart");
-                return navigate("/login", {
-                  state: { from: location.pathname },
-                });
-              }
+    <PriceBlock
+      currency={CURRENCY}
+      currentPrice={effectivePrice}
+      originalPrice={discountPercent > 0 ? originalPriceForUi : undefined}
+      discountPercent={discountPercent > 0 ? discountPercent : undefined}
+    />
 
-              if (variants.length > 0 && !selectedVariant?._id) {
-                return toast.error("Please select a variant");
-              }
+    {/* NOTE: removed md:w-4/5 so the text uses full 1/4 column width */}
+    <p className="mt-5 text-gray-600 leading-relaxed">
+      {freshProduct?.description}
+    </p>
 
-              try {
-                await dispatch(
-                  addToCartServer({
-                    productId: product._id,
-                    variantId: selectedVariant?._id || null,
-                    quantity,
-                  })
-                ).unwrap();
+    {/* Color / Size */}
+    {availableColors.length > 0 && (
+      <ColorSelector
+        product={product}
+        colors={availableColors}
+        selectedVariant={selectedVariant}
+        onSelect={(v) => {
+          setColor(v.optionValues.Color);
+          setSelectedVariant(v);
+          const imgs = getDisplayImages(v, product);
+          setImage(imgs?.[0] || "");
+        }}
+      />
+    )}
 
-                dispatch(loadCart());
-                toast.success("Added to cart");
-              } catch (e) {
-                const msg = e?.error || e?.message || "Failed to add to cart";
-                toast.error(typeof msg === "string" ? msg : "Failed to add to cart");
-              }
-            }}
-            onBuyNow={() => {
-              if (!size && availableSizes.length > 0)
-                return toast.error("Please select a size");
-              if (!color && availableColors.length > 0)
-                return toast.error("Please select a color");
+    {availableSizes.length > 0 && (
+      <SizeSelector sizes={availableSizes} value={size} onChange={setSize} />
+    )}
 
-              navigate("/place-order", {
-                state: {
-                  productId: product._id,
-                  variantId: selectedVariant?._id,
-                  size,
-                  color,
-                  quantity,
-                  productName: product.name,
-                  // show offer-aware price in the preview; server still computes final total
-                  price: selectedVariant
-  ? effectivePrice
-  : (offerProduct?.pricing?.salePrice ?? product.defaultPrice),
+    {/* Quantity */}
+    <QuantitySelector
+      stock={variantStock}
+      quantity={quantity}
+      setQuantity={setQuantity}
+      onStockLimit={(flag) => setStockLimitReached(flag)}
+    >
+      {stockLimitReached && (
+        <p className="text-sm text-red-600 my-2">
+          Only {variantStock} item(s) available in stock.
+        </p>
+      )}
 
-                  thumbnail: product.images?.[0],
-                },
-              });
-            }}
-            productName={product.name}
-          />
+      {freshProduct?.detailedDescription?.trim() && (
+        <details className="group rounded-md border border-black backdrop-blur-sm shadow-sm open:shadow-md transition-shadow">
+          <summary className="flex items-center justify-between gap-3 cursor-pointer px-4 py-3 text-md select-none rounded-xl">
+            <span className="inline-flex items-center gap-2">Product details</span>
+            <svg className="h-5 w-5 text-gray-500 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.17l3.71-2.94a.75.75 0 111 1.1l-4.24 3.36a.75.75 0 01-.94 0L5.21 8.33a.75.75 0 01.02-1.12z" clipRule="evenodd" />
+            </svg>
+          </summary>
+          <div className="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-300 ease-in-out">
+            <div className="overflow-hidden">
+              <div className="px-4 pb-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                {freshProduct.detailedDescription}
+              </div>
+            </div>
+          </div>
+        </details>
+      )}
+    </QuantitySelector>
 
-          {/* <hr className="mt-8 sm:w-4/5" />
-          <div className="flex flex-col gap-2 mt-5 text-sm text-gray-600">
-            <p>✓ 100% original product</p>
-            <p>✓ Cash on delivery available</p>
-            <p>✓ Easy return &amp; exchange within 7 days</p>
-            <p>🚚 Free shipping on orders above {CURRENCY}999</p>
-          </div> */}
-        </div>
-      </div>
+    {/* Actions */}
+    <ProductActions
+      addDisabled={authLoading}
+      onAddToCart={async () => {
+        if (!size && availableSizes.length > 0)
+          return toast.error("Please select a size");
+        if (!color && availableColors.length > 0)
+          return toast.error("Please select a color");
+
+        if (authLoading) {
+          toast.info("Checking your session…");
+          return;
+        }
+        if (!isLoggedin) {
+          toast.info("Please login to add items to cart");
+          return navigate("/login", {
+            state: { from: location.pathname },
+          });
+        }
+
+        if (variants.length > 0 && !selectedVariant?._id) {
+          return toast.error("Please select a variant");
+        }
+
+        try {
+          await dispatch(
+            addToCartServer({
+              productId: product._id,
+              variantId: selectedVariant?._id || null,
+              quantity,
+            })
+          ).unwrap();
+
+          dispatch(loadCart());
+          toast.success("Added to cart");
+        } catch (e) {
+          const msg = e?.error || e?.message || "Failed to add to cart";
+          toast.error(typeof msg === "string" ? msg : "Failed to add to cart");
+        }
+      }}
+      onBuyNow={() => {
+        if (!size && availableSizes.length > 0)
+          return toast.error("Please select a size");
+        if (!color && availableColors.length > 0)
+          return toast.error("Please select a color");
+
+        navigate("/place-order", {
+          state: {
+            productId: product._id,
+            variantId: selectedVariant?._id,
+            size,
+            color,
+            quantity,
+            productName: product.name,
+            price: selectedVariant
+              ? effectivePrice
+              : (offerProduct?.pricing?.salePrice ?? product.defaultPrice),
+            thumbnail: product.images?.[0],
+          },
+        });
+      }}
+    />
+
+    {/* <hr className="mt-8" />
+    <div className="flex flex-col gap-2 mt-5 text-sm text-gray-600">
+      <p>✓ 100% original product</p>
+      <p>✓ Cash on delivery available</p>
+      <p>✓ Easy return &amp; exchange within 7 days</p>
+      <p>🚚 Free shipping on orders above {CURRENCY}999</p>
+    </div> */}
+  </div>
+</div>
+
 
     <div className="w-full rounded-2xl bg-gray-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-12 my-10 md:mt-18">
       <div className="mx-auto grid max-w-7xl grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-center gap-5 sm:gap-6 lg:gap-8 text-xs sm:text-sm lg:text-base text-gray-800">
@@ -596,3 +587,5 @@ const discountPercent =
     </div>
   );
 }
+
+

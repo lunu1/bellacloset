@@ -386,7 +386,7 @@ const Navbar = () => {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-[60] sm:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}
+        className={`fixed inset-0 z-[60] sm:hidden  ${mobileMenuOpen ? "" : "pointer-events-none"}`}
         aria-hidden={!mobileMenuOpen}
       >
         {/* Backdrop */}
@@ -404,8 +404,8 @@ const Navbar = () => {
           aria-modal="true"
           aria-label="Mobile menu"
         >
-          <div className="flex items-center justify-between p-4 border-b">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between p-3 border-b ">
+            <div className="flex items-center gap-2 ">
               <img src={assets.profile_icon} className="w-6" alt="" />
               <div className="font-medium">
                 {userData ? `Hi, ${userData.name}` : "Welcome"}
@@ -420,7 +420,7 @@ const Navbar = () => {
             </button>
           </div>
 
-          <nav className="p-4 flex flex-col gap-3 text-gray-800">
+          <nav className="p-4 flex flex-col gap-3 text-gray-800 bg-white">
             {!userData ? (
               <Link
                 to="/login"
@@ -509,3 +509,5 @@ const Navbar = () => {
 };
 
 export default Navbar;
+
+

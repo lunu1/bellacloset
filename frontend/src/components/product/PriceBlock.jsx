@@ -2,7 +2,7 @@
 export default function PriceBlock({ currency, currentPrice, originalPrice, discountPercent }) {
   return (
     <div className="mt-5 flex items-center gap-3">
-      <p className="text-3xl font-bold ">
+      <p className="text-3xl ">
         {currentPrice ?? "N/A"}  {currency}
       </p>
       {discountPercent > 0 && originalPrice && (
