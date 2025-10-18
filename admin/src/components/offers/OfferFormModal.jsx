@@ -57,14 +57,26 @@ export default function OfferFormModal({
     setValue(initial.value ?? 0);
     setMaxDiscount(typeof initial.maxDiscount === "number" ? String(initial.maxDiscount) : "");
     setDescription(initial.description || "");
-    setActive(initial.active !== false);
+    const combined = initial.active !== false || !!initial.applyToSaleItems;
+    setActive(combined);
     setExclusive(!!initial.exclusive);
     setPriority(typeof initial.priority === "number" ? initial.priority : 100);
-    setApplyToSaleItems(!!initial.applyToSaleItems);
+   setActive(combined);
     const kind = initial.scope?.kind || "all";
     setScopeKind(kind);
     setIncludeDescendants(initial.scope?.includeDescendants !== false);
-    setSelectedCategoryIds(kind === "categories" ? (initial.scope?.categories || []).map(String) : []);
+    setSelectedCategoryIds(
+  kind === "categories"
+    ? (initial.scope?.categories || [])
+        .map((c) =>
+          typeof c === "object"
+            ? String(c.value ?? c._id ?? c.id ?? c.slug ?? "")
+            : String(c)
+        )
+        .filter(Boolean)
+    : []
+);
+
     setStartsAt(initial.startsAt ? isoToLocalInput(initial.startsAt) : "");
     setEndsAt(initial.endsAt ? isoToLocalInput(initial.endsAt) : "");
   }, [initial]);
@@ -98,7 +110,7 @@ export default function OfferFormModal({
       priority: Number(priority) || 0,
       startsAt: toISOorNull(startsAt) || null,  // allow empty → null
       endsAt: toISOorNull(endsAt) || null,      // allow empty → null
-      applyToSaleItems: !!applyToSaleItems,
+      applyToSaleItems: !!active,
       scope: {
         kind: scopeKind,
         categories: scopeKind === "categories" ? selectedCategoryIds : [],
@@ -140,7 +152,12 @@ export default function OfferFormModal({
             <div>
               <SectionTitle>Status</SectionTitle>
               <label className="flex items-center gap-2 text-sm mb-2">
-                <input type="checkbox" checked={applyToSaleItems} onChange={(e) => setActive(e.target.checked)} /> Active
+                <input type="checkbox" checked={active}
+    onChange={(e) => {
+      const v = e.target.checked;
+      setActive(v);
+      setApplyToSaleItems(v); // <- keep in lockstep
+    }} /> Active
               </label>
               {/* <label className="flex items-center gap-2 text-sm mb-2">
                 <input type="checkbox" checked={exclusive} onChange={(e) => setExclusive(e.target.checked)} /> Exclusive

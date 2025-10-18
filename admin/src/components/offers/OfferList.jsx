@@ -37,11 +37,42 @@ export default function OfferList({
     return <>{formatAED(Number(o?.value) || 0)} off</>;
   };
 
-  const renderCategoryNames = (ids = []) => {
-    if (!Array.isArray(ids) || ids.length === 0) return "No categories selected";
-    const names = ids.map((id) => catNameById.get(String(id)) || `#${String(id).slice(-4)}`);
-    return names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3} more` : names.join(", ");
-  };
+
+  // add this helper
+const resolveCatLabel = (entry) => {
+  if (entry && typeof entry === "object") {
+    const possibleLabel = entry.pathLabel || entry.label || entry.name;
+    if (possibleLabel) return possibleLabel;
+
+    const possibleKeys = [entry.value, entry._id, entry.id, entry.slug];
+    for (const k of possibleKeys) {
+      if (!k) continue;
+      const exact = catNameById?.get(String(k));
+      if (exact) return exact;
+      const lower = catNameById?.get(String(k).toLowerCase());
+      if (lower) return lower;
+    }
+  }
+
+  const key = String(entry);
+  const exact = catNameById?.get(key);
+  if (exact) return exact;
+  const lower = catNameById?.get(key.toLowerCase());
+  if (lower) return lower;
+
+  return `#${key.slice(-4)}`;
+};
+
+
+  // replace your current renderCategoryNames with this
+const renderCategoryNames = (ids = []) => {
+  if (!Array.isArray(ids) || ids.length === 0) return "No categories selected";
+  const names = ids.map(resolveCatLabel);
+  return names.length > 3
+    ? `${names.slice(0, 3).join(", ")} +${names.length - 3} more`
+    : names.join(", ");
+};
+
 
   return (
     <>

@@ -386,7 +386,7 @@ const Navbar = () => {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-[60] sm:hidden  ${mobileMenuOpen ? "" : "pointer-events-none"}`}
+        className={`fixed inset-0 z-[60] sm:hidden  ${mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         aria-hidden={!mobileMenuOpen}
       >
         {/* Backdrop */}
@@ -399,7 +399,7 @@ const Navbar = () => {
         <aside
           ref={drawerRef}
           className={`absolute left-0 top-0 h-full w-[78%] max-w-xs bg-white shadow-xl transition-transform
-            ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+            ${mobileMenuOpen ? "translate-x-0 shadow-xl" : "-translate-x-[110%] shadow-none"}`}
           role="dialog"
           aria-modal="true"
           aria-label="Mobile menu"

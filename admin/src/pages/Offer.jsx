@@ -18,14 +18,28 @@ export default function OfferPage() {
 
   const [catOptions, setCatOptions] = useState([]);
 
-  const catNameById = useMemo(() => {
+  // CHANGE THIS BLOCK in OfferPage.jsx
+const catNameById = useMemo(() => {
   const m = new Map();
+  const add = (key, label) => {
+    if (!key || !label) return;
+    m.set(String(key), label);
+    // also lowercase variant for safety
+    m.set(String(key).toLowerCase(), label);
+  };
+
   for (const c of catOptions) {
-    // prefer the full path label when available (e.g. "Women > Shoes > Heels")
-    m.set(String(c.value), c.pathLabel || c.label || "");
+    const label = c.pathLabel || c.label || "";
+    if (!label) continue;
+
+    add(c.value, label);
+    add(c._id, label);
+    add(c.id, label);
+    add(c.slug, label);
   }
   return m;
 }, [catOptions]);
+
 
   // data loaders
   const loadOffers = async () => {
@@ -44,12 +58,19 @@ export default function OfferPage() {
       const resp = await api.get("/api/category/flat");
       const raw = Array.isArray(resp?.data?.items) ? resp.data.items : [];
       const items = raw
-        .map((it) => ({
-          value: String(it.value ?? it._id ?? ""),
-          label: String(it.label ?? it.name ?? ""),
-          pathLabel: String(it.pathLabel ?? it.name ?? it.label ?? ""),
-        }))
-        .filter((it) => it.value);
+  .map((it) => {
+    const norm = String(it._id ?? it.value ?? it.id ?? ""); // one canonical id
+    return {
+      value: norm,                    // select uses this
+      _id: norm,                      // ensure present even if API didn't send _id
+      id: norm,                       // another alias
+      slug: it.slug ? String(it.slug) : undefined,
+      label: String(it.label ?? it.name ?? ""),
+      pathLabel: String(it.pathLabel ?? it.name ?? it.label ?? ""),
+    };
+  })
+  .filter((it) => it.value);
+
       items.sort((a, b) => (a.pathLabel || "").localeCompare(b.pathLabel || ""));
       setCatOptions(items);
     } catch (e) {
@@ -133,7 +154,7 @@ export default function OfferPage() {
       </div>
 
       <OfferList
-        offers={filteredOffers}
+        offers={filteredOffers || []}
         loading={loading}
         query={q}
         onQueryChange={setQ}

@@ -12,7 +12,7 @@ export default function ImageGallery({
 }) {
   const containerRef = useRef(null);
 
-  // Handle scroll to detect which image is currently in view
+  // Keep active image in sync with the snapped slide
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -21,7 +21,7 @@ export default function ImageGallery({
       const { scrollTop, clientHeight } = container;
       const index = Math.round(scrollTop / clientHeight);
       const current = images[index];
-      if (current && current !== activeImage) onChange(current);
+      if (current && current !== activeImage) onChange?.(current);
     };
 
     container.addEventListener("scroll", handleScroll);
@@ -29,32 +29,32 @@ export default function ImageGallery({
   }, [images, activeImage, onChange]);
 
   return (
-    <div className="relative w-full h-[80vh] overflow-hidden    ">
+    <div className="relative w-full h-[70vh] sm:h-[80vh] overflow-hidden">
+      {/* Scoped scrollbar hiding for this component only */}
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
       {/* Scrollable image list */}
       <div
         ref={containerRef}
-        className="w-full h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth "
-        style={{
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-        }}
+        className="no-scrollbar w-full h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth"
+        onMouseEnter={() => setShowZoom?.(true)}
+        onMouseLeave={() => setShowZoom?.(false)}
+        onMouseMove={onMouseMove}
       >
-        {/* Hide scrollbar for WebKit browsers */}
-        <style>{`
-          div::-webkit-scrollbar { display: none; }
-        `}</style>
-
-        {images && images.length > 0 ? (
+        {images?.length ? (
           images.map((src, i) => (
             <div
               key={i}
-              className="snap-start w-full h-[80vh] flex items-center justify-center bg-white"
+              className="snap-start w-full h-[70vh] sm:h-[80vh] flex items-center justify-center bg-white"
               onClick={() => onChange?.(src)}
             >
               <img
                 src={src}
                 alt={`slide-${i}`}
-                className="w-full h-[80vh] object-contain select-none"
+                className="w-full h-full object-contain select-none"
                 draggable={false}
               />
             </div>
@@ -66,7 +66,7 @@ export default function ImageGallery({
         )}
       </div>
 
-      {/* Optional Zoom (same logic preserved) */}
+      {/* Optional Zoom (desktop-only) */}
       {showZoom && activeImage && (
         <div className="hidden xl:block absolute top-0 right-0 translate-x-full ml-4 w-[40vw] h-[40vw] max-w-[520px] max-h-[520px] border rounded-md overflow-hidden bg-white">
           <div
@@ -74,9 +74,7 @@ export default function ImageGallery({
             style={{
               backgroundImage: `url(${activeImage})`,
               backgroundSize: "200% 200%",
-              backgroundPosition: `${zoomPosition?.x || 50}% ${
-                zoomPosition?.y || 50
-              }%`,
+              backgroundPosition: `${zoomPosition?.x || 50}% ${zoomPosition?.y || 50}%`,
             }}
           />
         </div>

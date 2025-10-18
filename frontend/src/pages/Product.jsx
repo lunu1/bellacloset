@@ -528,6 +528,8 @@ const discountPercent =
           },
         });
       }}
+
+      productName={product.name}
     />
 
     {/* <hr className="mt-8" />

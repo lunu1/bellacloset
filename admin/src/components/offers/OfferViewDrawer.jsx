@@ -22,10 +22,32 @@ export default function OfferViewDrawer({
 }) {
   if (!open || !offer) return null;
 
+  // ✅ ADD THIS: resolveCatLabel used by renderCategoryNames
+  const resolveCatLabel = (entry) => {
+    if (entry && typeof entry === "object") {
+      const possibleLabel = entry.pathLabel || entry.label || entry.name;
+      if (possibleLabel) return possibleLabel;
+
+      const possibleKeys = [entry.value, entry._id, entry.id, entry.slug];
+      for (const k of possibleKeys) {
+        if (!k) continue;
+        const exact = catNameById.get(String(k));
+        if (exact) return exact;
+        const lower = catNameById.get(String(k).toLowerCase());
+        if (lower) return lower;
+      }
+    }
+    const key = String(entry);
+    const exact = catNameById.get(key);
+    if (exact) return exact;
+    const lower = catNameById.get(key.toLowerCase());
+    if (lower) return lower;
+    return `#${key.slice(-4)}`;
+  };
+
   const renderCategoryNames = (ids = []) => {
     if (!Array.isArray(ids) || ids.length === 0) return "No categories selected";
-    const names = ids.map((id) => catNameById.get(String(id)) || `#${String(id).slice(-4)}`);
-    // Show first few and collapse the rest for long lists
+    const names = ids.map(resolveCatLabel);
     return names.length > 6 ? (
       <>
         {names.slice(0, 6).join(", ")}{" "}
@@ -84,7 +106,6 @@ export default function OfferViewDrawer({
 
             {offer.scope?.kind === "categories" && (
               <div className="mt-1 text-xs text-gray-700">
-                {/* <div className="font-medium">Categories:</div> */}
                 <div className="mt-0.5">
                   {renderCategoryNames(offer.scope?.categories)}
                   {offer.scope?.includeDescendants === false ? (
