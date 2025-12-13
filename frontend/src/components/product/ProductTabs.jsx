@@ -279,7 +279,7 @@ function SummaryCard({ avg = 0, counts = {}, total = 0, compact = false }) {
   return (
     <div className={`p-4 rounded-xl border bg-white ${compact ? "" : "flex items-center gap-4"}`}>
       <div className="flex items-center gap-4">
-        <div className="text-3xl font-bold">{avg}★</div>
+        <div className="text-3xl font-normal">{avg}★</div>
         <div className="text-sm text-gray-600">
           {total} review{total === 1 ? "" : "s"}
           <div className="mt-1 text-yellow-500">

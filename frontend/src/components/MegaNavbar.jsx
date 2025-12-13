@@ -334,7 +334,7 @@ export default function MegaNavbar() {
                       <div key={subcategory._id} className="w-full md:w-1/4 px-2">
                         <button
                           type="button"
-                          className="font-bold mb-3 text-black uppercase hover:underline"
+                          className="font-semibold mb-3 text-black uppercase hover:underline"
                           onClick={() => goToCategory(subcategory._id)}
                         >
                           {subcategory.label}
@@ -344,7 +344,7 @@ export default function MegaNavbar() {
                             <li key={item._id}>
                               <button
                                 type="button"
-                                className="hover:font-bold"
+                                className="hover:font-"
                                 onClick={() => goToCategory(item._id)}
                               >
                                 {item.label}

@@ -110,20 +110,20 @@ export default function ProductCard({ product, variants = [] }) {
         <button
           aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
           onClick={toggleWishlist}
-          className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center border border-gray-300 hover:bg-white transition"
+          className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center  hover:bg-white transition"
         >
-          <span className="text-black">{isWishlisted ? <FaHeart /> : <FaRegHeart />}</span>
+          <span className="text-[#D2C09E] text-xl ">{isWishlisted ? <FaHeart className="text-[#D2C09E] " /> : <FaRegHeart />}</span>
         </button>
       </Link>
 
       {/* Body */}
       <Link to={`/product/${product._id}`} className="block p-3">
-        <h3 className="text-sm font-semibold text-black line-clamp-1">{product.name}</h3>
+        <h3 className="text-sm font-thin text-black line-clamp-1">{product.name}</h3>
         {label && <p className="text-xs text-gray-500 mt-0.5">{label}</p>}
 
         {/* Price row (offer-aware) */}
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-sm font-semibold text-black">{formatAED(current)}</span>
+          <span className="text-sm font-thin text-black">{formatAED(current)}</span>
           {showStrike && (
             <span className="text-xs text-gray-500 line-through">{formatAED(original)}</span>
           )}
@@ -137,9 +137,9 @@ export default function ProductCard({ product, variants = [] }) {
         )}
 
         {/* Stock pill */}
-        <div className="mt-2">
+        <div className="mt-2  ">
           {stock > 0 ? (
-            <span className="inline-flex items-center px-2 py-0.5 text-[11px] border border-gray-300 rounded-full text-gray-700">
+            <span className="inline-flex items-center px-2 py-0.5 text-[11px] border border-gray-300 rounded-md text-white bg-[#D0BC98] uppercase">
               In stock
             </span>
           ) : (

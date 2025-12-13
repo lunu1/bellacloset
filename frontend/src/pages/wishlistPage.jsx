@@ -138,7 +138,7 @@ export default function WishlistPage() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">My Wishlist</h1>
+        <h1 className="text-3xl font-normal text-gray-900">My Wishlist</h1>
         <button
           onClick={() => dispatch(getWishlist())}
           className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-md hover:bg-gray-50"
@@ -235,7 +235,7 @@ export default function WishlistPage() {
                       onClick={(e) => isUnavailable && e.preventDefault()}
                       className="block"
                     >
-                      <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
+                      <h3 className="font-thin text-gray-900 mb-1 line-clamp-1">
                         {product.name}
                       </h3>
                       {product.brand && (
@@ -244,7 +244,7 @@ export default function WishlistPage() {
                         </p>
                       )}
                       {price != null && (
-                        <p className="text-lg font-bold text-gray-900">
+                        <p className="text-lg font-thin text-gray-900">
                           {formatAED(price)}
                         </p>
                       )}

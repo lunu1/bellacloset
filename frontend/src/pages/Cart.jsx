@@ -259,8 +259,8 @@ function Cart() {
                   />
                 </div>
                 <div>
-                  <p className="text-xs font-medium sm:text-lg">{name}</p>
-                  <div className="flex items-center gap-5 mt-2">
+                  <p className="text-xs font-thin sm:text-lg">{name}</p>
+                  <div className="flex items-center gap-5 mt-2 ">
                     <p>{priceStr}</p>
                   </div>
 

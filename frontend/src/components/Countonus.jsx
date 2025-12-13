@@ -31,7 +31,7 @@ export default function FeaturesSection() {
   return (
     <div className="py-12 bg-white container mx-auto">
       <div className="">
-        <h2 className="text-3xl font-medium text-center text-gray-900 mb-12">
+        <h2 className="text-3xl font-thin text-center text-gray-900 mb-12">
           You Can Always Count On Us
         </h2>
         

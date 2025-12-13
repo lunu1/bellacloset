@@ -82,6 +82,20 @@ const Navbar = () => {
     }
   }, [mobileMenuOpen]);
 
+  const handleProfileIconClick = () => {
+  // Optional: prevent weird flicker while auth is still loading
+  if (authLoading) return;
+
+  if (!userData) {
+    // Not logged in → go to login page
+    navigate("/login");
+  } else {
+    // Logged in → toggle dropdown
+    setProfileOpen((prev) => !prev);
+  }
+};
+
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     const q = search.trim();
@@ -170,7 +184,8 @@ const Navbar = () => {
               <img
                 src="/logo.png"
                 alt="Bella Closet"
-                className="block h-8 sm:h-10 w-auto max-w-[40vw] sm:max-w-[30vw] object-contain"
+                className="block h-10 sm:h-14 w-auto object-contain"
+
                 loading="eager"
                 decoding="async"
               />
@@ -178,7 +193,7 @@ const Navbar = () => {
           </div>
 
           {/* Center: Desktop search */}
-          <div className="hidden sm:block flex-1 min-w-0 relative">
+          <div className="hidden sm:block flex-none relative w-[420px] lg:w-[620px]">
             <form
               onSubmit={handleSearchSubmit}
               className="inline-flex items-center w-full px-4 py-2 border border-black rounded-md"
@@ -241,12 +256,12 @@ const Navbar = () => {
             </button>
 
             {/* Username (desktop only) */}
-            <span className="hidden sm:block">{userData?.name}</span>
+            <span className="hidden sm:block pt-2">{userData?.name}</span>
 
             {/* Profile (click to open; touch-friendly) */}
-            <div className="relative hidden sm:block">
+            <div className="relative hidden sm:block pt-2">
               <button
-                onClick={() => setProfileOpen((v) => !v)}
+               onClick={handleProfileIconClick}
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
                 aria-label="Account menu"
@@ -307,7 +322,7 @@ const Navbar = () => {
             >
               <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
               {wishlistCount > 0 && (
-                <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+                <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-[#aa956f] text-white aspect-square rounded-full text-[10px]">
                   {wishlistCount}
                 </p>
               )}
@@ -320,7 +335,7 @@ const Navbar = () => {
               aria-label={`Cart with ${cartlistCount} items`}
             >
               <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
-              <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[10px]">
+              <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-[#aa956f] text-white aspect-square rounded-full text-[10px]">
                 {cartlistCount}
               </p>
             </Link>

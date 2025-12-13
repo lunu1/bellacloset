@@ -17,6 +17,8 @@
 //   plugins: [],
 // };
 
+// org code
+
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -51,4 +53,7 @@ export default {
   },
   plugins: [],
 };
+
+
+
 

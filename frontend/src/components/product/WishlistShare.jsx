@@ -53,7 +53,7 @@ export default function WishlistShare({ isInWishlist, onToggleWishlist }) {
         aria-pressed={!!isInWishlist}
         aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
         className={`p-2 rounded-full shadow-md hover:scale-110 transition-transform ${
-          isInWishlist ? "bg-red-500 text-white" : "bg-white text-gray-600"
+          isInWishlist ? "bg-[#D0BC98] text-white" : "bg-white text-gray-600"
         }`}
         title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
       >

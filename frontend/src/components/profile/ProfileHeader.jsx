@@ -30,7 +30,7 @@ export default function ProfileHeader({
   return (
     <div className="text-center mb-8">
       <div className="w-24 h-24 bg-gradient-to-br from-yellow-500 to-black rounded-full mx-auto mb-4
-                      flex items-center justify-center text-white text-2xl sm:text-3xl font-bold">
+                      flex items-center justify-center text-white text-2xl sm:text-3xl font-normal">
         {userInitial}
       </div>
 
@@ -44,7 +44,7 @@ export default function ProfileHeader({
               onBlur={() =>
                 setFormErrors((p) => ({ ...p, name: !form.name.trim() ? "Name is required." : undefined }))
               }
-              className="text-2xl sm:text-3xl font-bold text-gray-900 text-center border-b-2 border-yellow-600
+              className="text-2xl sm:text-3xl font-normal text-gray-900 text-center border-b-2 border-yellow-600
                          focus:outline-none bg-transparent"
               autoFocus
               placeholder="Your name"
@@ -55,7 +55,7 @@ export default function ProfileHeader({
           </div>
         ) : (
           <div className="flex items-center justify-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{user?.name || "User Name"}</h1>
+            <h1 className="text-2xl sm:text-3xl font-normal text-gray-900">{user?.name || "User Name"}</h1>
             <button onClick={() => setEditingName(true)} className="text-gray-500 hover:text-blue-600">
               <Edit3 size={18} />
             </button>

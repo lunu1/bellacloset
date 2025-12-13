@@ -236,28 +236,33 @@ const activeCategoryImage = pickCategoryImage(activeCategory);
 
 {/* Category hero (image only) */}
 {activeCategoryImage && (
-  <>
-    <div className="relative mb-2 overflow-hidden">
+  <div className="flex flex-col md:flex-row items-start gap-10 my-10">
+    {/* Left: Image */}
+    <div className="w-full md:w-1/2">
       <img
         src={activeCategoryImage}
         alt={activeCategory?.label || "Category"}
-        className="w-full h-48 md:h-[68vh] object-cover object-center"
+        className="w-full h-64 md:h-[68vh] object-cover"
         loading="lazy"
       />
     </div>
 
-    {/* Title under the image */}
-    <div className="m-6">
-      <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-gray-900 text-center uppercase p-6">
+    {/* Right: Text */}
+    <div className="w-full md:w-1/2 flex flex-col items-center justify-center text-center md:min-h-[68vh] px-4">
+      <h1 className="text-3xl md:text-5xl font-light tracking-wide uppercase">
         {activeCategory?.label || "Browse Products"}
       </h1>
-      {/* Optional: short description if your category has one */}
-      {activeCategory?.description && (
-        <p className="mt-1 text-md text-black font-bold text-center">{activeCategory.description}</p>
+
+      {activeCategory?.description?.trim() && (
+        <p className="mt-6 text-[18px] leading-8 text-gray-800 max-w-xl font-thin">
+          {activeCategory.description}
+        </p>
       )}
     </div>
-  </>
+  </div>
 )}
+
+
 
 
 

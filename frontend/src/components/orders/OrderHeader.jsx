@@ -50,7 +50,7 @@ export default function OrderHeader({ order }) {
             <div className="flex items-start justify-between">
               {/* Left: Title / Meta */}
               <div>
-                <h1 className="text-2xl font-bold">Order #{order._id}</h1>
+                <h1 className="text-2xl font-normal">Order #{order._id}</h1>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <span>Order ID: {order._id}</span>
                   <CopyButton text={order._id} />
