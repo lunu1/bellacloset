@@ -43,7 +43,8 @@ const allowedOrigins = [
   'http://localhost:5175',
    
  "https://bellaluxurycloset.com",
- "https://admin.bellaluxurycloset.com"
+ "https://admin.bellaluxurycloset.com",
+ "https://www.bellaluxurycloset.com/"
  
 ];
 
