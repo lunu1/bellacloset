@@ -9,6 +9,10 @@ import { Provider } from "react-redux";
 import { store } from "./redux/store"; // adjust the path if needed
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -16,7 +20,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <BrowserRouter>
         <AppContextProvider>
           <ShopContextProvider>
+            <Elements stripe={stripePromise}>
             <App />
+            </Elements>
             <ToastContainer position="top-right" autoClose={3000} />
           </ShopContextProvider>
         </AppContextProvider>

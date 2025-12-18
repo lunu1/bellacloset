@@ -10,7 +10,9 @@ const isProd = process.env.NODE_ENV === 'production';
 const cookieOpts = {
   httpOnly: true,
   sameSite: isProd ? 'none' : 'lax',
+  domain: isProd ? ".bellaluxurycloset.com" : undefined, 
   secure: isProd,
+   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   
 };
@@ -71,8 +73,14 @@ export const loginAdmin = async (req, res) => {
 // ✅ Logout admin (clears admin_token)
 export const logoutAdmin = (req, res) => {
   try {
-    res.clearCookie('admin_token', { ...cookieOpts, maxAge: undefined });
-    return res.status(200).json({ success: true, message: 'Logout successful' });
+ res.clearCookie("admin_token", {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
+    domain: process.env.NODE_ENV === "production" ? ".bellaluxurycloset.com" : undefined,
+    path: "/",
+  });
+      return res.status(200).json({ success: true, message: 'Logout successful' });
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }

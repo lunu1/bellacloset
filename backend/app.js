@@ -26,6 +26,7 @@ import settingRoutes from './routes/settingRoutes.js';
 import notifyRoutes from "./routes/notifyRoutes.js";
 import offerRoutes from "./routes/offerRoutes.js";
 import adminOfferRoutes from "./routes/adminOfferRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 
 // Connect to MongoDB database
 connectDB();
@@ -44,7 +45,7 @@ const allowedOrigins = [
    
  "https://bellaluxurycloset.com",
  "https://admin.bellaluxurycloset.com",
- "https://www.bellaluxurycloset.com/"
+ "https://www.bellaluxurycloset.com"
  
 ];
 
@@ -97,6 +98,9 @@ app.use("/api/notify", notifyRoutes);
 app.use("/api/reviews",reviewRoutes);
 app.use("/api/offers", adminOfferRoutes);
 app.use("/api/public/offer", offerRoutes);  
+
+app.use("/api/payment", paymentRoutes);
+
 
 app.get("/", (req, res) => {
   res.send("API Working");
