@@ -31,6 +31,54 @@ function Orders() {
     }
   };
 
+  // ---- helpers for Stripe manual-capture UX ----
+  const getDisplayStatus = (order) => {
+    const method = String(order?.paymentMethod || "").toUpperCase();
+    const pay = String(order?.paymentStatus || "");
+    const st = String(order?.status || "");
+
+    const isStripe = method === "STRIPE";
+    const isRequested = isStripe && (st === "Pending_Confirmation" || pay === "Authorized");
+    const isConfirmed = isStripe ? pay === "Paid" : true;
+
+    if (st === "Cancelled" || pay === "Cancelled") return "Cancelled";
+    if (st === "Delivered") return "Delivered";
+    if (st === "Shipped") return "Shipped";
+
+    if (isRequested) return "Requested"; // ✅ Stripe request state
+    if (isConfirmed) return "Confirmed"; // COD always confirmed; Stripe after capture
+    return st || "Pending";
+  };
+
+  const getDotClass = (displayStatus) => {
+    if (displayStatus === "Cancelled") return "bg-red-500";
+    if (displayStatus === "Delivered") return "bg-green-600";
+    if (displayStatus === "Shipped") return "bg-blue-500";
+    if (displayStatus === "Requested") return "bg-amber-500";
+    if (displayStatus === "Confirmed") return "bg-green-500";
+    return "bg-yellow-500";
+  };
+
+  const canTrackOrder = (order) => {
+    return order.status === "Shipped" || order.status === "Delivered";
+  };
+
+  const canCancelOrder = (order) => {
+    const method = String(order?.paymentMethod || "").toUpperCase();
+    const pay = String(order?.paymentStatus || "");
+    const st = String(order?.status || "");
+
+    // COD: allow cancel while Pending
+    if (method === "COD") return st === "Pending";
+
+    // STRIPE: allow cancel while Pending_Confirmation AND still Authorized
+    if (method === "STRIPE") {
+      return (st === "Pending_Confirmation" || st === "Pending") && pay === "Authorized";
+    }
+
+    return false;
+  };
+
   return (
     <div className="pt-16 border-t">
       <div className="text-2xl">
@@ -38,8 +86,8 @@ function Orders() {
       </div>
 
       {loading && <p className="text-center p-4">Loading orders...</p>}
-      {error && <p className="text-center text-red-500">{error}</p>}
-      {!loading && orders.length === 0 && (
+      {error && <p className="text-center text-red-500">{String(error)}</p>}
+      {!loading && Array.isArray(orders) && orders.length === 0 && (
         <p className="text-center p-4 text-gray-500">No orders found.</p>
       )}
 
@@ -54,9 +102,11 @@ function Orders() {
 
             const moreCount = Math.max(0, (order.products?.length || 0) - 1);
 
-            const canTrack =
-              order.status === "Shipped" || order.status === "Delivered";
-            const canCancel = order.status === "Pending";
+            const displayStatus = getDisplayStatus(order);
+            const dotClass = getDotClass(displayStatus);
+
+            const canTrack = canTrackOrder(order);
+            const canCancel = canCancelOrder(order);
 
             return (
               <div
@@ -77,25 +127,30 @@ function Orders() {
                     >
                       {first?.productId?.name || "Product Name"}
                     </Link>
+
                     {moreCount > 0 && (
                       <span className="ml-2 text-gray-500">+{moreCount} more</span>
                     )}
 
                     <p className="mt-1 text-xs text-gray-500">
-                      Order #{order._id} •{" "}
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      Order #{order._id} • {new Date(order.createdAt).toLocaleDateString()}
                     </p>
 
                     {(order.paymentMethod || order.paymentStatus) && (
                       <p className="mt-1 text-xs text-gray-600">
-                        Payment: {order.paymentMethod || "-"} ·{" "}
-                        {order.paymentStatus || "-"}
+                        Payment: {order.paymentMethod || "-"} · {order.paymentStatus || "-"}
                       </p>
                     )}
 
-                    <div className="flex items-center gap-3 mt-2 text-base text-gray-700">
-                      <p className="text-lg">{order.totalAmount}AED</p>
-                      <p>Quantity: {first?.quantity}</p>
+                    {displayStatus === "Requested" && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Payment authorized — awaiting confirmation before capture.
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3 mt-2 text-base text-gray-700">
+                      <p className="text-lg">{Number(order.totalAmount || 0).toFixed(2)} AED</p>
+                      <p>Qty: {first?.quantity}</p>
                       {first?.size && <p>Size: {first.size}</p>}
                     </div>
                   </div>
@@ -104,18 +159,8 @@ function Orders() {
                 {/* Right: status + actions */}
                 <div className="flex justify-between md:w-1/2">
                   <div className="flex items-center gap-2">
-                    <p
-                      className={`h-2 rounded-full min-w-2 ${
-                        order.status === "Cancelled"
-                          ? "bg-red-500"
-                          : order.status === "Shipped"
-                          ? "bg-blue-500"
-                          : order.status === "Delivered"
-                          ? "bg-green-600"
-                          : "bg-yellow-500"
-                      }`}
-                    />
-                    <p className="text-sm md:text-base">{order.status}</p>
+                    <span className={`h-2 w-2 rounded-full ${dotClass}`} />
+                    <p className="text-sm md:text-base">{displayStatus}</p>
                   </div>
 
                   <div className="flex gap-2">
@@ -126,7 +171,7 @@ function Orders() {
                       View Details
                     </Link>
 
-                    {/* HIDE Track Order unless trackable */}
+                    {/* Track only when shipped/delivered */}
                     {canTrack && (
                       <Link
                         to={`/orders/${order._id}`}
@@ -136,6 +181,7 @@ function Orders() {
                       </Link>
                     )}
 
+                    {/* Cancel rules updated for Stripe manual capture */}
                     {canCancel && (
                       <button
                         className="px-4 py-2 text-sm font-medium border rounded-sm hover:bg-gray-50"
@@ -150,7 +196,7 @@ function Orders() {
             );
           })
         ) : (
-          <p className="text-gray-500 p-4">No orders found.</p>
+          !loading && <p className="text-gray-500 p-4">No orders found.</p>
         )}
       </div>
     </div>

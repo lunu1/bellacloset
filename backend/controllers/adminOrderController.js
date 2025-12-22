@@ -1,6 +1,6 @@
 import Order from "../models/Order.js";
 import mongoose from "mongoose";
-import { restock  } from "../utils/stock.util.js";
+import { restock } from "../utils/stock.util.js";
 
 export const adminListOrders = async (req, res) => {
   try {
@@ -34,9 +34,10 @@ export const adminListOrders = async (req, res) => {
     let data = orders;
     if (q?.trim()) {
       const term = q.trim().toLowerCase();
-      data = orders.filter(o =>
-        o._id.toString().includes(term) ||
-        o.user?.email?.toLowerCase().includes(term)
+      data = orders.filter(
+        (o) =>
+          o._id.toString().includes(term) ||
+          o.user?.email?.toLowerCase().includes(term)
       );
     }
 
@@ -81,7 +82,6 @@ export const adminGetOrder = async (req, res) => {
 //   }
 // };
 
-
 //new code - archana
 
 export const adminUpdateStatus = async (req, res) => {
@@ -91,10 +91,38 @@ export const adminUpdateStatus = async (req, res) => {
     const order = await Order.findById(req.params.orderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
 
+    const nextStatus = status;
+
+if (
+  order.paymentMethod === "STRIPE" &&
+  order.paymentStatus !== "Paid" &&
+  ["Shipped", "Delivered"].includes(nextStatus)
+) {
+  return res.status(400).json({
+    message: "Capture payment first before marking Stripe order as Shipped/Delivered.",
+  });
+}
+
+
+    if (
+      status === "Cancelled" &&
+      order.paymentMethod === "STRIPE" &&
+      order.paymentStatus === "Paid"
+    ) {
+      return res
+        .status(400)
+        .json({
+          message: "Cannot cancel a paid Stripe order. Use refund flow.",
+        });
+    }
+
     const prevStatus = order.status;
 
     let updated;
-    if (status === "Cancelled" && prevStatus === "Pending") {
+    if (
+      status === "Cancelled" &&
+      (prevStatus === "Pending" || prevStatus === "Pending_Confirmation")
+    ) {
       // do a transactional restock + cancel
       try {
         await session.withTransaction(async () => {

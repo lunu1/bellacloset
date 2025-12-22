@@ -12,11 +12,14 @@ import AddressPicker from "../components/checkout/AddressPicker";
 import OrderItemsSummary from "../components/checkout/OrderItemsSummary";
 import PaymentSelector from "../components/checkout/PaymentSelector";
 
-import { computePricingPreview, adaptSettingsToPreview } from "../utils/pricingPreview";
+
+import {
+  computePricingPreview,
+  adaptSettingsToPreview,
+} from "../utils/pricingPreview";
 import useShopSettings from "../hooks/useShopSettings";
 import { adaptSettingsForPreview } from "../utils/settingAdapter";
 
-import StripePay from "../components/checkout/StripePay";
 import StripeCheckout from "../components/checkout/StripeCheckout";
 
 export default function PlaceOrder() {
@@ -102,83 +105,78 @@ export default function PlaceOrder() {
   }, [selectedAddress, itemsForCheckout]);
 
   // Create order (used by both COD and Stripe success)
-  const createOrder = useCallback(
-    async (paymentIntentId = null) => {
-      if (!validateBeforeOrder()) return;
+const createOrder = useCallback(
+  async (paymentIntentId = null) => {
+    if (!validateBeforeOrder()) return;
 
-      const products = itemsForCheckout.map((it) => ({
-        productId: it.productId,
-        variantId: it.variantId,
-        size: it.size,
-        color: it.color,
-        quantity: it.quantity,
-      }));
+    // guard for Stripe
+    if (normalizedMethod === "STRIPE" && !paymentIntentId) {
+      toast.error("Stripe payment not initialized. Please try again.");
+      return;
+    }
 
-      const orderData = {
-        products,
-        totalAmount: pricing.grandTotal,
-        address: selectedAddress,
+    const products = itemsForCheckout.map((it) => ({
+      productId: it.productId,
+      variantId: it.variantId,
+      size: it.size,
+      color: it.color,
+      quantity: it.quantity,
+    }));
 
-        paymentMethod: normalizedMethod, // "COD" | "STRIPE"
-        codConfirmed: normalizedMethod === "COD",
+    const orderData = {
+      products,
+      address: selectedAddress,
+      paymentMethod: normalizedMethod, // "COD" | "STRIPE"
 
-        // attach Stripe intent id if paid by card
-        paymentIntentId: paymentIntentId || undefined,
+      // only send codConfirmed for COD
+      ...(normalizedMethod === "COD" ? { codConfirmed: true } : {}),
 
-        pricing: {
-          subtotal: pricing.subtotal,
-          shippingFee: pricing.shippingFee,
-          taxAmount: pricing.taxAmount,
-          taxRate: pricing.taxRate,
-          taxMode: pricing.taxMode,
-          shippingMethod: pricing.shippingMethod,
-          deliveryEta: pricing.deliveryEta,
-          grandTotal: pricing.grandTotal,
-          currency: "AED",
-        },
-      };
+      // only send paymentIntentId for Stripe
+      ...(normalizedMethod === "STRIPE" ? { paymentIntentId } : {}),
+    };
 
-      try {
-        toast.dismiss();
+    try {
+      toast.dismiss();
 
-        let created;
-        try {
-          const res = await axios.post(`${backendUrl}/api/order`, orderData, {
-            withCredentials: true,
-          });
-          created = res.data;
-        } catch (err) {
-          // legacy fallback
-          if (err?.response?.status === 404) {
-            const res2 = await axios.post(`${backendUrl}/api/order/place`, orderData, {
-              withCredentials: true,
-            });
-            created = res2.data;
-          } else {
-            throw err;
-          }
-        }
+      const res = await axios.post(`${backendUrl}/api/order/place`, orderData, {
+        withCredentials: true,
+      });
 
+      const created = res.data;
+
+      if (normalizedMethod === "STRIPE") {
+        toast.success("Order request received! Waiting for admin confirmation.");
+      } else {
         toast.success("Order placed successfully!");
-        navigate(`/order-success/${created._id}`, { state: { justPlaced: true } });
-      } catch (e) {
-        toast.error(e?.response?.data?.message || "Failed to place order");
-        console.error(e);
       }
-    },
-    [
-      backendUrl,
-      itemsForCheckout,
-      pricing,
-      selectedAddress,
-      normalizedMethod,
-      navigate,
-      validateBeforeOrder,
-    ]
-  );
+
+      // ✅ IMPORTANT:
+      // For Stripe request -> do NOT mark as justPlaced (avoids “Order Confirmed” UI)
+      navigate(`/order-success/${created._id}`, {
+        state:
+          normalizedMethod === "STRIPE"
+            ? { justRequested: true }
+            : { justPlaced: true },
+      });
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Failed to place order");
+      console.error(e);
+    }
+  },
+  [
+    backendUrl,
+    itemsForCheckout,
+    selectedAddress,
+    normalizedMethod,
+    navigate,
+    validateBeforeOrder,
+  ]
+);
+
 
   // COD flow button handler
   const placeOrderCOD = async () => {
+    if (!validateBeforeOrder()) return;
     await createOrder(null);
   };
 
@@ -193,20 +191,24 @@ export default function PlaceOrder() {
       <div className="w-full sm:max-w-[45%] mt-8">
         <OrderItemsSummary items={itemsForCheckout} />
 
-        <CartTotal items={itemsForCheckout} settings={settings} currency="AED" />
+        <CartTotal
+          items={itemsForCheckout}
+          settings={settings}
+          currency="AED"
+        />
 
         <PaymentSelector method={method} setMethod={setMethod} />
 
         {/* STRIPE: render card payment UI */}
-      {normalizedMethod === "STRIPE" ? (
-  <StripeCheckout
-    backendUrl={backendUrl}
-    amount={pricing.grandTotal}
-    orderData={{ products: itemsForCheckout }}
-    onSuccess={async (paymentIntentId) => {
-      await createOrder(paymentIntentId);
-    }}
-  />
+        {normalizedMethod === "STRIPE" ? (
+          <StripeCheckout
+            backendUrl={backendUrl}
+            amount={pricing.grandTotal}
+            orderData={{ products: itemsForCheckout }}
+            onSuccess={async (paymentIntentId) => {
+              await createOrder(paymentIntentId);
+            }}
+          />
         ) : (
           // COD: normal place order button
           <div className="w-full text-end">
@@ -223,4 +225,3 @@ export default function PlaceOrder() {
     </div>
   );
 }
-

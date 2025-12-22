@@ -11,18 +11,29 @@ const orderSchema = new mongoose.Schema({
     color: String,
   }],
   totalAmount: { type: Number, required: true },
+  paymentIntentId: { type: String },
 
-  paymentMethod: { type: String, enum: ["COD", "RAZORPAY", "STRIPE"], required: true },
-  paymentStatus: { type: String, enum: ["Pending", "Paid", "Failed", "Refunded"], default: "Pending" },
+
+    paymentMethod: { type: String, 
+    enum: ["COD", "STRIPE"], 
+    required: true },
+  paymentStatus: { type: String, 
+    enum: ["Pending","Authorized", "Paid", "Failed", "Refunded","Cancelled"], 
+    default: "Pending" },
   cod: {
     confirmed: { type: Boolean, default: false },
     confirmedAt: { type: Date },
   },
 
-  status: { type: String, enum: ["Pending", "Shipped", "Delivered", "Cancelled"], default: "Pending" },
+  status: { type: String,
+  enum: ["Pending","Pending_Confirmation", "Shipped", "Delivered", "Cancelled"], 
+  default: "Pending" },
+  cancelledAt: { type: Date },
+
   tracking: { carrier: String, trackingNumber: String, eta: Date },
   statusHistory: [{
-    status: { type: String, enum: ["Pending","Shipped","Delivered","Cancelled"] },
+    status: { type: String, 
+      enum: ["Pending","Pending_Confirmation","Shipped","Delivered","Cancelled"] },
     note: String,
     at: { type: Date, default: Date.now }
   }],

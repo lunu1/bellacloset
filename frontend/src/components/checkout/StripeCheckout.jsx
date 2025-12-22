@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { Elements } from "@stripe/react-stripe-js";
 import { toast } from "react-toastify";
@@ -9,6 +9,8 @@ export default function StripeCheckout({ backendUrl, amount, orderData, onSucces
   const [clientSecret, setClientSecret] = useState("");
   const [initing, setIniting] = useState(false);
 
+  const itemsCount = orderData?.products?.length || 0;
+
   useEffect(() => {
     let alive = true;
 
@@ -18,9 +20,9 @@ export default function StripeCheckout({ backendUrl, amount, orderData, onSucces
         const res = await axios.post(
           `${backendUrl}/api/payment/create-intent`,
           {
-            amount,
+            products: orderData.products,
             currency: "aed",
-            metadata: { items: String(orderData.products?.length || 0) },
+            metadata: { items: String(itemsCount) },
           },
           { withCredentials: true }
         );
@@ -36,20 +38,19 @@ export default function StripeCheckout({ backendUrl, amount, orderData, onSucces
     return () => {
       alive = false;
     };
-  }, [backendUrl, amount, orderData]);
+  }, [backendUrl, amount, itemsCount]);
 
+  useEffect(() => {
+  setClientSecret("");
+}, [amount]);
   if (initing && !clientSecret) return <div className="mt-6 border p-4">Loading payment…</div>;
   if (!clientSecret) return null;
 
+
+
+
   return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        clientSecret,
-        // optional:
-        // appearance: { theme: "stripe" },
-      }}
-    >
+    <Elements stripe={stripePromise} options={{ clientSecret }}>
       <StripePay amount={amount} onSuccess={onSuccess} />
     </Elements>
   );

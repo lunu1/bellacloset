@@ -1,6 +1,6 @@
 // src/components/checkout/PaymentSelector.jsx
 export default function PaymentSelector({ method, setMethod }) {
-  const methods = ["stripe", "razorpay", "cod"];
+  const methods = ["stripe",  "cod"];
   return (
     <div className="mt-10">
       <div className="text-xl sm:text-2xl">PAYMENT <span className="font-semibold">METHOD</span></div>

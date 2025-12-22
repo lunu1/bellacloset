@@ -22,7 +22,7 @@ function createTransport() {
   return nodemailer.createTransport({
     host: SMTP_HOST,
     port: Number(SMTP_PORT) || 587,
-    secure: String(SMTP_SECURE) === "true", // 465 -> true, 587 -> false
+    secure: String(SMTP_SECURE) === "true",
     auth: { user: SMTP_USER, pass: SMTP_PASS },
   });
 }
@@ -68,11 +68,57 @@ async function sendOrLog({ to, subject, text = "", html = "" }) {
 
 // ---------- PUBLIC EMAIL HELPERS ----------
 
-export async function emailOrderConfirmed({ to, order, user }) {
-  const id = order?._id || "";
-  const items = (order?.products || [])
+function buildItems(order) {
+  return (order?.products || [])
     .map((l) => `${l.quantity || 1} × ${(l.productId?.name || "Item")}`)
     .join(", ");
+}
+
+/**
+ * ✅ Stripe manual-capture: request received (Authorized)
+ */
+export async function emailOrderRequested({ to, order, user }) {
+  const id = order?._id || "";
+  const items = buildItems(order);
+  const link = `${SITE_URL}/orders/${id}`;
+
+  const subject = `Order request received #${id}`;
+  const text =
+`Hi ${user?.name || ""},
+
+We received your order request.
+Payment is authorized (not charged yet). We’ll confirm availability and then capture the payment.
+
+Order #${id}
+Items: ${items || "-"}
+Total: ${order?.totalAmount ?? "-"}
+
+View your order: ${link}`;
+
+  const html = `
+  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;font-size:14px">
+    <h2>Order request received ✅</h2>
+    <p>We received your order request for <strong>#${id}</strong>.</p>
+    <p><strong>Payment status:</strong> Authorized (not charged yet)</p>
+    <p>We’ll confirm availability and then capture the payment.</p>
+    <p><strong>Items:</strong> ${items || "-"}</p>
+    <p><strong>Total:</strong> ${order?.totalAmount ?? "-"}</p>
+    <p>
+      <a href="${link}" style="display:inline-block;padding:10px 14px;background:#111;color:#fff;text-decoration:none;border-radius:6px">
+        View order
+      </a>
+    </p>
+  </div>`;
+
+  return sendOrLog({ to, subject, text, html });
+}
+
+/**
+ * ✅ COD confirmed OR Stripe captured: order confirmed
+ */
+export async function emailOrderConfirmed({ to, order, user }) {
+  const id = order?._id || "";
+  const items = buildItems(order);
   const link = `${SITE_URL}/orders/${id}`;
 
   const subject = `Order confirmed #${id}`;
@@ -88,8 +134,8 @@ Track your order: ${link}`;
 
   const html = `
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;font-size:14px">
-    <h2>Thanks for your order 🎉</h2>
-    <p><strong>Order #${id}</strong> has been received.</p>
+    <h2>Order confirmed 🎉</h2>
+    <p><strong>Order #${id}</strong> has been confirmed.</p>
     <p><strong>Items:</strong> ${items || "-"}</p>
     <p><strong>Total:</strong> ${order?.totalAmount ?? "-"}</p>
     <p>

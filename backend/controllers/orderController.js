@@ -2,12 +2,15 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import userModel from "../models/userModel.js";
-import { emailOrderCancelled, emailOrderConfirmed } from "../services/email.service.js";
+import { emailOrderCancelled, emailOrderConfirmed, emailOrderRequested } from "../services/email.service.js";
 import { checkAndDecrementStock, restock } from "../utils/stock.util.js";
 import Cart from "../models/cartModel.js";
+import Stripe from "stripe";
 // import Setting from "../models/Setting.js";
 
 import { getStoreSettings, computeServerSubtotal, buildPricingSnapshot } from "../utils/pricing.util.js";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Helper: remove purchased items from user's cart
 async function removePurchasedFromCart(userId, purchased, session = null) {
@@ -166,24 +169,32 @@ async function removePurchasedFromCart(userId, purchased, session = null) {
 
 
 
- export const placeOrder = async (req, res) => {
+export const placeOrder = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
     const userId = req.user?._id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { products, address, paymentMethod, codConfirmed } = req.body;
+    const { products, address, paymentMethod, codConfirmed, paymentIntentId } = req.body;
+
     if (!products?.length || !address || !paymentMethod) {
       return res.status(400).json({ message: "Missing required order data." });
     }
 
     const method = String(paymentMethod).toUpperCase();
+
+    // COD requires confirm
     if (method === "COD" && !codConfirmed) {
       return res.status(400).json({ message: "COD must be confirmed before placing the order." });
     }
 
-    // 1) Price on server
+    // Stripe requires paymentIntentId
+    if (method === "STRIPE" && !paymentIntentId) {
+      return res.status(400).json({ message: "Missing paymentIntentId for Stripe order." });
+    }
+
+    // 1) Compute server-side pricing
     const [settings, subtotal] = await Promise.all([
       getStoreSettings(),
       computeServerSubtotal(products),
@@ -191,62 +202,75 @@ async function removePurchasedFromCart(userId, purchased, session = null) {
     const pricing = buildPricingSnapshot({ subtotal, settings });
     const totalAmount = pricing.grandTotal;
 
+    // 2) Decide status/payment fields by method
+    let status = "Pending";
+    let paymentStatus = "Pending";
+    let cod = { confirmed: false };
+    let stripeFields = {};
+
+  if (method === "COD") {
+  cod = {
+    confirmed: !!codConfirmed,
+    confirmedAt: codConfirmed ? new Date() : undefined,
+  };
+}
+
+
+ if (method === "STRIPE") {
+  // ✅ verify this intent is truly authorized (manual capture)
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+  if (pi.status !== "requires_capture") {
+    return res.status(400).json({ message: `Stripe not authorized: ${pi.status}` });
+  }
+
+  const expected = Math.round(Number(totalAmount) * 100);
+  if (pi.amount !== expected) {
+    return res.status(400).json({ message: "Payment amount mismatch" });
+  }
+
+  status = "Pending_Confirmation";
+  paymentStatus = "Authorized";
+  stripeFields = { paymentIntentId };
+}
+
+
+
+    // ✅ Build base payload AFTER status is final (so history is correct)
+    const base = {
+      user: userId,
+      products,
+      totalAmount,
+      paymentMethod: method,
+      address,
+      pricing,
+      statusHistory: [{ status, note: "Order placed" }],
+      cod,
+      paymentStatus,
+      ...stripeFields,
+      status,
+    };
+
     let createdOrder;
 
-    // 2) Prefer transactional
+    // 3) Transaction first
     try {
       await session.withTransaction(async () => {
         await checkAndDecrementStock(products, session);
 
-        const [order] = await Order.create(
-          [{
-            user: userId,
-            products,
-            totalAmount,
-            paymentMethod: method,
-            paymentStatus: method === "COD" ? "Pending" : "Paid",
-            cod: {
-              confirmed: method === "COD" ? !!codConfirmed : false,
-              confirmedAt: method === "COD" && codConfirmed ? new Date() : undefined,
-            },
-            status: "Pending",
-            address,
-            statusHistory: [{ status: "Pending", note: "Order placed" }],
-            pricing,
-          }],
-          { session }
-        );
-
+        const [order] = await Order.create([base], { session });
         createdOrder = order;
+
         await removePurchasedFromCart(userId, products, session);
       });
     } catch (trxErr) {
       const msg = String(trxErr?.message || "");
       if (msg.includes("Transaction numbers are only allowed") || trxErr?.code === 20) {
-        try {
-          await checkAndDecrementStock(products, null);
-          createdOrder = await Order.create({
-            user: userId,
-            products,
-            totalAmount,
-            paymentMethod: method,
-            paymentStatus: method === "COD" ? "Pending" : "Paid",
-            cod: {
-              confirmed: method === "COD" ? !!codConfirmed : false,
-              confirmedAt: method === "COD" && codConfirmed ? new Date() : undefined,
-            },
-            status: "Pending",
-            address,
-            statusHistory: [{ status: "Pending", note: "Order placed" }],
-            pricing,
-          });
-          await removePurchasedFromCart(userId, products, null);
-        } catch (fallbackErr) {
-          return res.status(fallbackErr.status || 500).json({
-            message: fallbackErr.message || "Order failed",
-            details: fallbackErr.line ? { line: fallbackErr.line } : undefined,
-          });
-        }
+        // 4) Fallback without transactions
+        await checkAndDecrementStock(products, null);
+
+        createdOrder = await Order.create(base);
+        await removePurchasedFromCart(userId, products, null);
       } else {
         throw trxErr;
       }
@@ -254,20 +278,32 @@ async function removePurchasedFromCart(userId, purchased, session = null) {
       session.endSession();
     }
 
-    // email async
-    (async () => {
-      try {
-        const user = await userModel.findById(userId).select("name email");
-        if (user?.email) {
-          const orderForEmail = await Order.findById(createdOrder._id)
-            .populate("products.productId", "name images")
-            .populate("products.variantId", "price");
-          await emailOrderConfirmed({ to: user.email, order: orderForEmail, user });
-        }
-      } catch (e) {
-        console.error("Order confirmation email failed:", e?.message);
-      }
-    })();
+    // 5) Email async
+// 5) Email async
+(async () => {
+  try {
+    const user = await userModel.findById(userId).select("name email");
+    if (!user?.email) return;
+
+    const orderForEmail = await Order.findById(createdOrder._id)
+      .populate("products.productId", "name images")
+      .populate("products.variantId", "price");
+
+    const isStripeRequest =
+      createdOrder.paymentMethod === "STRIPE" &&
+      createdOrder.paymentStatus === "Authorized" &&
+      createdOrder.status === "Pending_Confirmation";
+
+    if (isStripeRequest) {
+      await emailOrderRequested({ to: user.email, order: orderForEmail, user });
+    } else {
+      await emailOrderConfirmed({ to: user.email, order: orderForEmail, user });
+    }
+  } catch (e) {
+    console.error("Order email failed:", e?.message);
+  }
+})();
+
 
     return res.status(201).json(createdOrder);
   } catch (err) {
@@ -276,6 +312,8 @@ async function removePurchasedFromCart(userId, purchased, session = null) {
     return res.status(500).json({ message: err.message || "Order failed" });
   }
 };
+
+
 
 /**
  * GET /api/order/:orderId
@@ -323,6 +361,16 @@ export const cancelOrder = async (req, res) => {
     if (["Shipped", "Delivered", "Cancelled"].includes(order.status)) {
       return res.status(409).json({ message: "Order cannot be cancelled now." });
     }
+
+    if (order.paymentMethod === "STRIPE" && order.paymentStatus === "Authorized" && order.paymentIntentId) {
+  try {
+    await stripe.paymentIntents.cancel(order.paymentIntentId);
+    order.paymentStatus = "Cancelled";
+  } catch (e) {
+    return res.status(500).json({ message: "Failed to cancel payment authorization" });
+  }
+}
+
 
     let updated;
 

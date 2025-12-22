@@ -27,6 +27,7 @@ import notifyRoutes from "./routes/notifyRoutes.js";
 import offerRoutes from "./routes/offerRoutes.js";
 import adminOfferRoutes from "./routes/adminOfferRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import adminStripeOrderRoutes from "./routes/adminStripeOrderRoutes.js";
 
 // Connect to MongoDB database
 connectDB();
@@ -60,6 +61,7 @@ app.use(cors({
     }
   },
   credentials: true,
+  optionsSuccessStatus: 200
   
 }));
 
@@ -100,6 +102,8 @@ app.use("/api/offers", adminOfferRoutes);
 app.use("/api/public/offer", offerRoutes);  
 
 app.use("/api/payment", paymentRoutes);
+app.use("/api/admin/stripe-orders", adminStripeOrderRoutes);
+
 
 
 app.get("/", (req, res) => {

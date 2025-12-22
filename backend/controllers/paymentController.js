@@ -1,32 +1,55 @@
 import Stripe from "stripe";
+import { getStoreSettings, computeServerSubtotal, buildPricingSnapshot } from "../utils/pricing.util.js";
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const createPaymentIntent = async (req, res) => {
   try {
-    const { amount, currency = "aed", metadata = {} } = req.body;
+    const { products, currency = "aed", metadata = {} } = req.body;
 
-    const n = Number(amount);
-    if (!n || n <= 0) return res.status(400).json({ message: "Invalid amount" });
+    if (!req.user?._id) return res.status(401).json({ message: "Unauthorized" });
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ message: "Products are required" });
+    }
 
-    const amountInSmallestUnit = Math.round(n * 100);
+    // ✅ compute server pricing (same logic as placeOrder)
+    const [settings, subtotal] = await Promise.all([
+      getStoreSettings(),
+      computeServerSubtotal(products),
+    ]);
+
+    const pricing = buildPricingSnapshot({ subtotal, settings });
+    const totalAmount = Number(pricing.grandTotal || 0);
+
+    if (!totalAmount || totalAmount <= 0) {
+      return res.status(400).json({ message: "Invalid total amount" });
+    }
+
+    const amountInSmallestUnit = Math.round(totalAmount * 100);
 
     const intent = await stripe.paymentIntents.create({
       amount: amountInSmallestUnit,
-      currency,
-      capture_method: "manual", // ✅ authorize only
-      automatic_payment_methods: { enabled: true },
-      metadata,
+      currency: String(currency || "aed").toLowerCase(),
+      capture_method: "manual",
+      // ✅ easiest: card only (removes redirect requirements)
+      payment_method_types: ["card"],
+      metadata: {
+        ...metadata,
+        userId: String(req.user._id),
+      },
     });
 
     return res.json({
       clientSecret: intent.client_secret,
-      paymentIntentId: intent.id, // handy for debugging/admin
+      paymentIntentId: intent.id,
       status: intent.status,
+      pricing, // optional, helpful for debug
     });
   } catch (e) {
     return res.status(500).json({ message: e.message || "Stripe error" });
   }
 };
+
 
 export const capturePayment = async (req, res) => {
   try {

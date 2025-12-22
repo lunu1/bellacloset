@@ -4,7 +4,6 @@ import userAuth  from "../middlewares/userAuth.js";
 import { placeOrder, getUserOrders, cancelOrder, getOrderById, } from "../controllers/orderController.js";
 import { downloadInvoice } from "../controllers/invoice.controller.js";
 
-
 const router = express.Router();
 
 //Place a new order

@@ -21,6 +21,7 @@ router.get('/is-auth', adminAuth, (req, res) => {
     success: true,
     message: 'Authenticated',
     adminId: req.admin._id,
+    admin: req.admin,
   });
 });
 
