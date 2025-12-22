@@ -90,26 +90,56 @@ export const getCategories = async (req, res) => {
 // =============================
 // Reorder categories
 // =============================
+// old code - lunu 
+// export const reorderCategories = async (req, res) => {
+//   try {
+//     const { orderedIds } = req.body;
+
+//     if (!Array.isArray(orderedIds)) {
+//       return res.status(400).json({ message: "orderedIds must be an array" });
+//     }
+
+//     for (let i = 0; i < orderedIds.length; i++) {
+//       await Category.findByIdAndUpdate(orderedIds[i], { position: i });
+//     }
+
+//     res.status(200).json({ message: "Categories reordered successfully" });
+//   } catch (err) {
+//     res.status(500).json({
+//       message: "Reordering failed",
+//       error: err.message,
+//     });
+//   }
+// };
+
 export const reorderCategories = async (req, res) => {
   try {
-    const { orderedIds } = req.body;
 
-    if (!Array.isArray(orderedIds)) {
-      return res.status(400).json({ message: "orderedIds must be an array" });
+    const { orders } = req.body;
+
+    
+
+
+    if (!Array.isArray(orders)) {
+      return res.status(400).json({ message: "orders must be an array" });
     }
 
-    for (let i = 0; i < orderedIds.length; i++) {
-      await Category.findByIdAndUpdate(orderedIds[i], { position: i });
+    for (const group of orders) {
+      if (!Array.isArray(group.orderedIds)) {
+        return res.status(400).json({ message: "orderedIds must be an array" });
+      }
+
+      for (let i = 0; i < group.orderedIds.length; i++) {
+        await Category.findByIdAndUpdate(group.orderedIds[i], { position: i });
+      }
     }
 
     res.status(200).json({ message: "Categories reordered successfully" });
   } catch (err) {
-    res.status(500).json({
-      message: "Reordering failed",
-      error: err.message,
-    });
+    res.status(500).json({ message: "Reordering failed", error: err.message });
   }
 };
+
 
 // =============================
 // Update a category

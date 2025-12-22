@@ -37,6 +37,7 @@ import TermsConditionsBella from "./pages/TermsConditionsBella.jsx";
 import FAQBella from "./pages/FAQBella.jsx";
 import DeliveryReturnsBella from "./pages/DeliveryReturnsBella.jsx";
 import WhatsAppFloating from "./components/WhatsAppInquire.jsx";
+import PersonalStylist from "./pages/PersonalStylist.jsx";
 
 
 const App = () => {
@@ -93,6 +94,7 @@ const App = () => {
         <Route path="/search" element={<SearchResults/>}/>
          {/* <Route path="/orders" element={<OrderPage />} /> */}
         <Route path="/about" element={<AboutBella />} />
+        <Route path="/personal-stylist" element={<PersonalStylist />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyBella />} />
         <Route path="/terms" element={<TermsConditionsBella />} />
         <Route path="/faq" element={<FAQBella />} />

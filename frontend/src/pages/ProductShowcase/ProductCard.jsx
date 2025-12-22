@@ -1,11 +1,15 @@
 // src/pages/ProductShowcase/ProductCard.jsx
 import PropTypes from "prop-types";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate} from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addToWishlist, removeFromWishlist } from "../../features/wishlist/wishlistSlice";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { brandLabel } from "../../utils/brandLabel";
+
+import { useContext } from "react";
+import { AppContext } from "../../context/AppContext";
+import { nav } from "framer-motion/client";
 
 const formatAED = (n) =>
   typeof n === "number" && !Number.isNaN(n)
@@ -18,6 +22,9 @@ const formatAED = (n) =>
 
 export default function ProductCard({ product, variants = [] }) {
   const dispatch = useDispatch();
+  const { authLoading, isLoggedin } = useContext(AppContext);
+  const navigate = useNavigate();
+  const location = useLocation();
   const wishlistItems = useSelector((s) => s.wishlist.items);
 
   // --- Wishlist ---
@@ -31,6 +38,16 @@ export default function ProductCard({ product, variants = [] }) {
 
   const toggleWishlist = (e) => {
     e.preventDefault();
+
+    if (authLoading) {
+      toast.info("Checking your session...")
+      return
+    }
+
+    if(!isLoggedin) {
+      toast.info("Please login to add items to wishlist");
+      return navigate("/login", {state: { from: location.pathname + location.search }})
+    }
     const action = isWishlisted
       ? removeFromWishlist({ productId: product._id })
       : addToWishlist({ productId: product._id });

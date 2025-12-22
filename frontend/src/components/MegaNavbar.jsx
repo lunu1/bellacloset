@@ -52,6 +52,14 @@ export default function MegaNavbar() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [navigate]);
 
+    const goToPage = useCallback((path) => {
+    navigate(path);
+    setActiveCategory(null);
+    setMobileOpen(false);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [navigate]);
+
+
   const toggleParent = (id) => { setOpenChild(null); setOpenParent((p) => (p === id ? null : id)); };
   const toggleChild  = (id) => setOpenChild((p) => (p === id ? null : id));
 
@@ -136,6 +144,31 @@ export default function MegaNavbar() {
             </svg>
           </button>
         </div>
+
+                {/* Static links */}
+        <div className="px-4 py-3 border-b">
+          <div className="flex flex-col gap-2">
+            <button
+              className="text-left uppercase font-medium py-2"
+              onClick={() => goToPage("/personal-stylist")}
+            >
+              Personal Stylist
+            </button>
+            <button
+              className="text-left uppercase font-medium py-2"
+              onClick={() => goToPage("/about")}
+            >
+              About Us
+            </button>
+            <button
+              className="text-left uppercase font-medium py-2"
+              onClick={() => goToPage("/contact")}
+            >
+              Contact
+            </button>
+          </div>
+        </div>
+
 
         {/* Accordion list */}
         <div className="px-0">
@@ -296,7 +329,7 @@ export default function MegaNavbar() {
           )}
 
           {/* scroller */}
-          <div ref={rowRef} className="w-full overflow-x-auto no-scrollbar px-12 py-2">
+          <div ref={rowRef} className="w-full overflow-x-hidden no-scrollbar px-12 py-2">
             <div className="w-max mx-auto flex flex-nowrap items-center gap-x-4">
               {loading && <div className="px-2 py-2">Loading...</div>}
               {error && <div className="px-2 py-2 text-red-500">Error loading categories</div>}
@@ -317,6 +350,42 @@ export default function MegaNavbar() {
                     </button>
                   </div>
                 ))}
+
+                
+              {!loading && !error && (
+                <>
+                  <div className="relative shrink-0">
+
+                     <button
+                      type="button"
+                      className="px-2 py-3 text-md tracking-wide hover:font-bold uppercase whitespace-nowrap text-start"
+                      onClick={() => goToPage("/personal-stylist")}
+                    >
+                      Personal Stylist
+                    </button>
+
+                    <button
+                      type="button"
+                      className="px-2 py-3 text-md tracking-wide hover:font-bold uppercase whitespace-nowrap text-start"
+                      onClick={() => goToPage("/about")}
+                    >
+                      About Us
+                    </button>
+                  </div>
+
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      className="px-2 py-3 text-md tracking-wide hover:font-bold uppercase whitespace-nowrap text-start"
+                      onClick={() => goToPage("/contact")}
+                    >
+                      Contact
+                    </button>
+                  </div>
+                </>
+              )}
+
+
             </div>
           </div>
 

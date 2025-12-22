@@ -360,23 +360,33 @@ export default function Category() {
 
           {hasPending && (
             <button
-              onClick={async () => {
-                try {
-                  // convert pendingOrder map into array payload
-                  // [{ parent:null, orderedIds:[...] }, { parent:"<id>", orderedIds:[...] }]
-                  const orders = Object.entries(pendingOrder).map(([k, ids]) => ({
-                    parent: k === "root" ? null : k,
-                    orderedIds: ids,
-                  }));
+              type="button"
+onClick={async () => {
+  try {
+    console.log("pendingOrder =>", pendingOrder);
 
-                  await axios.post(`${backendURL}/api/category/reorder`, { orders });
-                  alert("Order saved!");
-                  setPendingOrder({});
-                  fetchCategories();
-                } catch (err) {
-                  alert(err.response?.data?.message || "Failed to save order");
-                }
-              }}
+    const ordersArr = Object.entries(pendingOrder).map(([k, ids]) => ({
+      parent: k === "root" ? null : k,
+      orderedIds: Array.isArray(ids) ? ids : [],   // ✅ never undefined
+    }));
+
+    console.log("ordersArr =>", ordersArr);
+    console.log("payload =>", { orders: ordersArr });
+
+    await axios.post(
+      `${backendURL}/api/category/reorder`,
+      { orders: ordersArr },                       // ✅ always defined
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    alert("Order saved!");
+    setPendingOrder({});
+    fetchCategories();
+  } catch (err) {
+    alert(err.response?.data?.message || "Failed to save order");
+  }
+}}
+
               className="bg-black text-white px-4 py-2 rounded"
             >
               Save Order

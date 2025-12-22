@@ -83,6 +83,12 @@ const active =
           <p className="hidden md:block">Add Offer</p>
         </NavLink>
 
+        <NavLink to={"/personal-stylist"} end className={linkCls}>
+  <img src={assets.user_icon} alt="" className="w-5 h-5" />
+  <p className="hidden md:block">Personal Stylist</p>
+</NavLink>
+
+
         <NavLink to={"/settings"} end className={linkCls}>
           <img src={assets.order_icon} alt="" className="w-5 h-5" />
           <p className="hidden md:block">Store Settings</p>

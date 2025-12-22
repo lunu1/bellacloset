@@ -324,6 +324,18 @@ const discountPercent =
 
   const handleToggleWishlist = async () => {
     if (!product?._id) return;
+
+    if (authLoading) {
+    toast.info("Checking your session…");
+    return;
+  }
+
+
+  if (!isLoggedin) {
+    toast.info("Please login to add items to wishlist");
+    return navigate("/login", { state: { from: location.pathname + location.search }, });
+  }
+
     try {
       wishInFlightRef.current = true;
       if (wishState) {
@@ -483,7 +495,7 @@ const discountPercent =
         if (!isLoggedin) {
           toast.info("Please login to add items to cart");
           return navigate("/login", {
-            state: { from: location.pathname },
+            state: { from: location.pathname + location.search },
           });
         }
 

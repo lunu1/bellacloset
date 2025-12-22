@@ -54,7 +54,7 @@ function DeliveryReturnsBella() {
         </div>
       </div>
 
-      <NewsletterBox />
+      {/* <NewsletterBox /> */}
     </div>
   );
 }

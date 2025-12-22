@@ -28,6 +28,7 @@ import offerRoutes from "./routes/offerRoutes.js";
 import adminOfferRoutes from "./routes/adminOfferRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import adminStripeOrderRoutes from "./routes/adminStripeOrderRoutes.js";
+import personalStylistRoutes from "./routes/personalStylist.routes.js";
 
 // Connect to MongoDB database
 connectDB();
@@ -100,6 +101,7 @@ app.use("/api/notify", notifyRoutes);
 app.use("/api/reviews",reviewRoutes);
 app.use("/api/offers", adminOfferRoutes);
 app.use("/api/public/offer", offerRoutes);  
+app.use("/api/personal-stylist", personalStylistRoutes);
 
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin/stripe-orders", adminStripeOrderRoutes);

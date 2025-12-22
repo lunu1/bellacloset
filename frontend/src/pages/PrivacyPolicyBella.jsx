@@ -164,7 +164,7 @@ function PrivacyPolicyBella() {
 
       {/* Newsletter */}
       <div className="max-w-6xl px-5 mx-auto mt-16">
-        <NewsletterBox />
+        {/* <NewsletterBox /> */}
       </div>
     </div>
   );

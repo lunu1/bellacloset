@@ -22,6 +22,7 @@ import { AdminContext } from "./context/AdminContext";
 import ProductEdit from "./pages/admin/ProductEdit";
 import SettingsPage from "./pages/SettingPage";
 import Offer from "./pages/Offer";
+import PersonalStylistAdmin from "./pages/PersonalStylist";
 
 export let currency = "AED. ";
 
@@ -66,6 +67,7 @@ const App = () => {
                 <Route path="/login" element={<Navigate to="/" />} />
                 <Route path="/settings" element={<SettingsPage/>} />
                 <Route path="/offer" element={<Offer/>} />
+                <Route path="personal-stylist" element= { <PersonalStylistAdmin />}/>
                 <Route path="*" element={<Navigate to="/" />} />
 
                 <Route

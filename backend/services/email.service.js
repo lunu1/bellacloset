@@ -54,15 +54,17 @@ if (EMAIL_LOG_ONLY === "true") {
 
 async function sendOrLog({ to, subject, text = "", html = "" }) {
   const msg = { from: SMTP_FROM, to, subject, text, html };
-  if (logOnly) {
+
+  if (logOnly || !transporter) {
     console.log("----- EMAIL (LOG ONLY) -----");
     console.log("TO:", to);
     console.log("SUBJECT:", subject);
     console.log("TEXT:", text);
     console.log("HTML:\n\n", html, "\n");
     console.log("----------------------------");
-    return { logged: true };
+    return { logged: true, reason: !transporter ? "NO_TRANSPORTER" : "LOG_ONLY" };
   }
+
   return transporter.sendMail(msg);
 }
 

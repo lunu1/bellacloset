@@ -60,7 +60,7 @@ function AboutBella() {
         </div>
       </div>
 
-      <NewsletterBox />
+      {/* <NewsletterBox /> */}
     </div>
   );
 }

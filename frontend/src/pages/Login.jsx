@@ -1,7 +1,7 @@
 import { useContext, useState } from "react";
 import Title from "../components/Title";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate,useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { AppContext } from "../context/AppContext";
 
@@ -13,7 +13,8 @@ function Login() {
   const [password, setPassword] = useState("");
 
   const navigate = useNavigate();
-
+  const location = useLocation();
+  const from = location.state?.from || "/";
 
   const { backendUrl, setisLoggedin, getUserData } = useContext(AppContext);
 
@@ -34,10 +35,11 @@ function Login() {
     // Axios only enters here for 2xx responses
     if (data.success) {
       setisLoggedin(true);
-       getUserData(); // make sure this finishes before navigating
-        navigate("/");
-      console.log("✅ User logged in:", data.success);
+       await getUserData(); // make sure this finishes before navigating
+        // navigate("/");
+        // console.log("✅ User logged in:", data.success);
      toast.success(data.message);
+     navigate(from, { replace: true });
      
 
 

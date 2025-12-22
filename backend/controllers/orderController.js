@@ -278,7 +278,7 @@ export const placeOrder = async (req, res) => {
       session.endSession();
     }
 
-    // 5) Email async
+    
 // 5) Email async
 (async () => {
   try {
