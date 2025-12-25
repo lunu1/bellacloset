@@ -29,6 +29,9 @@ import adminOfferRoutes from "./routes/adminOfferRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import adminStripeOrderRoutes from "./routes/adminStripeOrderRoutes.js";
 import personalStylistRoutes from "./routes/personalStylist.routes.js";
+import featureRoutes from "./routes/featureRoutes.js";
+
+
 
 // Connect to MongoDB database
 connectDB();
@@ -105,6 +108,8 @@ app.use("/api/personal-stylist", personalStylistRoutes);
 
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin/stripe-orders", adminStripeOrderRoutes);
+
+app.use("/api/features", featureRoutes);
 
 
 

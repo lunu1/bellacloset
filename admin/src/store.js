@@ -5,6 +5,8 @@ import productReducer from "./redux/productSlice";
 import categoryReducer from "./redux/categorySlice";
 import adminOrderReducer from "./redux/adminOrderSlice";
 import settingsReducer from "./features/settings/settingSlice";
+import featureReducer from "./redux/features/featureSlice";
+
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +15,7 @@ export const store = configureStore({
     category: categoryReducer,
     adminOrders: adminOrderReducer,
     settings: settingsReducer,
+    features: featureReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(adminProductsApi.middleware),
