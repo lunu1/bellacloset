@@ -62,14 +62,45 @@ export function orderConfirmationTemplate({ order, user }) {
       <b>Payment:</b> ${order.paymentMethod || "-"} · ${order.paymentStatus || "-"}
     </p>
 
+    // <div style="margin:16px 0;">
+    //   <b>Shipping Address</b>
+    //   <div style="color:#333;line-height:1.4;margin-top:6px;">
+    //     ${order.address?.street || ""}<br/>
+    //     ${order.address?.city || ""} ${order.address?.state || ""} ${order.address?.zip || ""}<br/>
+    //     ${order.address?.country || ""}
+    //   </div>
+    // </div>
+
     <div style="margin:16px 0;">
-      <b>Shipping Address</b>
-      <div style="color:#333;line-height:1.4;margin-top:6px;">
-        ${order.address?.street || ""}<br/>
-        ${order.address?.city || ""} ${order.address?.state || ""} ${order.address?.zip || ""}<br/>
-        ${order.address?.country || ""}
-      </div>
+  <b>Shipping Address</b>
+  <div style="color:#333;line-height:1.4;margin-top:6px;">
+    <div style="font-weight:600;color:#111;">
+      ${order.address?.fullName || ""}
+      ${order.address?.phone ? ` · ${order.address.phone}` : ""}
     </div>
+
+    ${order.address?.addressType ? `<div style="color:#666;">${order.address.addressType}</div>` : ""}
+
+    <div>
+      ${order.address?.unitNumber ? `${order.address.unitNumber}, ` : ""}
+      ${order.address?.buildingName || ""}
+    </div>
+
+    <div>
+      ${order.address?.street ? `${order.address.street}, ` : ""}
+      ${order.address?.area ? `${order.address.area}, ` : ""}
+      ${order.address?.city || ""}
+    </div>
+
+    <div>
+      ${order.address?.emirate || ""}${order.address?.postalCode ? ` · ${order.address.postalCode}` : ""}
+    </div>
+
+    ${order.address?.landmark ? `<div><b>Landmark:</b> ${order.address.landmark}</div>` : ""}
+    ${order.address?.poBox ? `<div><b>PO Box:</b> ${order.address.poBox}</div>` : ""}
+  </div>
+</div>
+
 
     <p style="margin:16px 0;">Track your order:</p>
     <p><a href="${orderUrl}" style="color:#0b62f5" target="_blank" rel="noreferrer">${orderUrl}</a></p>

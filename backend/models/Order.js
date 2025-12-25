@@ -38,7 +38,42 @@ const orderSchema = new mongoose.Schema({
     at: { type: Date, default: Date.now }
   }],
 
-  address: { street: String, city: String, state: String, zip: String, country: String },
+ // address: { street: String, city: String, state: String, zip: String, country: String },
+
+ address: {
+  label: String,
+  fullName: { type: String, required: true },
+  phone: { type: String, required: true },
+
+  addressType: { type: String, enum: ["apartment", "villa", "office"] },
+
+  unitNumber: { type: String, required: true },
+  buildingName: { type: String, required: true },
+
+  area: { type: String, required: true },
+  city: { type: String, required: true }, // Dubai/Abu Dhabi
+  emirate: {
+    type: String,
+    enum: [
+      "Abu Dhabi",
+      "Dubai",
+      "Sharjah",
+      "Ajman",
+      "Fujairah",
+      "Ras Al Khaimah",
+      "Umm Al Quwain",
+    ],
+    required: true,
+  },
+
+  street: String,      // optional
+  landmark: String,    // optional
+  poBox: String,       // optional
+  postalCode: String,  // optional
+
+  formatted: String,   // optional (nice for invoices)
+},
+
 
   // Pricing snapshot
   pricing: {

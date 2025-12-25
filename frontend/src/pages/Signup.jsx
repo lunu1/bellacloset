@@ -93,7 +93,7 @@ function Signup() {
         required
       />
       <div className="flex justify-between w-full text-sm mt-[-8px]">
-        <p className="border-b border-white cursor-pointer hover:border-black ">
+        <p className="border-b border-white cursor-pointer hover:border-black " onClick={() => navigate("/reset-password")}>
           Forgot Your Password?
         </p>
       

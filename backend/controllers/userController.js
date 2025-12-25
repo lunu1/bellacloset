@@ -3,8 +3,28 @@ import userModel from "../models/userModel.js";
 import mongoose from "mongoose";
 const { isValidObjectId } = mongoose;
 
-const normalizePhone10 = (v) => String(v || "").replace(/\D/g, "").slice(0, 10);
-const isPhone10 = (v) => /^\d{10}$/.test(normalizePhone10(v));
+// const normalizePhone10 = (v) => String(v || "").replace(/\D/g, "").slice(0, 10);
+// const isPhone10 = (v) => /^\d{10}$/.test(normalizePhone10(v));
+
+const normalizeUaePhone = (v) => String(v || "").replace(/\D/g, "");
+
+const isUaePhone = (v) => {
+  const p = normalizeUaePhone(v);
+  return (
+    /^05\d{8}$/.test(p) ||     // 05XXXXXXXX
+    /^5\d{8}$/.test(p) ||      // 5XXXXXXXX
+    /^9715\d{8}$/.test(p)      // 9715XXXXXXXX
+  );
+};
+
+const toUaePhoneE164 = (v) => {
+  const p = normalizeUaePhone(v);
+  if (/^9715\d{8}$/.test(p)) return `+${p}`;
+  if (/^05\d{8}$/.test(p)) return `+971${p.slice(1)}`;
+  if (/^5\d{8}$/.test(p)) return `+971${p}`;
+  return "";
+};
+
 
 
 export const getUserData = async (req, res) => {
@@ -159,29 +179,68 @@ export const setDefaultAddress = async (req, res) => {
 
 //  Add Address
 export const addAddress = async (req, res) => {
-    try {
-        const { street, city, state, zip, country, phone } = req.body;
+  try {
+    const {
+      label,
+      fullName,
+      phone,
+      addressType,   // apartment | villa | office
+      unitNumber,
+      buildingName,
+      area,
+      city,
+      emirate,       // Dubai, Abu Dhabi...
+      street,        // optional
+      landmark,      // optional
+      poBox,         // optional
+      postalCode,    // optional
+      isDefault,     // optional
+    } = req.body;
 
-        const user = await userModel.findById(req.user.id);
-
-        if (!user) return res.status(404).json({ success: false, message: "User not found" });
-        let phone10;
-        if (phone !== undefined && phone !== "") {
-             if (!isPhone10(phone)) {
-                return res.status(400).json({ success: false, message: "Phone must be exactly 10 digits" });
-                }
-                phone10 = normalizePhone10(phone);
-            }
-
-       
-        user.addresses.push({ street, city, state, zip, country,...(phone10 ? { phone: phone10 } : {}) });
-        await user.save();
-
-        res.status(201).json({ success: true, message: "Address added", addresses: user.addresses });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+    // Required checks (keep it simple)
+    if (!fullName || !phone || !unitNumber || !buildingName || !area || !city || !emirate) {
+      return res.status(400).json({ success: false, message: "Missing required address fields" });
     }
+
+    if (!isUaePhone(phone)) {
+      return res.status(400).json({ success: false, message: "Invalid UAE phone number" });
+    }
+
+    const user = await userModel.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const phoneE164 = toUaePhoneE164(phone);
+
+    // If new address is default → unset previous defaults
+    const makeDefault = isDefault === true || user.addresses.length === 0;
+    if (makeDefault) {
+      user.addresses.forEach((a) => (a.isDefault = false));
+    }
+
+    user.addresses.push({
+      label: label || "Home",
+      fullName,
+      phone: phoneE164,
+      addressType: addressType || "apartment",
+      unitNumber,
+      buildingName,
+      area,
+      city,
+      emirate,
+      street: street || "",
+      landmark: landmark || "",
+      poBox: poBox || "",
+      postalCode: postalCode || "",
+      isDefault: makeDefault,
+    });
+
+    await user.save();
+    res.status(201).json({ success: true, message: "Address added", addresses: user.addresses });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
+
 
 //  Get Addresses
 export const getAddresses = async (req, res) => {
@@ -201,28 +260,61 @@ export const updateAddress = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid address id" });
     }
 
-    const { street, city, state, zip, country, phone } = req.body;
+    const {
+      label,
+      fullName,
+      phone,
+      addressType,
+      unitNumber,
+      buildingName,
+      area,
+      city,
+      emirate,
+      street,
+      landmark,
+      poBox,
+      postalCode,
+      isDefault,
+    } = req.body;
 
-    // Build $set only for fields provided (so partial updates work too)
     const set = {};
-    if (street !== undefined) set["addresses.$.street"] = street;
-    if (city !== undefined) set["addresses.$.city"] = city;
-    if (state !== undefined) set["addresses.$.state"] = state;
-    if (zip !== undefined) set["addresses.$.zip"] = zip;
-    if (country !== undefined) set["addresses.$.country"] = country;
+
+    if (label !== undefined) set["addresses.$.label"] = label;
+    if (fullName !== undefined) set["addresses.$.fullName"] = fullName;
 
     if (phone !== undefined) {
-      if (phone === "") {
-        set["addresses.$.phone"] = "";
-      } else {
-        if (!isPhone10(phone)) {
-          return res.status(400).json({ success: false, message: "Phone must be exactly 10 digits" });
+      if (phone === "") set["addresses.$.phone"] = "";
+      else {
+        if (!isUaePhone(phone)) {
+          return res.status(400).json({ success: false, message: "Invalid UAE phone number" });
         }
-        set["addresses.$.phone"] = normalizePhone10(phone);
+        set["addresses.$.phone"] = toUaePhoneE164(phone);
       }
     }
 
-    // Atomic update: ensure the address belongs to the current user
+    if (addressType !== undefined) set["addresses.$.addressType"] = addressType;
+    if (unitNumber !== undefined) set["addresses.$.unitNumber"] = unitNumber;
+    if (buildingName !== undefined) set["addresses.$.buildingName"] = buildingName;
+    if (area !== undefined) set["addresses.$.area"] = area;
+    if (city !== undefined) set["addresses.$.city"] = city;
+    if (emirate !== undefined) set["addresses.$.emirate"] = emirate;
+
+    if (street !== undefined) set["addresses.$.street"] = street;
+    if (landmark !== undefined) set["addresses.$.landmark"] = landmark;
+    if (poBox !== undefined) set["addresses.$.poBox"] = poBox;
+    if (postalCode !== undefined) set["addresses.$.postalCode"] = postalCode;
+
+    // If setting default, unset others first (atomic-ish using two operations)
+    if (isDefault === true) {
+      await userModel.updateOne(
+        { _id: req.user.id },
+        { $set: { "addresses.$[].isDefault": false } }
+      );
+      set["addresses.$.isDefault"] = true;
+    } else if (isDefault === false) {
+      set["addresses.$.isDefault"] = false;
+    }
+
     const result = await userModel.updateOne(
       { _id: req.user.id, "addresses._id": addressId },
       { $set: set }
@@ -233,16 +325,14 @@ export const updateAddress = async (req, res) => {
       return res.status(404).json({ success: false, message: "Address not found" });
     }
 
-    // Return the fresh list of addresses
     const user = await userModel.findById(req.user.id).select("addresses");
-    return res
-      .status(200)
-      .json({ success: true, message: "Address updated", addresses: user.addresses });
+    return res.status(200).json({ success: true, message: "Address updated", addresses: user.addresses });
   } catch (err) {
     console.error("[updateAddress] error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
 
 // Delete Address
 export const deleteAddress = async (req, res) => {

@@ -1,5 +1,5 @@
 import { Edit3, Check } from "lucide-react";
-import { emailRegex } from "../../utils/validators";
+import { emailRegex,validateProfile } from "../../utils/validators";
 
 export default function ProfileHeader({
   user,
@@ -41,9 +41,15 @@ export default function ProfileHeader({
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              onBlur={() =>
-                setFormErrors((p) => ({ ...p, name: !form.name.trim() ? "Name is required." : undefined }))
-              }
+              // onBlur={() =>
+              //   setFormErrors((p) => ({ ...p, name: !form.name.trim() ? "Name is required." : undefined }))
+              // }
+
+              onBlur={() => {
+                      const errs = validateProfile(form);
+                      setFormErrors((p) => ({ ...p, name: errs.name }));
+                    }}
+
               className="text-2xl sm:text-3xl font-normal text-gray-900 text-center border-b-2 border-yellow-600
                          focus:outline-none bg-transparent"
               autoFocus

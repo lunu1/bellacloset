@@ -25,27 +25,43 @@ export default function UserProfile() {
 
   // add address
   const [showAddAddress, setShowAddAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState({
-    street: "",
-    city: "",
-    state: "",
-    zip: "",
-    country: "",
-    phone: "",
-  });
+ const [newAddress, setNewAddress] = useState({
+  label: "Home",
+  fullName: "",
+  phone: "",
+  addressType: "apartment",
+  unitNumber: "",
+  buildingName: "",
+  street: "",
+  area: "",
+  city: "",
+  emirate: "",
+  landmark: "",
+  poBox: "",
+  postalCode: "",
+});
+
   const [addressErrors, setAddressErrors] = useState({});
 
   // edit address
   const [showEdit, setShowEdit] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({
-    street: "",
-    city: "",
-    state: "",
-    zip: "",
-    country: "",
-    phone: "",
-  });
+  label: "Home",
+  fullName: "",
+  phone: "",
+  addressType: "apartment",
+  unitNumber: "",
+  buildingName: "",
+  street: "",
+  area: "",
+  city: "",
+  emirate: "",
+  landmark: "",
+  poBox: "",
+  postalCode: "",
+});
+
   const [editAddressErrors, setEditAddressErrors] = useState({});
 
   const { backendUrl } = useContext(AppContext);
@@ -125,7 +141,22 @@ export default function UserProfile() {
     try {
       const res = await axios.post(`${backendUrl}/api/user/address`, newAddress);
       setAddresses(res.data.addresses);
-      setNewAddress({ street: "", city: "", state: "", zip: "", country: "", phone: "" });
+      setNewAddress({
+  label: "Home",
+  fullName: "",
+  phone: "",
+  addressType: "apartment",
+  unitNumber: "",
+  buildingName: "",
+  street: "",
+  area: "",
+  city: "",
+  emirate: "",
+  landmark: "",
+  poBox: "",
+  postalCode: "",
+});
+
       setAddressErrors({});
       setShowAddAddress(false);
       toast.success("Address added successfully!");
@@ -136,18 +167,30 @@ export default function UserProfile() {
   };
 
   const startEditAddress = (address) => {
-    setEditForm({
-      street: address.street || "",
-      city: address.city || "",
-      state: address.state || "",
-      zip: address.zip || "",
-      country: address.country || "",
-      phone: sanitizePhoneInput(address.phone || ""),
-    });
-    setEditId(address._id);
-    setEditAddressErrors({});
-    setShowEdit(true);
-  };
+  setEditForm({
+    label: address.label || "Home",
+    fullName: address.fullName || "",
+    phone: sanitizePhoneInput(address.phone || ""),
+    addressType: address.addressType || "apartment",
+
+    unitNumber: address.unitNumber || "",
+    buildingName: address.buildingName || "",
+
+    street: address.street || "",
+    area: address.area || "",
+    city: address.city || "",
+    emirate: address.emirate || "",
+
+    landmark: address.landmark || "",
+    poBox: address.poBox || "",
+    postalCode: address.postalCode || "",
+  });
+
+  setEditId(address._id);
+  setEditAddressErrors({});
+  setShowEdit(true);
+};
+
 
   const updateAddress = async () => {
     const errs = validateAddress(editForm);

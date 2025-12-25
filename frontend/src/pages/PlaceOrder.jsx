@@ -21,6 +21,7 @@ import useShopSettings from "../hooks/useShopSettings";
 import { adaptSettingsForPreview } from "../utils/settingAdapter";
 
 import StripeCheckout from "../components/checkout/StripeCheckout";
+import BackButton from "../components/BackButton";
 
 export default function PlaceOrder() {
   const navigate = useNavigate();
@@ -93,10 +94,19 @@ export default function PlaceOrder() {
 
   // Basic guards
   const validateBeforeOrder = useCallback(() => {
-    if (!selectedAddress?.street) {
-      toast.error("Please provide a valid delivery address.");
-      return false;
-    }
+    if (
+  !selectedAddress?.fullName ||
+  !selectedAddress?.phone ||
+  !selectedAddress?.unitNumber ||
+  !selectedAddress?.buildingName ||
+  !selectedAddress?.area ||
+  !selectedAddress?.city ||
+  !selectedAddress?.emirate
+) {
+  toast.error("Please provide a complete UAE delivery address.");
+  return false;
+}
+
     if (!itemsForCheckout?.length) {
       toast.error("No items to checkout.");
       return false;
@@ -125,7 +135,22 @@ const createOrder = useCallback(
 
     const orderData = {
       products,
-      address: selectedAddress,
+      address: {
+  label: selectedAddress?.label || "Home",
+  fullName: selectedAddress?.fullName || "",
+  phone: selectedAddress?.phone || "",
+  addressType: selectedAddress?.addressType || "apartment",
+  unitNumber: selectedAddress?.unitNumber || "",
+  buildingName: selectedAddress?.buildingName || "",
+  street: selectedAddress?.street || "",
+  area: selectedAddress?.area || "",
+  city: selectedAddress?.city || "",
+  emirate: selectedAddress?.emirate || "",
+  landmark: selectedAddress?.landmark || "",
+  poBox: selectedAddress?.poBox || "",
+  postalCode: selectedAddress?.postalCode || "",
+},
+
       paymentMethod: normalizedMethod, // "COD" | "STRIPE"
 
       // only send codConfirmed for COD
@@ -182,13 +207,16 @@ const createOrder = useCallback(
 
   return (
     <div className="flex flex-col justify-between gap-4 pt-5 sm:flex-row sm:pt-14 min-h-[80vh] border-t">
+     
       {/* LEFT: Address Picker */}
       <div className="w-full sm:max-w-[50%]">
+        <BackButton/> 
         <AddressPicker backendUrl={backendUrl} onChange={setSelectedAddress} />
       </div>
 
       {/* RIGHT: Items + totals + payment */}
       <div className="w-full sm:max-w-[45%] mt-8">
+        
         <OrderItemsSummary items={itemsForCheckout} />
 
         <CartTotal
@@ -215,7 +243,16 @@ const createOrder = useCallback(
             <button
               className="px-16 py-3 my-8 text-sm text-white bg-black disabled:opacity-50"
               onClick={placeOrderCOD}
-              disabled={!selectedAddress?.street}
+                        disabled={
+            !selectedAddress?.fullName ||
+            !selectedAddress?.phone ||
+            !selectedAddress?.unitNumber ||
+            !selectedAddress?.buildingName ||
+            !selectedAddress?.area ||
+            !selectedAddress?.city ||
+            !selectedAddress?.emirate
+          }
+
             >
               PLACE ORDER
             </button>

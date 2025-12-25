@@ -9,6 +9,7 @@ import {
   Clock,
   XCircle,
 } from "lucide-react";
+import BackButton from "../components/BackButton";
 
 export default function OrderSuccess() {
   const { orderId } = useParams();
@@ -125,8 +126,9 @@ export default function OrderSuccess() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8">
+    <div className="container mx-auto max-w-4xl px-4 py-5">
       {/* Header */}
+      <BackButton className="mb-3" />
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <StatusIcon className={statusIconClass} />
@@ -241,7 +243,7 @@ export default function OrderSuccess() {
       </div>
 
       {/* Shipping Address */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+      {/* <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Shipping Address</h2>
         <div className="text-gray-700">
           <div>{order?.address?.street}</div>
@@ -250,7 +252,54 @@ export default function OrderSuccess() {
           <div>{order?.address?.zip}</div>
           <div>{order?.address?.country}</div>
         </div>
-      </div>
+      </div> */}
+
+      {/* Shipping Address */}
+<div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+  <h2 className="text-lg font-semibold mb-4">Shipping Address</h2>
+
+  <div className="text-gray-700 space-y-1">
+    {/* Name + phone */}
+    {order?.address?.fullName && (
+      <div className="font-medium text-gray-900">{order.address.fullName}</div>
+    )}
+    {order?.address?.phone && (
+      <div className="text-sm text-gray-600">Phone: {order.address.phone}</div>
+    )}
+
+    {/* Address type */}
+    {order?.address?.addressType && (
+      <div className="text-sm text-gray-600 capitalize">{order.address.addressType}</div>
+    )}
+
+    {/* Unit + building */}
+    <div>
+      {order?.address?.unitNumber ? `${order.address.unitNumber}, ` : ""}
+      {order?.address?.buildingName || ""}
+    </div>
+
+    {/* Street + area + city */}
+    <div>
+      {[order?.address?.street, order?.address?.area, order?.address?.city]
+        .filter(Boolean)
+        .join(", ")}
+    </div>
+
+    {/* Emirate + postal code */}
+    <div>
+      {[order?.address?.emirate, order?.address?.postalCode].filter(Boolean).join(" · ")}
+    </div>
+
+    {/* Landmark / PO Box */}
+    {order?.address?.landmark && (
+      <div>Landmark: {order.address.landmark}</div>
+    )}
+    {order?.address?.poBox && (
+      <div>PO Box: {order.address.poBox}</div>
+    )}
+  </div>
+</div>
+
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3 justify-center">

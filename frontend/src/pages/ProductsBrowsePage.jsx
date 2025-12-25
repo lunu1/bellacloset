@@ -7,6 +7,7 @@ import { fetchCategories } from "../features/category/categorySlice";
 import CategoryTreeSidebar from "../components/product/CategoryTreeSidebar";
 import ProductCard from "../pages/ProductShowcase/ProductCard"
 import { useLocation } from "react-router-dom";
+import BackButton from "../components/BackButton";
 
 
 const API_BASE = "https://bellaluxurycloset.com/api";
@@ -231,7 +232,8 @@ const activeCategoryImage = pickCategoryImage(activeCategory);
 
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-2">
+      <BackButton className="mb-5"/>
       {/* Header + breadcrumb */}
 
 {/* Category hero (image only) */}

@@ -3,22 +3,41 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { LuPlus } from "react-icons/lu";
 import { toast } from "react-toastify";
+import { sanitizePhoneInput, isValidUaePhone } from "../../utils/validators";
 
-/** Phone helpers (exactly 10 digits) */
-const sanitizePhone10 = (raw = "") => String(raw).replace(/\D/g, "").slice(0, 10);
-const isValidPhone10 = (raw = "") => /^\d{10}$/.test(sanitizePhone10(raw));
+const EMIRATES = [
+  "Abu Dhabi",
+  "Dubai",
+  "Sharjah",
+  "Ajman",
+  "Fujairah",
+  "Ras Al Khaimah",
+  "Umm Al Quwain",
+];
 
-/** Normalize to the new shape your app uses everywhere */
+// Normalize to UAE shape used everywhere
 const normalizeAddress = (a) => {
   if (!a) return null;
   return {
     _id: a._id || a.id,
+
+    label: a.label?.trim() || "",
+    fullName: a.fullName?.trim() || "",
+    phone: a.phone?.trim() || "",
+
+    addressType: a.addressType || "apartment",
+
+    unitNumber: a.unitNumber?.trim() || "",
+    buildingName: a.buildingName?.trim() || "",
     street: a.street?.trim() || "",
+    area: a.area?.trim() || "",
     city: a.city?.trim() || "",
-    state: a.state?.trim() || "",
-    zip: a.zip?.trim() || "",
-    country: a.country?.trim() || "",
-    ...(a.phone ? { phone: sanitizePhone10(a.phone) } : {}),
+    emirate: a.emirate?.trim() || "",
+
+    landmark: a.landmark?.trim() || "",
+    poBox: a.poBox?.trim() || "",
+    postalCode: a.postalCode?.trim() || "",
+
     isDefault: Boolean(a.isDefault),
   };
 };
@@ -29,24 +48,33 @@ export default function AddressPicker({ backendUrl, onChange }) {
   const [useNew, setUseNew] = useState(false);
 
   const [draft, setDraft] = useState({
-    street: "",
-    city: "",
-    state: "",
-    zip: "",
-    country: "",
+    label: "Home",
+    fullName: "",
     phone: "",
+    addressType: "apartment",
+    unitNumber: "",
+    buildingName: "",
+    street: "",
+    area: "",
+    city: "",
+    emirate: "",
+    landmark: "",
+    poBox: "",
+    postalCode: "",
   });
+
   const [errors, setErrors] = useState({});
 
-  /** Fetch existing addresses */
+  // Fetch existing addresses
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await axios.get(`${backendUrl}/api/user/addresses`, { withCredentials: true });
+        const res = await axios.get(`${backendUrl}/api/user/addresses`, {
+          withCredentials: true,
+        });
         const list = Array.isArray(res.data?.addresses) ? res.data.addresses : [];
         setAddresses(list);
 
-        // Preselect default or first
         const def = list.find((a) => a.isDefault) || list[0];
         if (def?._id || def?.id) {
           setSelectedId(def._id || def.id);
@@ -59,60 +87,68 @@ export default function AddressPicker({ backendUrl, onChange }) {
     load();
   }, [backendUrl]);
 
-  /** Push normalized selection upwards */
+  // Selected address
   const selectedAddress = useMemo(
     () => addresses.find((a) => (a._id || a.id) === selectedId) || null,
     [addresses, selectedId]
   );
 
+  // Push normalized selection upwards
   useEffect(() => {
-    if (useNew) {
-      onChange?.(normalizeAddress(draft));
-    } else if (selectedAddress) {
-      onChange?.(normalizeAddress(selectedAddress));
-    } else {
-      onChange?.(null);
-    }
+    if (useNew) onChange?.(normalizeAddress(draft));
+    else if (selectedAddress) onChange?.(normalizeAddress(selectedAddress));
+    else onChange?.(null);
   }, [useNew, selectedAddress, draft, onChange]);
 
-  /** Basic inline validation for the draft form */
+  // Validate draft
   const validateDraft = (d) => {
     const e = {};
-    if (!d.street.trim()) e.street = "Street is required.";
+    if (!d.fullName.trim()) e.fullName = "Full name is required.";
+    if (!d.phone.trim()) e.phone = "Phone is required.";
+    else if (!isValidUaePhone(d.phone)) e.phone = "Enter a valid UAE mobile (05XXXXXXXX or +9715XXXXXXXX).";
+
+    if (!d.unitNumber.trim()) e.unitNumber = "Unit number is required.";
+    if (!d.buildingName.trim()) e.buildingName = "Building name is required.";
+    if (!d.area.trim()) e.area = "Area / community is required.";
     if (!d.city.trim()) e.city = "City is required.";
-    if (!d.state.trim()) e.state = "State is required.";
-    if (!d.zip.trim()) e.zip = "ZIP/Postal code is required.";
-    if (!d.country.trim()) e.country = "Country is required.";
-    if (d.phone) {
-      if (!isValidPhone10(d.phone)) e.phone = "Phone must be exactly 10 digits.";
-    }
+    if (!d.emirate.trim()) e.emirate = "Emirate is required.";
+
+    if (d.emirate && !EMIRATES.includes(d.emirate)) e.emirate = "Select a valid emirate.";
+    if (d.addressType && !["apartment", "villa", "office"].includes(d.addressType))
+      e.addressType = "Invalid address type.";
+
     return e;
   };
 
-  /** Save a brand new address */
+  // Save new address
   const saveNewAddress = async () => {
-    const v = { ...draft, phone: draft.phone ? sanitizePhone10(draft.phone) : "" };
+    const v = {
+      ...draft,
+      phone: sanitizePhoneInput(draft.phone),
+    };
+
     const e = validateDraft(v);
     setErrors(e);
     if (Object.keys(e).length) {
-      toast.error("Please fix the errors in the address form.");
+      toast.error("Please fill in the highlighted fields to continue.");
       return;
     }
 
     try {
-      const res = await axios.post(`${backendUrl}/api/user/address`, v, { withCredentials: true });
+      const res = await axios.post(`${backendUrl}/api/user/address`, v, {
+        withCredentials: true,
+      });
 
-      // Backend usually returns {success, addresses:[...]}. Fall back defensively.
       let nextList = Array.isArray(res.data?.addresses) ? res.data.addresses : [];
       if (!nextList.length) {
-        // try to refetch if the response shape is unexpected
-        const ref = await axios.get(`${backendUrl}/api/user/addresses`, { withCredentials: true });
+        const ref = await axios.get(`${backendUrl}/api/user/addresses`, {
+          withCredentials: true,
+        });
         nextList = Array.isArray(ref.data?.addresses) ? ref.data.addresses : [];
       }
 
       setAddresses(nextList);
 
-      // pick the one that looks new (last is OK if server appends)
       const last = nextList[nextList.length - 1];
       const newId = last?._id || last?.id || null;
       if (newId) {
@@ -121,7 +157,22 @@ export default function AddressPicker({ backendUrl, onChange }) {
       }
 
       // reset draft
-      setDraft({ street: "", city: "", state: "", zip: "", country: "", phone: "" });
+      setDraft({
+        label: "Home",
+        fullName: "",
+        phone: "",
+        addressType: "apartment",
+        unitNumber: "",
+        buildingName: "",
+        street: "",
+        area: "",
+        city: "",
+        emirate: "",
+        landmark: "",
+        poBox: "",
+        postalCode: "",
+      });
+
       setErrors({});
       toast.success("Address saved!");
     } catch (e) {
@@ -129,6 +180,13 @@ export default function AddressPicker({ backendUrl, onChange }) {
       const msg = e?.response?.data?.message || "Failed to save address";
       toast.error(msg);
     }
+  };
+
+  const renderLine = (a) => {
+    const line1 = `${a.unitNumber ? a.unitNumber + ", " : ""}${a.buildingName || ""}`.trim();
+    const line2 = [a.street, a.area, a.city].filter(Boolean).join(", ");
+    const line3 = [a.emirate, a.postalCode].filter(Boolean).join(" · ");
+    return { line1, line2, line3 };
   };
 
   return (
@@ -143,6 +201,7 @@ export default function AddressPicker({ backendUrl, onChange }) {
           setUseNew(true);
           setSelectedId(null);
         }}
+        type="button"
       >
         <LuPlus className="w-4 h-4" />
         Add a new address
@@ -150,9 +209,11 @@ export default function AddressPicker({ backendUrl, onChange }) {
 
       {/* Existing addresses */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {addresses.map((a) => {
-          const id = a._id || a.id;
+        {addresses.map((raw) => {
+          const a = normalizeAddress(raw);
+          const id = a?._id;
           const checked = selectedId === id && !useNew;
+          const { line1, line2, line3 } = renderLine(a || {});
           return (
             <label
               key={id}
@@ -172,14 +233,21 @@ export default function AddressPicker({ backendUrl, onChange }) {
                 className="mt-1"
               />
               <div>
-                <p className="font-semibold">{a.street}</p>
-                <p className="text-sm text-gray-700">
-                  {[a.city, a.state, a.zip].filter(Boolean).join(", ")}
-                </p>
-                <p className="text-sm text-gray-700">{a.country}</p>
-                {a.phone ? <p className="text-sm text-gray-700 mt-1">Phone: {sanitizePhone10(a.phone)}</p> : null}
+                <p className="font-semibold">{a.fullName || "—"}</p>
+                {a.phone ? <p className="text-sm text-gray-700 mt-1">Phone: {a.phone}</p> : null}
+
+                {line1 ? <p className="text-sm text-gray-800 mt-2">{line1}</p> : null}
+                {line2 ? <p className="text-sm text-gray-700">{line2}</p> : null}
+                {line3 ? <p className="text-sm text-gray-700">{line3}</p> : null}
+
+                {a.landmark ? (
+                  <p className="text-sm text-gray-700 mt-1">Landmark: {a.landmark}</p>
+                ) : null}
+
                 {a.isDefault ? (
-                  <span className="mt-1 inline-block text-xs text-green-700 font-semibold">(Default)</span>
+                  <span className="mt-1 inline-block text-xs text-green-700 font-semibold">
+                    (Default)
+                  </span>
                 ) : null}
               </div>
             </label>
@@ -191,33 +259,109 @@ export default function AddressPicker({ backendUrl, onChange }) {
       {useNew && (
         <div className="mt-6 border border-gray-300 p-4 rounded">
           <h3 className="text-lg font-semibold mb-2">New Address</h3>
+
           <div className="space-y-3">
+            {/* simple field helper */}
             {[
-              { key: "street", label: "Street" },
-              { key: "city", label: "City" },
-              { key: "state", label: "State" },
-              { key: "zip", label: "ZIP/Postal code" },
-              { key: "country", label: "Country" },
-              { key: "phone", label: "Phone (optional, 10 digits)" },
-            ].map(({ key, label }) => (
+              { key: "label", label: "Label", placeholder: "Home / Office" },
+              { key: "fullName", label: "Full Name", placeholder: "Receiver name" },
+              { key: "phone", label: "Phone", placeholder: "+9715XXXXXXXX or 05XXXXXXXX", phone: true },
+            ].map(({ key, label, placeholder, phone }) => (
               <div key={key}>
                 <label className="block text-sm text-gray-600 mb-1">{label}</label>
                 <input
-                  placeholder={`Enter ${key}`}
+                  placeholder={placeholder}
                   value={draft[key] || ""}
                   onChange={(e) =>
                     setDraft((prev) => ({
                       ...prev,
-                      [key]: key === "phone" ? sanitizePhone10(e.target.value) : e.target.value,
+                      [key]: phone ? sanitizePhoneInput(e.target.value) : e.target.value,
                     }))
                   }
                   onBlur={() => setErrors(validateDraft(draft))}
                   className={`w-full border p-2 rounded text-sm ${
                     errors[key] ? "border-red-400" : "border-gray-300"
                   }`}
-                  inputMode={key === "phone" ? "tel" : undefined}
+                  inputMode={phone ? "tel" : undefined}
                 />
                 {errors[key] ? <p className="text-xs text-red-600 mt-1">{errors[key]}</p> : null}
+              </div>
+            ))}
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Address Type</label>
+              <select
+                value={draft.addressType}
+                onChange={(e) => setDraft((p) => ({ ...p, addressType: e.target.value }))}
+                className={`w-full border p-2 rounded text-sm ${
+                  errors.addressType ? "border-red-400" : "border-gray-300"
+                }`}
+              >
+                <option value="apartment">Apartment</option>
+                <option value="villa">Villa</option>
+                <option value="office">Office</option>
+              </select>
+              {errors.addressType ? (
+                <p className="text-xs text-red-600 mt-1">{errors.addressType}</p>
+              ) : null}
+            </div>
+
+            {[
+              { key: "unitNumber", label: "Unit Number", placeholder: "Flat / Villa / Office No." },
+              { key: "buildingName", label: "Building Name", placeholder: "Tower / Building / Community" },
+              { key: "street", label: "Street (optional)", placeholder: "Street / Road (optional)" },
+              { key: "area", label: "Area / Community", placeholder: "Marina, Deira, JLT..." },
+              { key: "city", label: "City", placeholder: "Dubai / Abu Dhabi" },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-sm text-gray-600 mb-1">{label}</label>
+                <input
+                  placeholder={placeholder}
+                  value={draft[key] || ""}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                  onBlur={() => setErrors(validateDraft(draft))}
+                  className={`w-full border p-2 rounded text-sm ${
+                    errors[key] ? "border-red-400" : "border-gray-300"
+                  }`}
+                />
+                {errors[key] ? <p className="text-xs text-red-600 mt-1">{errors[key]}</p> : null}
+              </div>
+            ))}
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Emirate</label>
+              <select
+                value={draft.emirate}
+                onChange={(e) => setDraft((p) => ({ ...p, emirate: e.target.value }))}
+                onBlur={() => setErrors(validateDraft(draft))}
+                className={`w-full border p-2 rounded text-sm ${
+                  errors.emirate ? "border-red-400" : "border-gray-300"
+                }`}
+              >
+                <option value="">Select Emirate</option>
+                {EMIRATES.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+              </select>
+              {errors.emirate ? <p className="text-xs text-red-600 mt-1">{errors.emirate}</p> : null}
+            </div>
+
+            {[
+              { key: "landmark", label: "Landmark (optional)", placeholder: "Near..." },
+              { key: "poBox", label: "PO Box (optional)", placeholder: "12345" },
+              { key: "postalCode", label: "Postal Code (optional)", placeholder: "Optional" },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-sm text-gray-600 mb-1">{label}</label>
+                <input
+                  placeholder={placeholder}
+                  value={draft[key] || ""}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, [key]: e.target.value }))}
+                  onBlur={() => setErrors(validateDraft(draft))}
+                  className="w-full border border-gray-300 p-2 rounded text-sm"
+                />
               </div>
             ))}
           </div>
@@ -226,6 +370,7 @@ export default function AddressPicker({ backendUrl, onChange }) {
             <button
               onClick={saveNewAddress}
               className="px-4 py-2 mt-4 text-white bg-black hover:bg-gray-800 rounded text-sm"
+              type="button"
             >
               Save Address
             </button>
@@ -235,6 +380,7 @@ export default function AddressPicker({ backendUrl, onChange }) {
                 setErrors({});
               }}
               className="px-4 py-2 mt-4 text-gray-700 hover:bg-gray-200 rounded text-sm border"
+              type="button"
             >
               Cancel
             </button>

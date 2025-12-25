@@ -18,6 +18,7 @@ import useShopSettings from "../hooks/useShopSettings";
 import { adaptSettingsForPreview } from "../utils/settingAdapter";
 import { getVariantsByProduct } from "../features/variants/variantSlice";
 import { getDisplayImages } from "../utils/productView";
+import BackButton from "../components/BackButton";
 
 const formatAED = (n) =>
   new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(
@@ -95,7 +96,8 @@ function Cart() {
    // Empty state
  if (!loading && isEmpty) {
   return (
-     <div className="border-t pt-14">
+     <div className="border-t pt-10">
+      <BackButton className="mb-4"/>
        <div className="mb-3 text-3xl">
         <Title text1={"YOUR"} text2={"CART"} />
        </div>
@@ -190,7 +192,8 @@ function Cart() {
   };
 
   return (
-    <div className="border-t pt-14">
+    <div className="border-t pt-10">
+      <BackButton className="mb-4"/>
       <div className="mb-3 text-3xl">
         <Title text1={"YOUR"} text2={"CART"} />
       </div>

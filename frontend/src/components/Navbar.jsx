@@ -184,7 +184,7 @@ const Navbar = () => {
               <img
                 src="/logo.png"
                 alt="Bella Closet"
-                className="block h-10 sm:h-14 w-auto object-contain"
+                className="block h-20 sm:h-18 w-auto object-contain"
 
                 loading="eager"
                 decoding="async"

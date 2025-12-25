@@ -12,6 +12,7 @@ import { brandLabel } from "../utils/brandLabel";
 import NotifyMeButton from "../components/NotifyMeButton";
 import { getVariantsByProduct } from "../features/variants/variantSlice";
 import { getDisplayImages } from "../utils/productView";
+import BackButton from "../components/BackButton";
 
 const formatAED = (n) =>
   typeof n === "number" && !Number.isNaN(n)
@@ -138,7 +139,9 @@ export default function WishlistPage() {
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
+         <BackButton/>
         <h1 className="text-3xl font-normal text-gray-900">My Wishlist</h1>
+       
         <button
           onClick={() => dispatch(getWishlist())}
           className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-md hover:bg-gray-50"

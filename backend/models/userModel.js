@@ -4,18 +4,46 @@ import mongoose from "mongoose";
 
 // Sub-schema for Address
 const addressSchema = new mongoose.Schema({
-  street: { type: String, required: true },
-  city: { type: String, required: true },
-  state: { type: String, required: true },
-  zip: { type: String, required: true },
-  country: { type: String, required: true },
-   phone: { type: String, trim: true },  
-  isDefault : {
-    type: Boolean,
-    default:false
+  label: { type: String, trim: true, default: "Home" }, // Home / Office
 
-  }
-});
+    fullName: { type: String, required: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+
+    addressType: {
+      type: String,
+      enum: ["apartment", "villa", "office"],
+      default: "apartment",
+    },
+
+    unitNumber: { type: String, required: true, trim: true }, // Flat/Villa/Office no.
+    buildingName: { type: String, required: true, trim: true }, // Tower/Building/Community
+
+    area: { type: String, required: true, trim: true }, // Marina, Deira, JLT, etc.
+    city: { type: String, required: true, trim: true }, // Dubai / Abu Dhabi
+
+    emirate: {
+      type: String,
+      required: true,
+      enum: [
+        "Abu Dhabi",
+        "Dubai",
+        "Sharjah",
+        "Ajman",
+        "Fujairah",
+        "Ras Al Khaimah",
+        "Umm Al Quwain",
+      ],
+    },
+
+    street: { type: String, trim: true, default: "" }, // optional
+    landmark: { type: String, trim: true, default: "" }, // optional
+    poBox: { type: String, trim: true, default: "" }, // optional
+    postalCode: { type: String, trim: true, default: "" }, // optional in UAE
+
+    isDefault: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
 
 // Sub-schema for Order
 const orderSchema = new mongoose.Schema({

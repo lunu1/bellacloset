@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchSearchResults } from "../features/search/searchSlice";
 import { useLocation } from "react-router-dom";
 
+
 const SearchResults = () => {
   const dispatch = useDispatch();
   const location = useLocation();
@@ -21,6 +22,7 @@ const SearchResults = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+     
       <h1 className="text-2xl font-normal mb-4">Search Results for "{query}"</h1>
 
       {loading && <p>Loading...</p>}
