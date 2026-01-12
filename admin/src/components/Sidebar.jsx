@@ -77,6 +77,15 @@ const active =
           <p className="hidden md:block">Add Product</p> 
         </NavLink>
 
+        <NavLink
+          to={"/admin/features"}
+          end
+          className={linkCls}
+        >
+          <img src={assets.add_icon} alt="" className="w-5 h-5" />
+          <p className="hidden md:block">Add Features</p>
+        </NavLink>
+
 
 <NavLink to={"/offer"} end className={linkCls}>
           <img src={assets.order_icon} alt="" className="w-5 h-5" />

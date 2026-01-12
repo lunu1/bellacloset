@@ -212,19 +212,21 @@ export default function FeaturesAdmin() {
                   </button>
                 </div>
 
-                <div className="col-span-1 flex justify-end gap-2">
+                <div className="col-span-1 ">
+                  <div className="flex flex-col gap-2 items-end">
                   <button
                     onClick={() => openEdit(item)}
-                    className="text-xs px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50"
+                    className="w-full text-xs px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => removeItem(item)}
-                    className="text-xs px-3 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                    className="w-full  text-xs px-3 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
                   >
                     Delete
                   </button>
+                  </div>
                 </div>
               </div>
             );
