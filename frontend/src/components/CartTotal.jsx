@@ -4,35 +4,27 @@ import {
   computePricingPreview,
   defaultStoreSettings,
   adaptSettingsToPreview,
-  formatCurrency
 } from "../utils/pricingPreview";
 
-/**
- * Props:
- * - items: [{ name, price, quantity }]
- * - pricing: optional server/authoritative snapshot (order.pricing)
- * - settings: either:
- *      (a) backend /api/settings/public shape (shipping/tax/delivery), OR
- *      (b) computePricingPreview shape
- * - currency: defaults to "AED"
- * - showBreakdown: default true
- * - showEta: default true
- */
+import { useCurrency } from "../context/CurrencyContext";
+
 export default function CartTotal({
   items = [],
   pricing = null,
   settings = null,
-  currency = "AED",
   showBreakdown = true,
   showEta = true,
 }) {
+  const { format } = useCurrency();
+
   // Normalize settings (works whether you pass backend shape or preview shape)
   const normalizedSettings =
     settings && (settings.shipping || settings.tax)
-      ? adaptSettingsToPreview(settings) // backend shape
-      : (settings || defaultStoreSettings); // already preview shape or null
+      ? adaptSettingsToPreview(settings)
+      : settings || defaultStoreSettings;
 
   // Prefer authoritative snapshot if provided (e.g., from placed order)
+  // snapshot values are assumed in AED
   const snapshot = pricing || computePricingPreview(items, normalizedSettings);
 
   return (
@@ -44,12 +36,14 @@ export default function CartTotal({
       <div className="flex flex-col gap-2 mt-2 text-sm">
         {showBreakdown &&
           items.map((item, idx) => {
-            const priceNum = Number(item.price) || 0;
+            const priceNum = Number(item.price) || 0; // AED
             const qtyNum = Number(item.quantity) || 0;
             return (
               <div className="flex justify-between" key={idx}>
-                <p>{item.name} x {qtyNum}</p>
-                <p>{formatCurrency(priceNum * qtyNum, currency)}</p>
+                <p>
+                  {item.name} x {qtyNum}
+                </p>
+                <p>{format(priceNum * qtyNum)}</p>
               </div>
             );
           })}
@@ -58,7 +52,7 @@ export default function CartTotal({
 
         <div className="flex justify-between">
           <p>Subtotal</p>
-          <p>{formatCurrency(snapshot.subtotal, currency)}</p>
+          <p>{format(snapshot.subtotal)}</p>
         </div>
 
         <div className="flex justify-between">
@@ -66,7 +60,7 @@ export default function CartTotal({
             Shipping Fee{" "}
             {snapshot.shippingMethod?.label ? `(${snapshot.shippingMethod.label})` : ""}
           </p>
-          <p>{formatCurrency(snapshot.shippingFee, currency)}</p>
+          <p>{format(snapshot.shippingFee)}</p>
         </div>
 
         <div className="flex justify-between">
@@ -74,7 +68,7 @@ export default function CartTotal({
             {snapshot.taxMode === "tax_inclusive" ? "Included VAT" : "VAT"}{" "}
             {snapshot.taxRate ? `(${snapshot.taxRate}%)` : ""}
           </p>
-          <p>{formatCurrency(snapshot.taxAmount, currency)}</p>
+          <p>{format(snapshot.taxAmount)}</p>
         </div>
 
         {showEta && snapshot.deliveryEta && (
@@ -87,7 +81,7 @@ export default function CartTotal({
         <hr />
         <div className="flex justify-between font-semibold">
           <p>Total</p>
-          <p>{formatCurrency(snapshot.grandTotal, currency)}</p>
+          <p>{format(snapshot.grandTotal)}</p>
         </div>
       </div>
     </div>

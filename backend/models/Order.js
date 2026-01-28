@@ -2,7 +2,9 @@
 import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", default : null },
+  guestToken: { type: String, default: null, index: true },
+
   products: [{
     productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
     variantId: { type: mongoose.Schema.Types.ObjectId, ref: "Variant" },
@@ -41,17 +43,23 @@ const orderSchema = new mongoose.Schema({
  // address: { street: String, city: String, state: String, zip: String, country: String },
 
  address: {
-  label: String,
-  fullName: { type: String, required: true },
-  phone: { type: String, required: true },
+  label: { type: String, default: "Home" },
+
+  fullName: { type: String, required: true, trim: true },
+
+  // ✅ ADD THIS
+  email: { type: String, trim: true, lowercase: true, default: "" },
+
+  phone: { type: String, required: true, trim: true },
 
   addressType: { type: String, enum: ["apartment", "villa", "office"] },
 
-  unitNumber: { type: String, required: true },
-  buildingName: { type: String, required: true },
+  unitNumber: { type: String, required: true, trim: true },
+  buildingName: { type: String, required: true, trim: true },
 
-  area: { type: String, required: true },
-  city: { type: String, required: true }, // Dubai/Abu Dhabi
+  area: { type: String, required: true, trim: true },
+  city: { type: String, required: true, trim: true },
+
   emirate: {
     type: String,
     enum: [
@@ -66,13 +74,14 @@ const orderSchema = new mongoose.Schema({
     required: true,
   },
 
-  street: String,      // optional
-  landmark: String,    // optional
-  poBox: String,       // optional
-  postalCode: String,  // optional
+  street: { type: String, trim: true, default: "" },
+  landmark: { type: String, trim: true, default: "" },
+  poBox: { type: String, trim: true, default: "" },
+  postalCode: { type: String, trim: true, default: "" },
 
-  formatted: String,   // optional (nice for invoices)
+  formatted: String,
 },
+
 
 
   // Pricing snapshot

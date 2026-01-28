@@ -1,28 +1,15 @@
-import { useContext, useMemo } from "react";
-import { ShopContext } from "../context/ShopContext";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useCurrency } from "../context/CurrencyContext";
 
 const ProductItem = ({ id, image, name, price, originalPrice, rating }) => {
-  const { currency } = useContext(ShopContext);
+  const { format } = useCurrency();
 
   // Support string OR array for image prop
   const mainImage = useMemo(() => {
     if (Array.isArray(image)) return image[0] || "";
     return image || "";
   }, [image]);
-
-  const formatPrice = (value) => {
-    if (value == null) return "";
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currency || "USD",
-        // If your currency in context is a symbol (e.g., "₹"), switch to style:"decimal"
-      }).format(Number(value));
-    } catch {
-      return `${currency ?? ""}${value}`;
-    }
-  };
 
   return (
     <Link
@@ -48,9 +35,12 @@ const ProductItem = ({ id, image, name, price, originalPrice, rating }) => {
       </p>
 
       <div className="flex items-center gap-2">
-        <p className="text-xl font-medium">{formatPrice(price)}</p>
-        {originalPrice && Number(originalPrice) > Number(price) && (
-          <p className="text-sm text-gray-500 line-through">{formatPrice(originalPrice)}</p>
+        <p className="text-xl font-medium">{format(Number(price || 0))}</p>
+
+        {originalPrice != null && Number(originalPrice) > Number(price) && (
+          <p className="text-sm text-gray-500 line-through">
+            {format(Number(originalPrice || 0))}
+          </p>
         )}
       </div>
 

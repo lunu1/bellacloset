@@ -7,6 +7,8 @@ const addressSchema = new mongoose.Schema({
   label: { type: String, trim: true, default: "Home" }, // Home / Office
 
     fullName: { type: String, required: true, trim: true },
+    email: { type: String, trim: true, lowercase: true, default: "" },
+
     phone: { type: String, required: true, trim: true },
 
     addressType: {

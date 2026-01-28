@@ -96,6 +96,10 @@ const active =
   <img src={assets.user_icon} alt="" className="w-5 h-5" />
   <p className="hidden md:block">Personal Stylist</p>
 </NavLink>
+ <NavLink to={"/sell-page"} end className={linkCls}>
+  <img src={assets.user_icon} alt="" className="w-5 h-5" />
+  <p className="hidden md:block">Sell Page</p>
+</NavLink>
 
 
         <NavLink to={"/settings"} end className={linkCls}>

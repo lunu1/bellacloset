@@ -100,17 +100,21 @@ const deleteVariant = async (req, res) => {
 /**
  * GET /api/variants/by-product/:productId
  */
+
+
+
+//new code - archana
 const getVariantsByProduct = async (req, res) => {
   try {
     const variants = await Variant.find({ product: req.params.productId });
-    if (!variants || variants.length === 0) {
-      return res.status(404).json({ message: 'No variants found for this product' });
-    }
-    res.status(200).json(variants);
+    return res.status(200).json(variants); // ✅ [] if none
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching variants', error: error.message });
+    return res.status(500).json({ message: "Error fetching variants", error: error.message });
   }
 };
+
+
+
 
 export default {
   getVariantById,

@@ -1,67 +1,54 @@
-// src/pages/WishlistPage.jsx
-import { useEffect, useMemo } from "react";
+// src/pages/wishlistPage.jsx
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { toast } from "react-toastify";
+
+import Title from "../components/Title";
+import BackButton from "../components/BackButton";
+import { assets } from "../assets/assets";
+
+import { AppContext } from "../context/AppContext";
+
+// ✅ wishlist actions (server + guest)
 import {
   getWishlist,
   removeFromWishlist,
+  removeFromWishlistGuest,
 } from "../features/wishlist/wishlistSlice";
-import { toast } from "react-toastify";
-import { Trash2, ShoppingBag, RotateCw } from "lucide-react";
-import { brandLabel } from "../utils/brandLabel";
-import NotifyMeButton from "../components/NotifyMeButton";
+
+// ✅ product lookup (your store shape is [{ product }])
+import {
+  getAllProducts,
+  selectProductsWrapped,
+} from "../features/product/productSlice";
+
+// ✅ variants lookup for variant images (optional but good)
 import { getVariantsByProduct } from "../features/variants/variantSlice";
-import { getDisplayImages } from "../utils/productView";
-import BackButton from "../components/BackButton";
-
-const formatAED = (n) =>
-  typeof n === "number" && !Number.isNaN(n)
-    ? new Intl.NumberFormat("en-AE", {
-        style: "currency",
-        currency: "AED",
-        maximumFractionDigits: 0,
-      }).format(n)
-    : null;
-
-const StatusBadge = ({ status, stock }) => {
-  if (status === "product_unavailable") {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
-        No longer available
-      </span>
-    );
-  }
-  if (status === "out_of_stock") {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
-        <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
-        Out of stock
-      </span>
-    );
-  }
-  if ((stock ?? 0) <= 5) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-        Low stock
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-      In stock
-    </span>
-  );
-};
 
 export default function WishlistPage() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { authLoading, isLoggedin } = useContext(AppContext);
+
+  const wishlistItems = useSelector((s) => s.wishlist.items || []);
   const loading = useSelector((s) => s.wishlist.loading);
-  const items = useSelector((s) => s.wishlist.items || []);
+
+  // products store: [{ product }]
+  const productsWrapped = useSelector(selectProductsWrapped);
   const variantsAll = useSelector((s) => s.variants.items || []);
 
+  // ✅ build quick map: productId -> product
+  const productsById = useMemo(() => {
+    const m = {};
+    for (const w of productsWrapped || []) {
+      const p = w?.product;
+      if (p?._id) m[String(p._id)] = p;
+    }
+    return m;
+  }, [productsWrapped]);
+
+  // ✅ build map: productId -> variants[]
   const variantsByProductId = useMemo(() => {
     const map = {};
     for (const v of variantsAll) {
@@ -72,228 +59,224 @@ export default function WishlistPage() {
     return map;
   }, [variantsAll]);
 
-  // initial load
+  // ✅ make sure we have products after refresh (for image/name)
   useEffect(() => {
-    dispatch(getWishlist());
-  }, [dispatch]);
+    if ((productsWrapped || []).length === 0) dispatch(getAllProducts());
+  }, [dispatch, productsWrapped?.length]);
 
-  // refetch when tab/window becomes active
+  // ✅ load wishlist depending on auth
   useEffect(() => {
-    const onFocus = () => dispatch(getWishlist());
-    const onVisible = () => {
-      if (document.visibilityState === "visible") dispatch(getWishlist());
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [dispatch]);
+    if (authLoading) return;
 
-  // while any item is out of stock, poll every 45s
-  const hasOOS = useMemo(
-    () => items.some((it) => it.status === "out_of_stock"),
-    [items]
-  );
-  useEffect(() => {
-    if (!hasOOS) return;
-    const id = setInterval(() => dispatch(getWishlist()), 45000);
-    return () => clearInterval(id);
-  }, [hasOOS, dispatch]);
+    if (isLoggedin) {
+      dispatch(getWishlist()).catch(() => {});
+    }
+    // guest wishlist is already loaded in App.jsx via setGuestWishlistState()
+  }, [authLoading, isLoggedin, dispatch]);
 
-  // fetch variants for products with no product-level images (fallback to first variant image)
+  // ✅ fetch variants for any wishlist item missing variant data (only if needed)
   useEffect(() => {
-    const toFetch = [];
-    for (const it of items) {
-      const pid = it?.product?._id || it?.productId;
+    const toFetch = new Set();
+
+    for (const it of wishlistItems) {
+      const pid = it?.productId || it?.product?._id;
       if (!pid) continue;
 
-      const productHasImages =
-        Array.isArray(it?.product?.images) && it.product.images.length > 0;
+      const vid = it?.variantId ?? null;
+      if (!vid) continue;
 
-      const alreadyHaveVariants =
-        Array.isArray(variantsByProductId[pid]) &&
-        variantsByProductId[pid].length > 0;
+      const haveVariantAlready =
+        (variantsByProductId[pid] || []).some(
+          (v) => String(v._id) === String(vid)
+        ) || !!it?.variant?.images?.length;
 
-      if (!productHasImages && !alreadyHaveVariants) {
-        toFetch.push(pid);
-      }
+      if (!haveVariantAlready) toFetch.add(pid);
     }
-    toFetch.forEach((pid) => dispatch(getVariantsByProduct(pid)));
-  }, [items, variantsByProductId, dispatch]);
 
-  const handleRemove = async (wishlistId, productId) => {
-    try {
-      await dispatch(removeFromWishlist({ wishlistId, productId })).unwrap();
+    toFetch.forEach((pid) => dispatch(getVariantsByProduct(pid)));
+  }, [wishlistItems, variantsByProductId, dispatch]);
+
+  const resolvedItems = useMemo(() => {
+    return wishlistItems.map((it) => {
+      const pid = String(it?.productId || it?.product?._id || "");
+      const vid = it?.variantId ? String(it.variantId) : null;
+
+      const product = it.product || productsById[pid] || null;
+
+      // variant from item OR from variants slice
+      const productVars = variantsByProductId[pid] || [];
+      const variant =
+        it.variant ||
+        (vid ? productVars.find((v) => String(v._id) === String(vid)) : null) ||
+        null;
+
+        const stock =
+        typeof variant?.stock === "number"
+          ? variant.stock
+          : typeof product?.defaultStock === "number"
+          ? product.defaultStock
+          : null;
+
+      const image =
+        variant?.images?.[0] ||
+        product?.images?.[0] ||
+        product?.defaultImages?.[0] ||
+        "/placeholder.jpg";
+
+      return { ...it, _resolvedProduct: product, _resolvedVariant: variant, _img: image , _stock: stock};
+    });
+  }, [wishlistItems, productsById, variantsByProductId]);
+
+  const handleRemove = async (item) => {
+    const pid = item?.productId || item?._resolvedProduct?._id;
+    const vid = item?.variantId ?? null;
+
+    // ✅ GUEST remove
+    if (!isLoggedin) {
+      dispatch(removeFromWishlistGuest({ productId: pid, variantId: vid }));
       toast.success("Removed from wishlist");
-      // refresh to update counts/labels if the same product appears multiple times
+      return;
+    }
+
+    // ✅ LOGGED IN remove (server)
+    try {
+      await dispatch(
+        removeFromWishlist({
+          wishlistId: item?.wishlistId, // if exists
+          productId: pid,
+          variantId: vid,
+        })
+      ).unwrap();
+
+      toast.success("Removed from wishlist");
+    } catch (e) {
+      toast.error(e?.message || "Failed to remove");
       dispatch(getWishlist());
-    } catch (error) {
-      const msg = error?.message || error?.error || "Failed to remove item";
-      toast.error(msg);
     }
   };
 
+  const empty = resolvedItems.length === 0;
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-         <BackButton/>
-        <h1 className="text-3xl font-normal text-gray-900">My Wishlist</h1>
-       
+    <div className="border-t pt-10">
+      <div className="flex items-center justify-between mb-4">
+        <BackButton />
         <button
-          onClick={() => dispatch(getWishlist())}
-          className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-md hover:bg-gray-50"
-          title="Refresh"
+          className="px-4 py-2 text-sm border rounded hover:bg-black hover:text-white transition-colors"
+          onClick={() => {
+            if (!isLoggedin) return toast.info("Guest wishlist is already up to date");
+            dispatch(getWishlist());
+          }}
         >
-          <RotateCw size={16} />
-          Refresh
+          ⟳ Refresh
         </button>
       </div>
 
-      {loading && items.length === 0 ? (
-        <div className="text-center text-gray-600">Loading wishlist...</div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-12">
-          <ShoppingBag size={48} className="mx-auto text-gray-400 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">
-            Your wishlist is empty
-          </h2>
-          <p className="text-gray-500 mb-6">Start adding items you love!</p>
-          <Link
-            to="/products"
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 inline-block"
+      <div className="mb-3 text-3xl flex justify-center">
+        <Title text1={"MY"} text2={"WISHLIST"} />
+      </div>
+
+      {loading && (
+        <div className="py-6 text-center text-sm text-gray-500">Loading…</div>
+      )}
+
+      {!loading && empty && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="text-5xl mb-3">🤍</div>
+          <p className="text-lg text-gray-800 font-medium">Your wishlist is empty</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Browse products and save your favorites.
+          </p>
+          <button
+            className="mt-6 px-6 py-2 text-sm text-white bg-black hover:bg-gray-800"
+            onClick={() => navigate("/")}
           >
-            Start Shopping
-          </Link>
+            Start shopping
+          </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {items.map((it) => {
-            const { wishlistId, productId, product, status, stock } = it;
+      )}
 
-            // Prefer a variant image if we have the variants for this product
-            const pid = product?._id || productId;
-            const productVariants = variantsByProductId[pid] || [];
-            const firstVariantImg = productVariants?.[0]?.images?.[0] || null;
+      {!loading && !empty && (
+       <div className="max-w-7xl mx-auto px-2 sm:px-4">
+  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-8 justify-items-center mb-5">
 
-            // PDP-like default chain (no variant selected yet)
-            const defaultList = getDisplayImages?.(null, product) || [];
-            const defaultImg =
-              defaultList[0] ||
-              product?.images?.[0] ||
-              product?.defaultImages?.[0];
-
-            // Final image URL
-            const imageUrl =
-              firstVariantImg || defaultImg || "/placeholder.png";
-
-            const price =
-              typeof product?.defaultPrice === "number"
-                ? product.defaultPrice
-                : null;
-
-            const isUnavailable = status === "product_unavailable";
-            const cardBorder = isUnavailable
-              ? "border-red-200"
-              : "border-gray-200";
-            const imgFilter = isUnavailable ? "grayscale" : "";
+          {resolvedItems.map((it, idx) => {
+            const p = it._resolvedProduct;
+            const name = p?.name || "Item";
 
             return (
-              <div
-                key={wishlistId || productId}
-                className={`relative bg-white border ${cardBorder} rounded-xl overflow-hidden shadow-sm hover:shadow transition-shadow`}
-              >
-                {/* Corner label for unavailable (no blur) */}
-                {isUnavailable && (
-                  <div className="absolute left-0 top-0">
-                    <div className="px-2 py-1 bg-red-50 text-red-700 text-[11px] font-medium rounded-br">
-                      No longer available
-                    </div>
-                  </div>
-                )}
+              <Link
+                to={p?._id ? `/product/${p._id}` : "#"}
+                key={`${it.wishlistId || it.productId || "x"}-${it.variantId || "no"}-${idx}`}
+                className="group relative w-full max-w-[320px] border border-gray-200 bg-white rounded overflow-hidden shadow-sm hover:shadow-md transition "
 
+              >
                 <div className="relative">
                   <img
-                    src={imageUrl}
-                    alt={product?.name || "Item"}
-                    className={`w-full h-48 object-cover ${imgFilter}`}
+                    src={it._img}
+                    alt={name}
+                    className="w-full aspect-square object-contain bg-[#fafafa] p-6"
+                    loading="lazy"
                   />
-                  {/* Remove */}
+
                   <button
-                    onClick={() => handleRemove(wishlistId, productId)}
-                    className="absolute top-2 right-2 p-2 bg-white border border-gray-200 rounded-full shadow-sm hover:bg-red-50 text-red-500"
-                    title="Remove from wishlist"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleRemove(it);
+                    }}
+                    className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center hover:bg-white transition"
+                    title="Remove"
                   >
-                    <Trash2 size={16} />
+                    {/* if you have assets.bin_icon use that, else use emoji */}
+                    {assets?.bin_icon ? (
+                      <img src={assets.bin_icon} className="w-4 h-4" alt="Remove" />
+                    ) : (
+                      <span className="text-lg">🗑️</span>
+                    )}
                   </button>
                 </div>
 
-                <div className="p-4">
-                  {/* Title / Meta */}
-                  {product ? (
-                    <Link
-                      to={isUnavailable ? "#" : `/product/${product._id}`}
-                      onClick={(e) => isUnavailable && e.preventDefault()}
-                      className="block"
-                    >
-                      <h3 className="font-thin text-gray-900 mb-1 line-clamp-1">
-                        {product.name}
-                      </h3>
-                      {product.brand && (
-                        <p className="text-sm text-gray-600 mb-2">
-                          {brandLabel(product)}
-                        </p>
-                      )}
-                      {price != null && (
-                        <p className="text-lg font-thin text-gray-900">
-                          {formatAED(price)}
-                        </p>
-                      )}
-                    </Link>
-                  ) : (
-                    <>
-                      <h3 className="font-semibold text-gray-900 mb-1">Item</h3>
-                      <p className="text-sm text-gray-600 mb-2">—</p>
-                    </>
+                <div className="p-3">
+                  <p className="text-sm font-thin text-black line-clamp-1">{name}</p>
+                  <div className="mt-2">
+  {it._stock > 0 ? (
+    <span className="inline-flex items-center px-2 py-0.5 text-[11px] border border-gray-300 rounded-md text-white bg-[#D0BC98] uppercase">
+      In stock
+    </span>
+  ) : (
+    <span className="inline-flex items-center px-2 py-0.5 text-[11px] bg-gray-900 text-white rounded-full">
+      Sold out
+    </span>
+  )}
+</div>
+
+
+                  {/* Optional: show variant info if exists */}
+                  {it._resolvedVariant?.optionValues && (
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                      {Object.entries(it._resolvedVariant.optionValues)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(" • ")}
+                    </p>
                   )}
 
-                  {/* Status */}
-                  <div className="mt-2">
-                    <StatusBadge status={status} stock={stock} />
-                  </div>
+                  {/* Optional: low stock badge (if you track stock) */}
+                 {typeof it?._stock === "number" && it._stock > 0 && it._stock <= 3 && (
+  <p className="text-xs text-orange-600 mt-2">• Low stock</p>
+)}
 
-                  {/* Actions */}
-                  <div className="mt-3 grid grid-cols-1 gap-2">
-                    {status === "out_of_stock" && (
-                      <NotifyMeButton productId={productId} compact />
-                    )}
-
-                    {status === "ok" && product && (
-                      <Link
-                        to={`/product/${product._id}`}
-                        className="w-full bg-gray-900 text-white py-2 rounded-lg hover:bg-gray-800 text-center text-sm"
-                      >
-                        View Details
-                      </Link>
-                    )}
-
-                    {status === "product_unavailable" && (
-                      <button
-                        onClick={() => handleRemove(wishlistId, productId)}
-                        className="w-full border border-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-50 text-sm"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
+
+</div>
+
       )}
     </div>
   );
 }
+
+

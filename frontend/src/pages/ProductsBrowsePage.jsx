@@ -2,20 +2,22 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
+
 import { fetchCategories } from "../features/category/categorySlice";
 import CategoryTreeSidebar from "../components/product/CategoryTreeSidebar";
-import ProductCard from "../pages/ProductShowcase/ProductCard"
-import { useLocation } from "react-router-dom";
+import ProductCard from "../pages/ProductShowcase/ProductCard";
 import BackButton from "../components/BackButton";
+import { SlidersHorizontal, X } from "lucide-react";
 
+import { useCurrency } from "../context/CurrencyContext";
 
 const API_BASE = "https://bellaluxurycloset.com/api";
-
-const formatAED = (n) =>
-  typeof n === "number" && !Number.isNaN(n)
-    ? new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED", maximumFractionDigits: 0 }).format(n)
-    : null;
 
 const SkeletonCard = () => (
   <div className="border border-gray-200 rounded-xl overflow-hidden animate-pulse bg-white">
@@ -28,55 +30,90 @@ const SkeletonCard = () => (
   </div>
 );
 
+// Drawer row like SANDS list
+const DrawerRow = ({ label, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="w-full py-6 flex items-center justify-between border-b border-gray-200 text-left"
+  >
+    <span className="text-[22px] font-light">{label}</span>
+    <span className="text-gray-500 text-2xl">›</span>
+  </button>
+);
+
+const DrawerSubHeader = ({ title, onBack }) => (
+  <div className="px-6 pt-5 pb-4 border-b border-gray-200 flex items-center justify-between">
+    <button
+      type="button"
+      onClick={onBack}
+      className="text-sm underline text-gray-700"
+    >
+      Back
+    </button>
+    <p className="text-sm tracking-wide">{title}</p>
+    <div className="w-10" />
+  </div>
+);
+
 export default function ProductsBrowsePage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { categoryId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { items: categories, loading: catLoading } = useSelector((s) => s.category);
   const location = useLocation();
 
-    const [search, setSearch] = useState(searchParams.get("search") || "");
+  const { items: categories = [], loading: catLoading } = useSelector(
+    (s) => s.category
+  );
+
+  // currency helpers
+  const { format, toAED } = useCurrency();
+
+  // ✅ Drawer state (DESKTOP + MOBILE)
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerPage, setDrawerPage] = useState("menu"); // menu | sort | price | brands | category
+
+  // --- Filters from URL ---
+  const [search, setSearch] = useState(searchParams.get("search") || "");
   const [brand, setBrand] = useState(searchParams.get("brand") || "");
   const [minPrice, setMinPrice] = useState(searchParams.get("min") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("max") || "");
   const [inStock, setInStock] = useState(searchParams.get("inStock") === "1");
-  const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "createdAt");
-  const [sortOrder, setSortOrder] = useState(searchParams.get("sortOrder") || "desc");
+  const [sortBy, setSortBy] = useState(
+    searchParams.get("sortBy") || "createdAt"
+  );
+  const [sortOrder, setSortOrder] = useState(
+    searchParams.get("sortOrder") || "desc"
+  );
   const [limit, setLimit] = useState(Number(searchParams.get("limit") || 24));
   const [page, setPage] = useState(Number(searchParams.get("page") || 1));
 
-  useEffect(() => {
-  // read everything from URL on change
-  const urlSearch = searchParams.get("search") || "";
-  const urlBrand  = searchParams.get("brand") || "";
-  const urlMin    = searchParams.get("min") || "";
-  const urlMax    = searchParams.get("max") || "";
-  const urlIn     = searchParams.get("inStock") === "1";
-  const urlSortBy = searchParams.get("sortBy") || "createdAt";
-  const urlOrder  = searchParams.get("sortOrder") || "desc";
-  const urlLimit  = Number(searchParams.get("limit") || 24);
-  const urlPage   = Number(searchParams.get("page") || 1);
-
-  // update only when different to avoid loops
-  if (search !== urlSearch) setSearch(urlSearch);
-  if (brand !== urlBrand) setBrand(urlBrand);
-  if (minPrice !== urlMin) setMinPrice(urlMin);
-  if (maxPrice !== urlMax) setMaxPrice(urlMax);
-  if (inStock !== urlIn) setInStock(urlIn);
-  if (sortBy !== urlSortBy) setSortBy(urlSortBy);
-  if (sortOrder !== urlOrder) setSortOrder(urlOrder);
-  if (limit !== urlLimit) setLimit(urlLimit);
-  if (page !== urlPage) setPage(urlPage);
-}, [location.search]); // <— run whenever the query string changes
-
-  // Filters
-
-
-  const [data, setData] = useState({ items: [], total: 0, page: 1, limit: 24 });
-  const [loading, setLoading] = useState(false);
-
   const deep = searchParams.get("deep") === "1";
+
+  // read everything from URL on change
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") || "";
+    const urlBrand = searchParams.get("brand") || "";
+    const urlMin = searchParams.get("min") || "";
+    const urlMax = searchParams.get("max") || "";
+    const urlIn = searchParams.get("inStock") === "1";
+    const urlSortBy = searchParams.get("sortBy") || "createdAt";
+    const urlOrder = searchParams.get("sortOrder") || "desc";
+    const urlLimit = Number(searchParams.get("limit") || 24);
+    const urlPage = Number(searchParams.get("page") || 1);
+
+    if (search !== urlSearch) setSearch(urlSearch);
+    if (brand !== urlBrand) setBrand(urlBrand);
+    if (minPrice !== urlMin) setMinPrice(urlMin);
+    if (maxPrice !== urlMax) setMaxPrice(urlMax);
+    if (inStock !== urlIn) setInStock(urlIn);
+    if (sortBy !== urlSortBy) setSortBy(urlSortBy);
+    if (sortOrder !== urlOrder) setSortOrder(urlOrder);
+    if (limit !== urlLimit) setLimit(urlLimit);
+    if (page !== urlPage) setPage(urlPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   // fetch categories once
   useEffect(() => {
@@ -84,29 +121,45 @@ export default function ProductsBrowsePage() {
   }, [dispatch, categories.length]);
 
   // keep URL in sync with filters
-useEffect(() => {
-  const params = new URLSearchParams(searchParams);
-  const setOrDel = (k, v) => (v && v !== "" && v !== "0" ? params.set(k, v) : params.delete(k));
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    const setOrDel = (k, v) =>
+      v && v !== "" && v !== "0" ? params.set(k, v) : params.delete(k);
 
-  setOrDel("search", search.trim());
-  setOrDel("brand", brand.trim());
-  setOrDel("min", minPrice);
-  setOrDel("max", maxPrice);
-  setOrDel("inStock", inStock ? "1" : "");
-  setOrDel("sortBy", sortBy);
-  setOrDel("sortOrder", sortOrder);
-  setOrDel("limit", String(limit));
-  setOrDel("page", String(page));
-  if (categoryId) params.set("category", categoryId); else params.delete("category");
-  if (deep) params.set("deep", "1"); else params.delete("deep");
+    setOrDel("search", search.trim());
+    setOrDel("brand", brand.trim());
+    setOrDel("min", minPrice);
+    setOrDel("max", maxPrice);
+    setOrDel("inStock", inStock ? "1" : "");
+    setOrDel("sortBy", sortBy);
+    setOrDel("sortOrder", sortOrder);
+    setOrDel("limit", String(limit));
+    setOrDel("page", String(page));
 
-  const next = params.toString();
-  const current = searchParams.toString();
-  if (next !== current) {
-    setSearchParams(params, { replace: true });
-  }
-}, [search, brand, minPrice, maxPrice, inStock, sortBy, sortOrder, limit, page, categoryId, deep]);
+    if (categoryId) params.set("category", categoryId);
+    else params.delete("category");
 
+    if (deep) params.set("deep", "1");
+    else params.delete("deep");
+
+    const next = params.toString();
+    const current = searchParams.toString();
+    if (next !== current) setSearchParams(params, { replace: true });
+  }, [
+    search,
+    brand,
+    minPrice,
+    maxPrice,
+    inStock,
+    sortBy,
+    sortOrder,
+    limit,
+    page,
+    categoryId,
+    deep,
+    searchParams,
+    setSearchParams,
+  ]);
 
   // build server query
   const serverQuery = useMemo(() => {
@@ -117,16 +170,22 @@ useEffect(() => {
     if (sortOrder) params.set("sortOrder", sortOrder);
     if (limit) params.set("limit", String(limit));
     if (page) params.set("page", String(page));
+
     if (categoryId) {
       params.set("category", categoryId);
       if (deep) params.set("deep", "1");
     }
+
     return params;
   }, [search, brand, sortBy, sortOrder, limit, page, categoryId, deep]);
 
-  // fetch products on any change
+  // fetch products
+  const [data, setData] = useState({ items: [], total: 0, page: 1, limit: 24 });
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
+
     async function run() {
       setLoading(true);
       try {
@@ -140,38 +199,58 @@ useEffect(() => {
         if (!cancelled) setLoading(false);
       }
     }
+
     run();
     return () => {
       cancelled = true;
     };
-  }, [serverQuery]);
+  }, [serverQuery, limit]);
 
-  // client-side price & stock filters
+  // convert min/max to AED
+  const minAED = minPrice !== "" ? toAED(minPrice) : null;
+  const maxAED = maxPrice !== "" ? toAED(maxPrice) : null;
+
+  const pickPriceAED = ({ product, variants }) => {
+    const v = variants?.[0];
+    return Number(
+      v?.salePrice ??
+        v?.price ??
+        product?.pricing?.salePrice ??
+        product?.salePrice ??
+        product?.defaultPrice ??
+        0
+    );
+  };
+
   const filteredItems = useMemo(() => {
     let out = data.items;
-    if (minPrice) {
+
+    if (minAED != null && !Number.isNaN(minAED)) {
       out = out.filter(({ product, variants }) => {
-        const price = variants?.[0]?.price ?? product.defaultPrice ?? 0;
-        return Number(price) >= Number(minPrice);
+        const priceAED = pickPriceAED({ product, variants });
+        return Number(priceAED) >= Number(minAED);
       });
     }
-    if (maxPrice) {
+
+    if (maxAED != null && !Number.isNaN(maxAED)) {
       out = out.filter(({ product, variants }) => {
-        const price = variants?.[0]?.price ?? product.defaultPrice ?? 0;
-        return Number(price) <= Number(maxPrice);
+        const priceAED = pickPriceAED({ product, variants });
+        return Number(priceAED) <= Number(maxAED);
       });
     }
+
     if (inStock) {
       out = out.filter(({ product, variants }) => {
         if (variants?.length) return variants.some((v) => (v.stock ?? 0) > 0);
         return (product.defaultStock ?? 0) > 0;
       });
     }
-    return out;
-  }, [data.items, minPrice, maxPrice, inStock]);
 
-  const total = data.total; // server total (pre client filters)
+    return out;
+  }, [data.items, minAED, maxAED, inStock]);
+
   const showCount = filteredItems.length;
+  const total = data.total;
 
   const resetFilters = () => {
     setSearch("");
@@ -185,7 +264,7 @@ useEffect(() => {
     setPage(1);
   };
 
-  // Breadcrumb from categoryId
+  // breadcrumb map
   const idToNode = useMemo(() => {
     const map = new Map();
     const walk = (n) => {
@@ -206,72 +285,72 @@ useEffect(() => {
     return trail;
   }, [categoryId, idToNode]);
 
-  // Choose a display image from the category node
-const pickCategoryImage = (cat) =>
-  cat?.bannerImage ||
-  cat?.image ||
-  cat?.thumbnail ||
-  cat?.media?.url ||
-  cat?.cover?.url ||
-  null;
+  // ✅ Category hero helpers (brought from your previous page)
+  const pickCategoryImage = (cat) =>
+    cat?.bannerImage ||
+    cat?.image ||
+    cat?.thumbnail ||
+    cat?.media?.url ||
+    cat?.cover?.url ||
+    null;
 
-// Active category (from the URL) and its hero image
-const activeCategory = categoryId ? idToNode.get(categoryId) : null;
-const activeCategoryImage = pickCategoryImage(activeCategory);
+  const activeCategory = categoryId ? idToNode.get(categoryId) : null;
+  const activeCategoryImage = pickCategoryImage(activeCategory);
 
+  // drawer handlers
+  const openDrawer = () => {
+    setDrawerOpen(true);
+    setDrawerPage("menu");
+  };
 
-  // Active filter chips (B/W)
-  const chips = [
-    search && { key: "search", label: `“${search}”`, clear: () => setSearch("") },
-    brand && { key: "brand", label: `Brand: ${brand}`, clear: () => setBrand("") },
-    minPrice && { key: "min", label: `Min: ${formatAED(Number(minPrice))}`, clear: () => setMinPrice("") },
-    maxPrice && { key: "max", label: `Max: ${formatAED(Number(maxPrice))}`, clear: () => setMaxPrice("") },
-    inStock && { key: "inStock", label: "In stock", clear: () => setInStock(false) },
-  ].filter(Boolean);
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setDrawerPage("menu");
+  };
 
-
+  const applyDrawer = () => {
+    // URL sync already applied via useEffect; we just close like SANDS
+    closeDrawer();
+  };
 
   return (
     <div className="container mx-auto px-4 py-2">
-      <BackButton className="mb-5"/>
-      {/* Header + breadcrumb */}
+      {/* <BackButton className="mb-5" /> */}
 
-{/* Category hero (image only) */}
-{activeCategoryImage && (
-  <div className="flex flex-col md:flex-row items-start gap-10 my-10">
-    {/* Left: Image */}
-    <div className="w-full md:w-1/2">
-      <img
-        src={activeCategoryImage}
-        alt={activeCategory?.label || "Category"}
-        className="w-full h-64 md:h-[68vh] object-cover"
-        loading="lazy"
-      />
+      {/* ✅ Category hero (image + description) */}
+      {activeCategoryImage && (
+  <section className="relative w-screen left-1/2 -translate-x-1/2 h-[70vh] md:h-[85vh] overflow-hidden">
+    {/* Background Image */}
+    <img
+      src={activeCategoryImage}
+      alt={activeCategory?.label || "Category"}
+      className="absolute inset-0 w-full h-full object-cover object-[center_65%]"
+      loading="lazy"
+    />
+
+    {/* Dark overlay */}
+    <div className="absolute inset-0 bg-black/35" />
+
+    {/* Text content */}
+    <div className="relative z-10 h-full flex items-center justify-center text-center px-6">
+      <div className="max-w-3xl">
+        <h1 className="text-white text-3xl md:text-6xl font-light tracking-wide uppercase">
+          {activeCategory?.label || "Browse Products"}
+        </h1>
+
+        {activeCategory?.description?.trim() && (
+          <p className="mt-6 text-white/90 text-base md:text-lg leading-7 md:leading-8 font-thin">
+            {activeCategory.description}
+          </p>
+        )}
+      </div>
     </div>
-
-    {/* Right: Text */}
-    <div className="w-full md:w-1/2 flex flex-col items-center justify-center text-center md:min-h-[68vh] px-4">
-      <h1 className="text-3xl md:text-5xl font-light tracking-wide uppercase">
-        {activeCategory?.label || "Browse Products"}
-      </h1>
-
-      {activeCategory?.description?.trim() && (
-        <p className="mt-6 text-[18px] leading-8 text-gray-800 max-w-xl font-thin">
-          {activeCategory.description}
-        </p>
-      )}
-    </div>
-  </div>
+  </section>
 )}
 
 
-
-
-
-
-
-
-      <div className="mb-4">
+      {/* Breadcrumb */}
+      <div className="my-4">
         {breadcrumb.length > 0 ? (
           <div className="text-sm text-gray-600 mb-1">
             {breadcrumb.map((n, i) => (
@@ -294,220 +373,326 @@ const activeCategoryImage = pickCategoryImage(activeCategory);
         ) : (
           <div className="text-sm text-gray-600 mb-1">All Products</div>
         )}
+
+        {/* Header + Desktop Filter Button */}
         <div className="flex items-end justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-black text-cent text-left">Browse Products</h1>
+          {/* If category hero exists, show category label; else show Browse Products */}
+          <h1 className="text-3xl font-semibold text-black text-left">
+            {activeCategory?.label || "Browse Products"}
+          </h1>
 
-          {/* Top toolbar (B/W) */}
-          <div className="flex items-center gap-3">
-            <label className="text-xs text-gray-600">View</label>
-            <select
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
-            >
-              <option value={12}>12</option>
-              <option value={24}>24</option>
-              <option value={48}>48</option>
-            </select>
+          <button
+            onClick={openDrawer}
+            className="border border-gray-300 bg-white px-5 py-3 text-sm flex items-center gap-3 hover:bg-black hover:text-white transition-colors duration-300 ease-in-out"
+          >
+            <span className="tracking-wide">Filter & Sort</span>
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
+        </div>
 
-            <div className="w-px h-5 bg-gray-200" />
-
-            <label className="text-xs text-gray-600">Sort</label>
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                setPage(1);
-              }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
-            >
-              <option value="createdAt">Newest</option>
-              <option value="name">Name</option>
-              <option value="brand">Brand</option>
-            </select>
-            <select
-              value={sortOrder}
-              onChange={(e) => {
-                setSortOrder(e.target.value);
-                setPage(1);
-              }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
-            >
-              <option value="desc">Desc</option>
-              <option value="asc">Asc</option>
-            </select>
-          </div>
+        <div className="mt-4 text-sm text-gray-600">
+          {typeof total === "number" && total > 0 ? `${total} products` : ""}
         </div>
       </div>
 
-      {/* Active filter chips */}
-      {chips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          {chips.map((c) => (
-            <button
-              key={c.key}
-              onClick={() => {
-                c.clear();
-                setPage(1);
-              }}
-              className="group flex items-center gap-2 border border-gray-300 rounded-full px-3 py-1 text-xs text-gray-800 bg-white hover:border-black"
-              title="Remove filter"
-            >
-              <span>{c.label}</span>
-              <span className="inline-flex h-5 w-5 items-center justify-center border border-gray-300 rounded-full group-hover:border-black">
-                ×
-              </span>
-            </button>
-          ))}
+      {/* Results */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm text-gray-600">
+            Showing <span className="font-medium">{showCount}</span>
+            {typeof total === "number" && total > 0 ? <> of {total}</> : null}
+          </div>
+          <div className="text-sm text-gray-500">Page {page}</div>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="border border-gray-200 rounded-xl p-10 text-center text-gray-600 bg-white">
+            No products found.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {filteredItems.map(({ product, variants }) => (
+              <ProductCard
+                key={product._id}
+                product={product}
+                variants={variants}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        <div className="flex items-center justify-center gap-2 mt-6">
           <button
-            onClick={resetFilters}
-            className="text-xs underline text-gray-700 hover:text-black"
+            className="px-3 py-1 border border-gray-300 rounded hover:border-black disabled:opacity-50"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
           >
-            Clear all
+            Prev
+          </button>
+          <span className="px-3 py-1 border border-gray-300 rounded bg-white">
+            {page}
+          </span>
+          <button
+            className="px-3 py-1 border border-gray-300 rounded hover:border-black"
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
           </button>
         </div>
-      )}
+      </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <aside className="md:col-span-1 space-y-6 md:sticky md:top-24 self-start">
-          {catLoading ? (
-            <div className="border border-gray-200 rounded-xl p-4">Loading categories…</div>
-          ) : (
-            <CategoryTreeSidebar categories={categories} />
-          )}
+      {/* ===================== DRAWER (SANDS STYLE) ===================== */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-[9999]">
+          {/* overlay */}
+          <div className="absolute inset-0 bg-black/40" onClick={closeDrawer} />
 
-          {/* Filters (B/W) */}
-          <div className="p-4 border border-gray-200 rounded-xl bg-white space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Filter by</h3>
-              <button className="text-xs underline" onClick={resetFilters}>
-                Reset
+          {/* panel */}
+          <div className="absolute right-0 top-0 h-full w-[520px] max-w-[92vw] bg-white shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="px-6 pt-6 pb-5 border-b border-gray-200 flex items-start justify-between">
+              <div>
+                <p className="text-sm tracking-wide">Filter & Sort</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {showCount} products
+                </p>
+              </div>
+
+              <button
+                onClick={closeDrawer}
+                className="h-10 w-10 rounded-full border border-gray-200 flex items-center justify-center"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Search</label>
-              <input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Product or brand…"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-black"
-              />
+            {/* Body */}
+            <div className="flex-1 overflow-auto">
+              {/* MENU */}
+              {drawerPage === "menu" && (
+                <div className="px-6 py-2">
+                  <DrawerRow
+                    label="Price"
+                    onClick={() => setDrawerPage("price")}
+                  />
+                  <DrawerRow
+                    label="Brands"
+                    onClick={() => setDrawerPage("brands")}
+                  />
+                  <DrawerRow
+                    label="Category"
+                    onClick={() => setDrawerPage("category")}
+                  />
+                  <DrawerRow
+                    label="Sort"
+                    onClick={() => setDrawerPage("sort")}
+                  />
+                </div>
+              )}
+
+              {/* PRICE */}
+              {drawerPage === "price" && (
+                <>
+                  <DrawerSubHeader
+                    title="Price"
+                    onBack={() => setDrawerPage("menu")}
+                  />
+                  <div className="px-6 py-6 space-y-4">
+                    <div className="flex gap-3">
+                      <input
+                        type="number"
+                        min="0"
+                        value={minPrice}
+                        onChange={(e) => {
+                          setMinPrice(e.target.value);
+                          setPage(1);
+                        }}
+                        placeholder="Min"
+                        className="w-1/2 border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:border-black"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={maxPrice}
+                        onChange={(e) => {
+                          setMaxPrice(e.target.value);
+                          setPage(1);
+                        }}
+                        placeholder="Max"
+                        className="w-1/2 border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:border-black"
+                      />
+                    </div>
+
+                    <div className="text-[11px] text-gray-500">
+                      {minAED != null && !Number.isNaN(minAED)
+                        ? format(minAED)
+                        : ""}
+                      {minAED != null && maxAED != null ? " – " : ""}
+                      {maxAED != null && !Number.isNaN(maxAED)
+                        ? format(maxAED)
+                        : ""}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-6">
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={inStock}
+                          onChange={(e) => {
+                            setInStock(e.target.checked);
+                            setPage(1);
+                          }}
+                        />
+                        In stock only
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="text-sm underline text-gray-700"
+                      >
+                        Reset filters
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* BRANDS */}
+              {drawerPage === "brands" && (
+                <>
+                  <DrawerSubHeader
+                    title="Brands"
+                    onBack={() => setDrawerPage("menu")}
+                  />
+                  <div className="px-6 py-6 space-y-3">
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Brand
+                    </label>
+                    <input
+                      value={brand}
+                      onChange={(e) => {
+                        setBrand(e.target.value);
+                        setPage(1);
+                      }}
+                      placeholder="e.g. Chanel"
+                      className="w-full border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:border-black"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setBrand("")}
+                      className="text-sm underline text-gray-700"
+                    >
+                      Clear brand
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* CATEGORY */}
+              {drawerPage === "category" && (
+                <>
+                  <DrawerSubHeader
+                    title="Category"
+                    onBack={() => setDrawerPage("menu")}
+                  />
+                  <div className="px-6 py-6">
+                    {catLoading ? (
+                      <div className="border border-gray-200 rounded-xl p-4">
+                        Loading categories…
+                      </div>
+                    ) : (
+                      <CategoryTreeSidebar categories={categories} />
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* SORT + VIEW */}
+              {drawerPage === "sort" && (
+                <>
+                  <DrawerSubHeader
+                    title="Sort"
+                    onBack={() => setDrawerPage("menu")}
+                  />
+                  <div className="px-6 py-6 space-y-5">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-2">
+                        View
+                      </label>
+                      <select
+                        value={limit}
+                        onChange={(e) => {
+                          setLimit(Number(e.target.value));
+                          setPage(1);
+                        }}
+                        className="w-full border border-gray-300 px-4 py-3 text-sm bg-white"
+                      >
+                        <option value={12}>12</option>
+                        <option value={24}>24</option>
+                        <option value={48}>48</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-2">
+                        Sort by
+                      </label>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => {
+                          setSortBy(e.target.value);
+                          setPage(1);
+                        }}
+                        className="w-full border border-gray-300 px-4 py-3 text-sm bg-white"
+                      >
+                        <option value="createdAt">Newest</option>
+                        <option value="name">Name</option>
+                        <option value="brand">Brand</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-2">
+                        Order
+                      </label>
+                      <select
+                        value={sortOrder}
+                        onChange={(e) => {
+                          setSortOrder(e.target.value);
+                          setPage(1);
+                        }}
+                        className="w-full border border-gray-300 px-4 py-3 text-sm bg-white"
+                      >
+                        <option value="desc">Desc</option>
+                        <option value="asc">Asc</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Brand</label>
-              <input
-                value={brand}
-                onChange={(e) => {
-                  setBrand(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="e.g. Gucci"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-black"
-              />
+            {/* Sticky APPLY */}
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={applyDrawer}
+                className="w-full bg-black text-white py-4 rounded-full text-sm tracking-wide"
+              >
+                APPLY
+              </button>
             </div>
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Price range</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  value={minPrice}
-                  onChange={(e) => {
-                    setMinPrice(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Min"
-                  className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-black"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  value={maxPrice}
-                  onChange={(e) => {
-                    setMaxPrice(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Max"
-                  className="w-1/2 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-black"
-                />
-              </div>
-              <div className="mt-1 text-[11px] text-gray-500">
-                {minPrice && formatAED(Number(minPrice))} {minPrice && maxPrice ? "–" : ""}{" "}
-                {maxPrice && formatAED(Number(maxPrice))}
-              </div>
-            </div>
-
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={inStock}
-                onChange={(e) => {
-                  setInStock(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              In stock only
-            </label>
           </div>
-        </aside>
-
-        {/* Results */}
-        <section className="md:col-span-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-gray-600">
-              Showing <span className="font-medium">{showCount}</span>
-              {typeof total === "number" && total > 0 ? <> of {total}</> : null}
-            </div>
-            <div className="text-sm text-gray-500">Page {page}</div>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="border border-gray-200 rounded-xl p-10 text-center text-gray-600 bg-white">
-              No products found.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {filteredItems.map(({ product, variants }) => (
-                <ProductCard key={product._id} product={product} variants={variants} />
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          <div className="flex items-center justify-center gap-2 mt-6">
-            <button
-              className="px-3 py-1 border border-gray-300 rounded hover:border-black disabled:opacity-50"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-            >
-              Prev
-            </button>
-            <span className="px-3 py-1 border border-gray-300 rounded bg-white">{page}</span>
-            <button
-              className="px-3 py-1 border border-gray-300 rounded hover:border-black"
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </button>
-          </div>
-        </section>
-      </div>
+        </div>
+      )}
+      {/* =============================================================== */}
     </div>
   );
 }

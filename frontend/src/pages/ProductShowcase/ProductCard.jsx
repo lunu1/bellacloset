@@ -1,24 +1,22 @@
 // src/pages/ProductShowcase/ProductCard.jsx
 import PropTypes from "prop-types";
-import { Link, useLocation, useNavigate} from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useContext } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { addToWishlist, removeFromWishlist } from "../../features/wishlist/wishlistSlice";
+import {
+  addToWishlist,
+  removeFromWishlist,
+  addToWishlistGuest,
+  removeFromWishlistGuest,
+} from "../../features/wishlist/wishlistSlice";
+
 import { FaHeart, FaRegHeart } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { brandLabel } from "../../utils/brandLabel";
-
-import { useContext } from "react";
 import { AppContext } from "../../context/AppContext";
-import { nav } from "framer-motion/client";
 
-const formatAED = (n) =>
-  typeof n === "number" && !Number.isNaN(n)
-    ? new Intl.NumberFormat("en-AE", {
-        style: "currency",
-        currency: "AED",
-        maximumFractionDigits: 0,
-      }).format(n)
-    : null;
+// ✅ add this
+import { useCurrency } from "../../context/CurrencyContext";
 
 export default function ProductCard({ product, variants = [] }) {
   const dispatch = useDispatch();
@@ -27,41 +25,43 @@ export default function ProductCard({ product, variants = [] }) {
   const location = useLocation();
   const wishlistItems = useSelector((s) => s.wishlist.items);
 
+  // ✅ currency formatter
+  const { format } = useCurrency();
+
   // --- Wishlist ---
-  const isWishlisted = wishlistItems.some((w) => {
-    const id =
-      typeof w.product === "object" && w.product?._id
-        ? w.product._id
-        : w.product || w.productId;
-    return String(id) === String(product._id);
-  });
+  const isWishlisted = wishlistItems.some(
+  (w) => String(w.productId || w.product?._id || w.product) === String(product._id)
+);
+
 
   const toggleWishlist = (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (authLoading) {
-      toast.info("Checking your session...")
-      return
-    }
-
-    if(!isLoggedin) {
-      toast.info("Please login to add items to wishlist");
-      return navigate("/login", {state: { from: location.pathname + location.search }})
-    }
+  // ✅ guest wishlist (no login)
+  if (!isLoggedin) {
     const action = isWishlisted
-      ? removeFromWishlist({ productId: product._id })
-      : addToWishlist({ productId: product._id });
+      ? removeFromWishlistGuest({ productId: product._id, variantId: null })
+      : addToWishlistGuest({ productId: product._id, variantId: null });
 
-    dispatch(action)
-      .unwrap()
-      .then(() =>
-        toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist")
-      )
-      .catch((err) => {
-        if (err === "Already in wishlist") toast.info("Already in wishlist");
-        else toast.error(err || "Failed to update wishlist");
-      });
-  };
+    dispatch(action);
+    toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
+    return;
+  }
+
+  // ✅ logged-in wishlist (server)
+  const action = isWishlisted
+    ? removeFromWishlist({ productId: product._id, variantId: null })
+    : addToWishlist({ productId: product._id, variantId: null });
+
+  dispatch(action)
+    .unwrap()
+    .then(() => toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist"))
+    .catch((err) => {
+      if (err === "Already in wishlist") toast.info("Already in wishlist");
+      else toast.error(err || "Failed to update wishlist");
+    });
+};
+
 
   // --- Images (variant-first) ---
   const hasVariants = Array.isArray(variants) && variants.length > 0;
@@ -72,25 +72,17 @@ export default function ProductCard({ product, variants = [] }) {
     ? firstVariant?.images?.[1] || firstVariant?.images?.[0]
     : product?.images?.[1] || product?.images?.[0];
 
-  // --- OFFER-AWARE PRICING (this is the important part) ---
-  // Original (before offer) and Current (after offer)
+  // --- OFFER-AWARE PRICING ---
   const original = hasVariants
     ? Number(firstVariant?.price ?? 0)
     : Number(product?.pricing?.basePrice ?? product?.defaultPrice ?? 0);
 
   const current = hasVariants
     ? Number(firstVariant?.salePrice ?? firstVariant?.price ?? 0)
-    : Number(
-        product?.pricing?.salePrice ??
-          product?.salePrice ?? // legacy fallback
-          product?.defaultPrice ??
-          0
-      );
+    : Number(product?.pricing?.salePrice ?? product?.salePrice ?? product?.defaultPrice ?? 0);
 
   const showStrike = original > 0 && current < original;
-  const percent = showStrike
-    ? Math.round(((original - current) / original) * 100)
-    : 0;
+  const percent = showStrike ? Math.round(((original - current) / original) * 100) : 0;
 
   const stock = hasVariants ? (firstVariant?.stock ?? 0) : (product?.defaultStock ?? 0);
   const label = brandLabel(product);
@@ -116,7 +108,7 @@ export default function ProductCard({ product, variants = [] }) {
           )}
         </div>
 
-        {/* Discount badge (from offer-aware prices) */}
+        {/* Discount badge */}
         {percent > 0 && (
           <span className="absolute top-3 left-3 text-[11px] tracking-wide px-2 py-1 rounded-full bg-black text-white">
             -{percent}%
@@ -127,9 +119,11 @@ export default function ProductCard({ product, variants = [] }) {
         <button
           aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
           onClick={toggleWishlist}
-          className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center  hover:bg-white transition"
+          className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center hover:bg-white transition"
         >
-          <span className="text-[#D2C09E] text-xl ">{isWishlisted ? <FaHeart className="text-[#D2C09E] " /> : <FaRegHeart />}</span>
+          <span className="text-[#D2C09E] text-xl">
+            {isWishlisted ? <FaHeart className="text-[#D2C09E]" /> : <FaRegHeart />}
+          </span>
         </button>
       </Link>
 
@@ -138,23 +132,25 @@ export default function ProductCard({ product, variants = [] }) {
         <h3 className="text-sm font-thin text-black line-clamp-1">{product.name}</h3>
         {label && <p className="text-xs text-gray-500 mt-0.5">{label}</p>}
 
-        {/* Price row (offer-aware) */}
+        {/* ✅ Price row (now currency-aware) */}
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-sm font-thin text-black">{formatAED(current)}</span>
+          <span className="text-sm font-thin text-black">
+            {current ? format(current) : "N/A"}
+          </span>
+
           {showStrike && (
-            <span className="text-xs text-gray-500 line-through">{formatAED(original)}</span>
+            <span className="text-xs text-gray-500 line-through">
+              {format(original)}
+            </span>
           )}
         </div>
 
-        {/* Optional: show which offer applied */}
         {product?.appliedOffer?.name && (
-          <div className="mt-1 text-[11px] text-rose-600">
-            {product.appliedOffer.name}
-          </div>
+          <div className="mt-1 text-[11px] text-rose-600">{product.appliedOffer.name}</div>
         )}
 
         {/* Stock pill */}
-        <div className="mt-2  ">
+        <div className="mt-2">
           {stock > 0 ? (
             <span className="inline-flex items-center px-2 py-0.5 text-[11px] border border-gray-300 rounded-md text-white bg-[#D0BC98] uppercase">
               In stock
@@ -199,7 +195,7 @@ ProductCard.propTypes = {
   variants: PropTypes.arrayOf(
     PropTypes.shape({
       price: PropTypes.number,
-      salePrice: PropTypes.number, 
+      salePrice: PropTypes.number,
       stock: PropTypes.number,
       images: PropTypes.arrayOf(PropTypes.string),
     })

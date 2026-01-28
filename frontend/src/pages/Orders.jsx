@@ -7,10 +7,16 @@ import { AppContext } from "../context/AppContext";
 import { Link } from "react-router-dom";
 import { getUserOrders } from "../features/order/orderSlice.js";
 
+// ✅ ONLY ADDED: currency formatter
+import { useCurrency } from "../context/CurrencyContext";
+
 function Orders() {
   const dispatch = useDispatch();
   const { backendUrl } = useContext(AppContext);
   const { orders, loading, error } = useSelector((state) => state.order);
+
+  // ✅ ONLY ADDED: format()
+  const { format } = useCurrency();
 
   useEffect(() => {
     dispatch(getUserOrders());
@@ -38,7 +44,8 @@ function Orders() {
     const st = String(order?.status || "");
 
     const isStripe = method === "STRIPE";
-    const isRequested = isStripe && (st === "Pending_Confirmation" || pay === "Authorized");
+    const isRequested =
+      isStripe && (st === "Pending_Confirmation" || pay === "Authorized");
     const isConfirmed = isStripe ? pay === "Paid" : true;
 
     if (st === "Cancelled" || pay === "Cancelled") return "Cancelled";
@@ -133,12 +140,14 @@ function Orders() {
                     )}
 
                     <p className="mt-1 text-xs text-gray-500">
-                      Order #{order._id} • {new Date(order.createdAt).toLocaleDateString()}
+                      Order #{order._id} •{" "}
+                      {new Date(order.createdAt).toLocaleDateString()}
                     </p>
 
                     {(order.paymentMethod || order.paymentStatus) && (
                       <p className="mt-1 text-xs text-gray-600">
-                        Payment: {order.paymentMethod || "-"} · {order.paymentStatus || "-"}
+                        Payment: {order.paymentMethod || "-"} ·{" "}
+                        {order.paymentStatus || "-"}
                       </p>
                     )}
 
@@ -149,7 +158,9 @@ function Orders() {
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 mt-2 text-base text-gray-700">
-                      <p className="text-lg">{Number(order.totalAmount || 0).toFixed(2)} AED</p>
+                      {/* ✅ ONLY CHANGED: price line */}
+                      <p className="text-lg">{format(order.totalAmount || 0)}</p>
+
                       <p>Qty: {first?.quantity}</p>
                       {first?.size && <p>Size: {first.size}</p>}
                     </div>

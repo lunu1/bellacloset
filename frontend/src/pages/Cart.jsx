@@ -9,8 +9,15 @@ import {
   updateQuantityServer,
   removeFromCartServer,
   loadCart,
+  updateQuantityGuest,
+  removeFromCartGuest,
 } from "../features/cart/cartSlice";
-import { addToWishlist } from "../features/wishlist/wishlistSlice";
+
+import {
+  addToWishlist,
+  addToWishlistGuest,
+} from "../features/wishlist/wishlistSlice";
+
 import { toast } from "react-toastify";
 import ActionModal from "../components/ActionModal";
 import { AppContext } from "../context/AppContext";
@@ -19,22 +26,37 @@ import { adaptSettingsForPreview } from "../utils/settingAdapter";
 import { getVariantsByProduct } from "../features/variants/variantSlice";
 import { getDisplayImages } from "../utils/productView";
 import BackButton from "../components/BackButton";
+import {
+  getAllProducts,
+  selectProductsWrapped,
+} from "../features/product/productSlice";
 
-const formatAED = (n) =>
-  new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED" }).format(
-    Number(n) || 0
-  );
+// ✅ currency
+import { useCurrency } from "../context/CurrencyContext";
 
 function Cart() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { authLoading, isLoggedin } = useContext(AppContext);
 
-  const items = useSelector((s) => s.cart.items); // normalized from slice (contains availability + lineId)
+  // ✅ currency formatter
+  const { format } = useCurrency();
+
+  const items = useSelector((s) => s.cart.items);
   const loading = useSelector((s) => s.cart.loading);
 
-  // 🔼 Move these ABOVE any effects that depend on them
+  // variants store
   const variantsAll = useSelector((s) => s.variants.items || []);
+
+  // ✅ fast lookups
+  const variantsById = useMemo(() => {
+    const m = {};
+    for (const v of variantsAll) {
+      if (v?._id) m[String(v._id)] = v;
+    }
+    return m;
+  }, [variantsAll]);
+
   const variantsByProductId = useMemo(() => {
     const map = {};
     for (const v of variantsAll) {
@@ -45,83 +67,156 @@ function Cart() {
     return map;
   }, [variantsAll]);
 
+  // shop settings
   const { settings: apiSettings } = useShopSettings();
   const settings = adaptSettingsForPreview(apiSettings);
 
+  // modal
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState(null);
+
+  // products store (for image/name fallback)
+  const productsWrapped = useSelector(selectProductsWrapped); // [{product}]
+  const productsById = useMemo(() => {
+    const m = {};
+    for (const w of productsWrapped || []) {
+      const p = w?.product;
+      if (p?._id) m[String(p._id)] = p;
+    }
+    return m;
+  }, [productsWrapped]);
+
+  useEffect(() => {
+    // after refresh, products exist to resolve images/names
+    if ((productsWrapped || []).length === 0) dispatch(getAllProducts());
+  }, [dispatch, productsWrapped?.length]);
 
   // on mount / auth ready, load server cart
   useEffect(() => {
     if (!authLoading && isLoggedin) dispatch(loadCart());
   }, [authLoading, isLoggedin, dispatch]);
 
-  // fetch variants for products that have no product-level images (fallback source for images)
+  /**
+   * ✅ IMPORTANT FIX:
+   * Previously you fetched variants ONLY when product had no images.
+   * But price fallback needs variants too. So fetch variants when:
+   * - line has variantId but line.variant not populated AND we don't have that variant in store
+   * OR
+   * - product images missing and we need variants for image fallback
+   */
   useEffect(() => {
-    const toFetch = [];
+    const toFetch = new Set();
+
     for (const ln of items || []) {
       const pid = ln?.product?._id || ln?.productId;
       if (!pid) continue;
 
       const hasProductImgs =
         Array.isArray(ln?.product?.images) && ln.product.images.length > 0;
-      const alreadyHaveVars =
+
+      const alreadyHaveProductVariants =
         Array.isArray(variantsByProductId[pid]) &&
         variantsByProductId[pid].length > 0;
 
-      if (!hasProductImgs && !alreadyHaveVars) {
-        toFetch.push(pid);
+      const needsVariantForPrice =
+        !!ln?.variantId &&
+        !ln?.variant &&
+        !variantsById[String(ln.variantId)];
+
+      const needsVariantForImages = !hasProductImgs && !alreadyHaveProductVariants;
+
+      if (needsVariantForPrice || needsVariantForImages) {
+        toFetch.add(String(pid));
       }
     }
-    toFetch.forEach((pid) => dispatch(getVariantsByProduct(pid)));
-  }, [items, variantsByProductId, dispatch]);
+
+    [...toFetch].forEach((pid) => dispatch(getVariantsByProduct(pid)));
+  }, [items, variantsById, variantsByProductId, dispatch]);
+
+  // ✅ unified price resolver (used in list + summary)
+  const getLineUnitPrice = (line, product) => {
+    const resolvedVariant =
+      line?.variant ||
+      (line?.variantId ? variantsById[String(line.variantId)] : null);
+
+    const unitPrice =
+      typeof line?.unitPrice === "number" && line.unitPrice > 0
+        ? line.unitPrice
+        : typeof resolvedVariant?.price === "number" && resolvedVariant.price > 0
+        ? resolvedVariant.price
+        : typeof product?.price === "number" && product.price > 0
+        ? product.price
+        : 0;
+
+    return unitPrice;
+  };
 
   // compute summary (exclude unavailable lines)
   const summaryItems = useMemo(() => {
     return (items || [])
       .filter((ln) => !ln.unavailable)
-      .map((ln) => ({
-        name: ln.product?.name || "Item",
-        price: typeof ln.unitPrice === "number" ? ln.unitPrice : 0,
-        quantity: ln.quantity || 1,
-      }));
-  }, [items]);
+      .map((ln) => {
+        const product = ln.product || productsById[String(ln.productId)];
+        return {
+          name: product?.name || "Item",
+          price: getLineUnitPrice(ln, product),
+          quantity: ln.quantity || 1,
+        };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, productsById, variantsById]);
 
   const hasUnavailable = (items || []).some((ln) => ln.unavailable);
   const isEmpty = (items || []).length === 0;
   const canCheckout = !isEmpty && !hasUnavailable;
 
-
-
-   // Empty state
- if (!loading && isEmpty) {
-  return (
-     <div className="border-t pt-10">
-      <BackButton className="mb-4"/>
-       <div className="mb-3 text-3xl">
-        <Title text1={"YOUR"} text2={"CART"} />
-       </div>
-       <div className="flex flex-col items-center justify-center py-20 text-center">
-         <div className="text-5xl mb-3">🛒</div>
-         <p className="text-lg text-gray-800 font-medium">Your cart is empty</p>
-         <p className="text-sm text-gray-500 mt-1">Browse products and add your favorites.</p>
-         <button
-           className="mt-6 px-6 py-2 text-sm text-white bg-black hover:bg-gray-800"
-           onClick={() => navigate("/")}
-         >
-           Start shopping
-         </button>
-       </div>
-     </div>
-   );
- }
+  // Empty state
+  if (!loading && isEmpty) {
+    return (
+      <div className="border-t pt-10">
+        <BackButton className="mb-4" />
+        <div className="mb-3 text-3xl">
+          <Title text1={"YOUR"} text2={"CART"} />
+        </div>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="text-5xl mb-3">🛒</div>
+          <p className="text-lg text-gray-800 font-medium">Your cart is empty</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Browse products and add your favorites.
+          </p>
+          <button
+            className="mt-6 px-6 py-2 text-sm text-white bg-black hover:bg-gray-800"
+            onClick={() => navigate("/")}
+          >
+            Start shopping
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // handlers
   const removeOnly = async (line) => {
+    // ✅ guest remove
+    if (!isLoggedin) {
+      dispatch(
+        removeFromCartGuest({
+          lineId: line.lineId,
+          productId: line.productId,
+          variantId: line.variantId ?? null,
+        })
+      );
+      toast.success("Removed from cart");
+      setModalOpen(false);
+      setSelectedLine(null);
+      return;
+    }
+
+    // ✅ logged-in remove
     try {
       await dispatch(
         removeFromCartServer({
-          lineId: line.lineId, // key fix: use line id
+          lineId: line.lineId,
           productId: line.productId || undefined,
           variantId: line.variantId ?? null,
         })
@@ -138,21 +233,43 @@ function Cart() {
   };
 
   const moveThenRemove = async (line) => {
+    if (line.unavailable) {
+      await removeOnly(line);
+      return;
+    }
+
+    // ✅ guest move
+    if (!isLoggedin) {
+      dispatch(
+        addToWishlistGuest({
+          productId: line.productId,
+          variantId: line.variantId ?? null,
+        })
+      );
+      dispatch(
+        removeFromCartGuest({
+          lineId: line.lineId,
+          productId: line.productId,
+          variantId: line.variantId ?? null,
+        })
+      );
+      toast.success("Moved to wishlist");
+      setModalOpen(false);
+      setSelectedLine(null);
+      return;
+    }
+
+    // ✅ logged-in move
     try {
-      if (line.unavailable) {
-        // Can't move deleted/unavailable safely (product might be gone)
-        await removeOnly(line);
-        return;
-      }
-      // add to wishlist (preserve variant)
       await dispatch(
         addToWishlist({
           productId: line.productId,
           variantId: line.variantId ?? null,
         })
       ).unwrap();
+
       toast.success("Moved to wishlist");
-      // then remove
+
       await dispatch(
         removeFromCartServer({
           lineId: line.lineId,
@@ -161,7 +278,7 @@ function Cart() {
         })
       ).unwrap();
     } catch (e) {
-      const msg = e?.error || e?.message || "Already in wishlist ";
+      const msg = e?.error || e?.message || "Already in wishlist";
       toast.info(typeof msg === "string" ? msg : "Action failed");
       dispatch(loadCart());
     } finally {
@@ -172,10 +289,21 @@ function Cart() {
 
   const handleQtyChange = (line, value) => {
     const qty = Math.max(1, Number(value) || 1);
-    if (line.unavailable) return; // guard
-    if (authLoading) return toast.info("Checking your session…");
-    if (!isLoggedin) return toast.info("Please login to update quantity");
+    if (line.unavailable) return;
 
+    // ✅ guest qty update
+    if (!isLoggedin) {
+      dispatch(
+        updateQuantityGuest({
+          productId: line.productId,
+          variantId: line.variantId ?? null,
+          quantity: qty,
+        })
+      );
+      return;
+    }
+
+    // ✅ logged-in qty update
     dispatch(
       updateQuantityServer({
         productId: line.productId,
@@ -193,7 +321,7 @@ function Cart() {
 
   return (
     <div className="border-t pt-10">
-      <BackButton className="mb-4"/>
+      <BackButton className="mb-4" />
       <div className="mb-3 text-3xl">
         <Title text1={"YOUR"} text2={"CART"} />
       </div>
@@ -201,53 +329,50 @@ function Cart() {
       {/* List */}
       <div>
         {(items || []).map((line, idx) => {
-          const { product, unitPrice, quantity, unavailable, reason } = line;
-          const name = product?.name || "Item";
+          const product = line.product || productsById[String(line.productId)];
           const pid = product?._id || line.productId;
 
-          // 1) try the specific line’s variant image (if API populated `line.variant`)
-          const variantImgFromLine = line?.variant?.images?.[0] || null;
+          const resolvedVariant =
+            line?.variant ||
+            (line?.variantId ? variantsById[String(line.variantId)] : null);
 
-          // 2) else try to find the variant in store by variantId, else just first variant
+          const unitPrice = getLineUnitPrice(line, product);
+          const priceStr =
+            typeof unitPrice === "number" ? format(unitPrice) : "N/A";
+
+          const { quantity, unavailable, reason } = line;
+          const name = product?.name || "Item";
+
+          // images
           const productVariants = variantsByProductId[pid] || [];
           const matchedVariant = line?.variantId
-            ? productVariants.find(
-                (v) => String(v._id) === String(line.variantId)
-              )
+            ? productVariants.find((v) => String(v._id) === String(line.variantId))
             : productVariants[0];
-          const variantImgFromStore = matchedVariant?.images?.[0] || null;
 
-          // 3) PDP-like default chain for product-level images (no variant selected)
           const defaultList = product
             ? getDisplayImages?.(null, product) || []
             : [];
-          const defaultImg =
+
+          const image =
+            resolvedVariant?.images?.[0] ||
+            matchedVariant?.images?.[0] ||
             defaultList[0] ||
             product?.images?.[0] ||
-            product?.defaultImages?.[0];
-
-          // final pick
-          const image =
-            variantImgFromLine ||
-            variantImgFromStore ||
-            defaultImg ||
+            product?.defaultImages?.[0] ||
             "/placeholder.jpg";
 
-          // styles for unavailable
           const borderCls = unavailable ? "border-red-200" : "border-gray-200";
-          const priceStr =
-            typeof unitPrice === "number" ? formatAED(unitPrice) : "N/A";
 
           return (
             <div
-              key={`${
-                line.lineId || line.productId || "x"
-              }-${line.variantId || "no-variant"}-${idx}`}
+              key={`${line.lineId || line.productId || "x"}-${
+                line.variantId || "no-variant"
+              }-${idx}`}
               className={`grid py-4 text-gray-700 border-t border-b grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4 ${borderCls}`}
             >
               {/* product */}
               <div className="flex items-start gap-6">
-                <div className={`relative`}>
+                <div className="relative">
                   {unavailable && (
                     <div className="absolute left-0 top-0 z-10 px-2 py-1 bg-red-50 text-red-700 text-[11px] font-medium rounded-br">
                       No longer available
@@ -258,16 +383,18 @@ function Cart() {
                     className={`w-16 sm:w-20 h-16 sm:h-20 object-cover ${
                       unavailable ? "grayscale" : ""
                     } rounded`}
-                    alt=""
+                    alt={name}
                   />
                 </div>
+
                 <div>
                   <p className="text-xs font-thin sm:text-lg">{name}</p>
-                  <div className="flex items-center gap-5 mt-2 ">
+
+                  <div className="flex items-center gap-5 mt-2">
                     <p>{priceStr}</p>
                   </div>
 
-                  {/* availability hint (server-driven) */}
+                  {/* availability hint */}
                   <div className="mt-2 text-xs">
                     {unavailable ? (
                       <span className="text-red-600">
@@ -323,7 +450,9 @@ function Cart() {
       {/* Summary + Checkout */}
       <div className="flex justify-end my-20">
         <div className="w-full sm:w-[450px]">
-          <CartTotal items={summaryItems} settings={settings} currency="AED" />
+          {/* CartTotal uses CurrencyContext internally */}
+          <CartTotal items={summaryItems} settings={settings} />
+
           <div className="w-full text-end">
             <button
               className={`px-8 py-3 my-8 text-sm text-white ${
@@ -332,12 +461,12 @@ function Cart() {
               disabled={!canCheckout}
               onClick={() => {
                 if (!canCheckout) return;
-                // ✅ Don’t prefill a single line via state; let PlaceOrder read the cart
                 navigate("/place-order");
               }}
             >
               PROCEED TO CHECKOUT
             </button>
+
             {hasUnavailable && (
               <div className="text-xs text-red-600 -mt-3">
                 Remove unavailable items to proceed to checkout.

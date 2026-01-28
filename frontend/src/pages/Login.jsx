@@ -70,7 +70,7 @@ function Login() {
   return (
     <form
       onSubmit={handleLogIn}
-      className="flex flex-col items-center w-[90%] sm:max-w-96 m-auto mt-14 gap-4 text-gray-800 "
+      className="flex flex-col items-center w-[90%] sm:max-w-96 m-auto mt-14 gap-4 text-gray-800 mb-5"
     >
       <div className="mb-4 text-4xl sm:text-5xl">
         <Title text1={"SIGN"} text2={"IN"} />

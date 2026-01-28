@@ -1,23 +1,27 @@
 import express from "express";
-import userAuth  from "../middlewares/userAuth.js";
+import userAuth from "../middlewares/userAuth.js";
+import optionalAuth from "../middlewares/optionalAuth.js";
 
-import { placeOrder, getUserOrders, cancelOrder, getOrderById, } from "../controllers/orderController.js";
+import {
+  placeOrder,
+  getUserOrders,
+  cancelOrder,
+  getOrderById,
+} from "../controllers/orderController.js";
 import { downloadInvoice } from "../controllers/invoice.controller.js";
 
 const router = express.Router();
 
-//Place a new order
-router.post("/place" , userAuth, placeOrder);
+router.post("/place", optionalAuth, placeOrder);
 
-//Get user orders
-router.get("/" , userAuth, getUserOrders);
+// logged-in only
+router.get("/", userAuth, getUserOrders);
+router.put("/cancel/:orderId", userAuth, cancelOrder);
 
-//Get user order details
-router.get("/:orderId" , userAuth, getOrderById);
+// ✅ guest OR logged-in
+router.get("/:orderId", optionalAuth, getOrderById);
 
-//Cancel an order
-router.put("/cancel/:orderId" , userAuth, cancelOrder);
-
-router.get("/:orderId/invoice.pdf", userAuth, downloadInvoice);
+// (optional) if you want guest invoice too
+router.get("/:orderId/invoice.pdf", optionalAuth, downloadInvoice);
 
 export default router;

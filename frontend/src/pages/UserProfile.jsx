@@ -28,6 +28,7 @@ export default function UserProfile() {
  const [newAddress, setNewAddress] = useState({
   label: "Home",
   fullName: "",
+    email: "",
   phone: "",
   addressType: "apartment",
   unitNumber: "",
@@ -49,6 +50,7 @@ export default function UserProfile() {
   const [editForm, setEditForm] = useState({
   label: "Home",
   fullName: "",
+  email: "",
   phone: "",
   addressType: "apartment",
   unitNumber: "",
@@ -144,6 +146,7 @@ export default function UserProfile() {
       setNewAddress({
   label: "Home",
   fullName: "",
+  email: "",
   phone: "",
   addressType: "apartment",
   unitNumber: "",
@@ -170,6 +173,8 @@ export default function UserProfile() {
   setEditForm({
     label: address.label || "Home",
     fullName: address.fullName || "",
+    email: address.email || "",
+
     phone: sanitizePhoneInput(address.phone || ""),
     addressType: address.addressType || "apartment",
 

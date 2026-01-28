@@ -23,6 +23,8 @@ const normalizeAddress = (a) => {
 
     label: a.label?.trim() || "",
     fullName: a.fullName?.trim() || "",
+    email: a.email?.trim() || "",   
+
     phone: a.phone?.trim() || "",
 
     addressType: a.addressType || "apartment",
@@ -42,7 +44,26 @@ const normalizeAddress = (a) => {
   };
 };
 
-export default function AddressPicker({ backendUrl, onChange }) {
+/** ---------------------------
+ *  Guest address storage
+ *  --------------------------- */
+const GUEST_KEY = "guest_shipping_addresses";
+
+const readGuestAddresses = () => {
+  try {
+    const raw = localStorage.getItem(GUEST_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeGuestAddresses = (arr) => {
+  localStorage.setItem(GUEST_KEY, JSON.stringify(arr));
+};
+
+export default function AddressPicker({ backendUrl, onChange, isLoggedin }) {
   const [addresses, setAddresses] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [useNew, setUseNew] = useState(false);
@@ -65,13 +86,35 @@ export default function AddressPicker({ backendUrl, onChange }) {
 
   const [errors, setErrors] = useState({});
 
-  // Fetch existing addresses
+  /** ---------------------------
+   *  Fetch existing addresses
+   *  - Logged-in: from backend
+   *  - Guest: from localStorage
+   *  --------------------------- */
   useEffect(() => {
     const load = async () => {
+      // ✅ Guest mode
+      if (!isLoggedin) {
+        const list = readGuestAddresses();
+        setAddresses(list);
+
+        const def = list.find((a) => a.isDefault) || list[0];
+        if (def?._id || def?.id) {
+          setSelectedId(def._id || def.id);
+          setUseNew(false);
+        } else {
+          setUseNew(true);
+          setSelectedId(null);
+        }
+        return;
+      }
+
+      // ✅ Logged-in mode
       try {
         const res = await axios.get(`${backendUrl}/api/user/addresses`, {
           withCredentials: true,
         });
+
         const list = Array.isArray(res.data?.addresses) ? res.data.addresses : [];
         setAddresses(list);
 
@@ -79,33 +122,49 @@ export default function AddressPicker({ backendUrl, onChange }) {
         if (def?._id || def?.id) {
           setSelectedId(def._id || def.id);
           setUseNew(false);
+        } else {
+          setUseNew(true);
+          setSelectedId(null);
         }
       } catch (e) {
+        // If backend denies, don't spam guest with toast
         console.error("Failed to fetch addresses", e);
       }
     };
-    load();
-  }, [backendUrl]);
 
-  // Selected address
+    load();
+  }, [backendUrl, isLoggedin]);
+
+  /** ---------------------------
+   *  Selected address
+   *  --------------------------- */
   const selectedAddress = useMemo(
     () => addresses.find((a) => (a._id || a.id) === selectedId) || null,
     [addresses, selectedId]
   );
 
-  // Push normalized selection upwards
+  /** ---------------------------
+   *  Push normalized selection upwards
+   *  --------------------------- */
   useEffect(() => {
     if (useNew) onChange?.(normalizeAddress(draft));
     else if (selectedAddress) onChange?.(normalizeAddress(selectedAddress));
     else onChange?.(null);
   }, [useNew, selectedAddress, draft, onChange]);
 
-  // Validate draft
+  /** ---------------------------
+   *  Validate draft
+   *  --------------------------- */
   const validateDraft = (d) => {
     const e = {};
     if (!d.fullName.trim()) e.fullName = "Full name is required.";
+    if (!d.email.trim()) e.email = "Email is required.";
+else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim()))
+  e.email = "Enter a valid email address.";
+
     if (!d.phone.trim()) e.phone = "Phone is required.";
-    else if (!isValidUaePhone(d.phone)) e.phone = "Enter a valid UAE mobile (05XXXXXXXX or +9715XXXXXXXX).";
+    else if (!isValidUaePhone(d.phone))
+      e.phone = "Enter a valid UAE mobile (05XXXXXXXX or +9715XXXXXXXX).";
 
     if (!d.unitNumber.trim()) e.unitNumber = "Unit number is required.";
     if (!d.buildingName.trim()) e.buildingName = "Building name is required.";
@@ -113,14 +172,20 @@ export default function AddressPicker({ backendUrl, onChange }) {
     if (!d.city.trim()) e.city = "City is required.";
     if (!d.emirate.trim()) e.emirate = "Emirate is required.";
 
-    if (d.emirate && !EMIRATES.includes(d.emirate)) e.emirate = "Select a valid emirate.";
+    if (d.emirate && !EMIRATES.includes(d.emirate))
+      e.emirate = "Select a valid emirate.";
+
     if (d.addressType && !["apartment", "villa", "office"].includes(d.addressType))
       e.addressType = "Invalid address type.";
 
     return e;
   };
 
-  // Save new address
+  /** ---------------------------
+   *  Save new address
+   *  - Logged-in: POST to backend
+   *  - Guest: save to localStorage
+   *  --------------------------- */
   const saveNewAddress = async () => {
     const v = {
       ...draft,
@@ -134,12 +199,58 @@ export default function AddressPicker({ backendUrl, onChange }) {
       return;
     }
 
+    // ✅ Guest save (no token required)
+    if (!isLoggedin) {
+      const normalized = normalizeAddress({
+        ...v,
+        _id: `guest_${Date.now()}`,
+        isDefault: true,
+      });
+
+      const prev = readGuestAddresses().map((a) => ({
+        ...a,
+        isDefault: false,
+      }));
+
+      const nextList = [normalized, ...prev];
+
+      writeGuestAddresses(nextList);
+      setAddresses(nextList);
+
+      setSelectedId(normalized._id);
+      setUseNew(false);
+
+      // Reset form
+      setDraft({
+        label: "Home",
+        fullName: "",
+        phone: "",
+        addressType: "apartment",
+        unitNumber: "",
+        buildingName: "",
+        street: "",
+        area: "",
+        city: "",
+        emirate: "",
+        landmark: "",
+        poBox: "",
+        postalCode: "",
+      });
+
+      setErrors({});
+      toast.success("Address saved!");
+      return;
+    }
+
+    // ✅ Logged-in save (server)
     try {
       const res = await axios.post(`${backendUrl}/api/user/address`, v, {
         withCredentials: true,
       });
 
       let nextList = Array.isArray(res.data?.addresses) ? res.data.addresses : [];
+
+      // Fallback refresh if API doesn't return list
       if (!nextList.length) {
         const ref = await axios.get(`${backendUrl}/api/user/addresses`, {
           withCredentials: true,
@@ -160,6 +271,7 @@ export default function AddressPicker({ backendUrl, onChange }) {
       setDraft({
         label: "Home",
         fullName: "",
+        email: "",  
         phone: "",
         addressType: "apartment",
         unitNumber: "",
@@ -175,9 +287,11 @@ export default function AddressPicker({ backendUrl, onChange }) {
 
       setErrors({});
       toast.success("Address saved!");
-    } catch (e) {
-      console.error(e);
-      const msg = e?.response?.data?.message || "Failed to save address";
+    } catch (err) {
+      console.error(err);
+      const msg =
+        err?.response?.data?.message ||
+        (err?.response?.status === 401 ? "Please login to save address." : "Failed to save address");
       toast.error(msg);
     }
   };
@@ -261,29 +375,36 @@ export default function AddressPicker({ backendUrl, onChange }) {
           <h3 className="text-lg font-semibold mb-2">New Address</h3>
 
           <div className="space-y-3">
-            {/* simple field helper */}
             {[
               { key: "label", label: "Label", placeholder: "Home / Office" },
               { key: "fullName", label: "Full Name", placeholder: "Receiver name" },
-              { key: "phone", label: "Phone", placeholder: "+9715XXXXXXXX or 05XXXXXXXX", phone: true },
+              { key: "email", label: "Email", placeholder: "you@example.com" },
+              {
+                key: "phone",
+                label: "Phone",
+                placeholder: "+9715XXXXXXXX or 05XXXXXXXX",
+                phone: true,
+              },
             ].map(({ key, label, placeholder, phone }) => (
               <div key={key}>
                 <label className="block text-sm text-gray-600 mb-1">{label}</label>
                 <input
-                  placeholder={placeholder}
-                  value={draft[key] || ""}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      [key]: phone ? sanitizePhoneInput(e.target.value) : e.target.value,
-                    }))
-                  }
-                  onBlur={() => setErrors(validateDraft(draft))}
-                  className={`w-full border p-2 rounded text-sm ${
-                    errors[key] ? "border-red-400" : "border-gray-300"
-                  }`}
-                  inputMode={phone ? "tel" : undefined}
-                />
+  type={key === "email" ? "email" : "text"}   // ✅ ADD
+  placeholder={placeholder}
+  value={draft[key] || ""}
+  onChange={(e) =>
+    setDraft((prev) => ({
+      ...prev,
+      [key]: phone ? sanitizePhoneInput(e.target.value) : e.target.value,
+    }))
+  }
+  onBlur={() => setErrors(validateDraft(draft))}
+  className={`w-full border p-2 rounded text-sm ${
+    errors[key] ? "border-red-400" : "border-gray-300"
+  }`}
+  inputMode={phone ? "tel" : undefined}
+/>
+
                 {errors[key] ? <p className="text-xs text-red-600 mt-1">{errors[key]}</p> : null}
               </div>
             ))}

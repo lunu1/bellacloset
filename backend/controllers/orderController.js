@@ -6,6 +6,7 @@ import { emailOrderCancelled, emailOrderConfirmed, emailOrderRequested } from ".
 import { checkAndDecrementStock, restock } from "../utils/stock.util.js";
 import Cart from "../models/cartModel.js";
 import Stripe from "stripe";
+import crypto from "crypto";
 // import Setting from "../models/Setting.js";
 
 import { getStoreSettings, computeServerSubtotal, buildPricingSnapshot } from "../utils/pricing.util.js";
@@ -18,25 +19,25 @@ async function removePurchasedFromCart(userId, purchased, session = null) {
   if (!cart) return;
 
   for (const p of purchased) {
-    const pid = String(p.productId);
     const vid = String(p.variantId || "");
+    const size = String(p.size || ""); // ✅ important
 
-    const idx = cart.items.findIndex(
-      (i) => String(i.product) === pid && String(i.variant || "") === vid
-    );
+    const idx = cart.items.findIndex((i) => {
+      const iVid = String(i.variant || "");
+      const iSize = String(i.size || "");
+      return iVid === vid && iSize === size;
+    });
 
     if (idx > -1) {
       const newQty = (cart.items[idx].quantity || 0) - Number(p.quantity || 0);
-      if (newQty > 0) {
-        cart.items[idx].quantity = newQty;   // just reduce qty
-      } else {
-        cart.items.splice(idx, 1);           // remove if <= 0
-      }
+      if (newQty > 0) cart.items[idx].quantity = newQty;
+      else cart.items.splice(idx, 1);
     }
   }
 
   await cart.save({ session: session || undefined });
 }
+
 
 
 
@@ -169,14 +170,32 @@ async function removePurchasedFromCart(userId, purchased, session = null) {
 
 
 
+// ✅ UPDATED placeOrder (supports guest + logged-in)
+
 export const placeOrder = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
-    const userId = req.user?._id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    // ✅ allow guest (optionalAuth will set req.user if token exists)
+    const userId = req.user?._id || null;
 
-    const { products, address, paymentMethod, codConfirmed, paymentIntentId } = req.body;
+
+    // generate token only for guest
+const guestToken = !userId ? crypto.randomBytes(24).toString("hex") : null;
+
+    const { products, address, paymentMethod, codConfirmed, paymentIntentId } =
+      req.body;
+
+      // ✅ normalize email into address (for guest + safety)
+const addressEmail =
+  String(address?.email || "").trim().toLowerCase() ||
+  (userId ? "" : String(req.body?.address?.email || "").trim().toLowerCase());
+
+const normalizedAddress = {
+  ...address,
+  email: addressEmail,
+};
+
 
     if (!products?.length || !address || !paymentMethod) {
       return res.status(400).json({ message: "Missing required order data." });
@@ -186,12 +205,16 @@ export const placeOrder = async (req, res) => {
 
     // COD requires confirm
     if (method === "COD" && !codConfirmed) {
-      return res.status(400).json({ message: "COD must be confirmed before placing the order." });
+      return res
+        .status(400)
+        .json({ message: "COD must be confirmed before placing the order." });
     }
 
     // Stripe requires paymentIntentId
     if (method === "STRIPE" && !paymentIntentId) {
-      return res.status(400).json({ message: "Missing paymentIntentId for Stripe order." });
+      return res
+        .status(400)
+        .json({ message: "Missing paymentIntentId for Stripe order." });
     }
 
     // 1) Compute server-side pricing
@@ -208,41 +231,42 @@ export const placeOrder = async (req, res) => {
     let cod = { confirmed: false };
     let stripeFields = {};
 
-  if (method === "COD") {
-  cod = {
-    confirmed: !!codConfirmed,
-    confirmedAt: codConfirmed ? new Date() : undefined,
-  };
-}
+    if (method === "COD") {
+      cod = {
+        confirmed: !!codConfirmed,
+        confirmedAt: codConfirmed ? new Date() : undefined,
+      };
+    }
 
+    if (method === "STRIPE") {
+      // ✅ verify this intent is truly authorized (manual capture)
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
 
- if (method === "STRIPE") {
-  // ✅ verify this intent is truly authorized (manual capture)
-  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (pi.status !== "requires_capture") {
+        return res
+          .status(400)
+          .json({ message: `Stripe not authorized: ${pi.status}` });
+      }
 
-  if (pi.status !== "requires_capture") {
-    return res.status(400).json({ message: `Stripe not authorized: ${pi.status}` });
-  }
+      const expected = Math.round(Number(totalAmount) * 100);
+      if (pi.amount !== expected) {
+        return res.status(400).json({ message: "Payment amount mismatch" });
+      }
 
-  const expected = Math.round(Number(totalAmount) * 100);
-  if (pi.amount !== expected) {
-    return res.status(400).json({ message: "Payment amount mismatch" });
-  }
+      status = "Pending_Confirmation";
+      paymentStatus = "Authorized";
+      stripeFields = { paymentIntentId };
+    }
 
-  status = "Pending_Confirmation";
-  paymentStatus = "Authorized";
-  stripeFields = { paymentIntentId };
-}
-
-
-
-    // ✅ Build base payload AFTER status is final (so history is correct)
+    // ✅ Build base payload AFTER status is final
     const base = {
-      user: userId,
+      user: userId , 
+      guestToken,
       products,
       totalAmount,
       paymentMethod: method,
-      address,
+      address: normalizedAddress,
+
       pricing,
       statusHistory: [{ status, note: "Order placed" }],
       cod,
@@ -261,16 +285,26 @@ export const placeOrder = async (req, res) => {
         const [order] = await Order.create([base], { session });
         createdOrder = order;
 
-        await removePurchasedFromCart(userId, products, session);
+        // ✅ only logged-in has a server cart
+        if (userId) {
+          await removePurchasedFromCart(userId, products, session);
+        }
       });
     } catch (trxErr) {
       const msg = String(trxErr?.message || "");
-      if (msg.includes("Transaction numbers are only allowed") || trxErr?.code === 20) {
+      if (
+        msg.includes("Transaction numbers are only allowed") ||
+        trxErr?.code === 20
+      ) {
         // 4) Fallback without transactions
         await checkAndDecrementStock(products, null);
 
         createdOrder = await Order.create(base);
-        await removePurchasedFromCart(userId, products, null);
+
+        // ✅ only logged-in has a server cart
+        if (userId) {
+          await removePurchasedFromCart(userId, products, null);
+        }
       } else {
         throw trxErr;
       }
@@ -278,12 +312,28 @@ export const placeOrder = async (req, res) => {
       session.endSession();
     }
 
-    
-// 5) Email async
+    // 5) Email async (only for logged-in users)
+    // 5) Email async (guest + logged-in)
 (async () => {
   try {
-    const user = await userModel.findById(userId).select("name email");
-    if (!user?.email) return;
+    let toEmail = null;
+    let name = "";
+
+    // ✅ If logged in -> use user email from DB
+    if (userId) {
+      const user = await userModel.findById(userId).select("name email");
+      toEmail = user?.email || null;
+      name = user?.name || "";
+    } else {
+      // ✅ Guest -> take email from address payload
+      toEmail = req.body?.address?.email || null;
+      name = req.body?.address?.fullName || "";
+    }
+
+    if (!toEmail) {
+      console.warn("Order email skipped: missing recipient email");
+      return;
+    }
 
     const orderForEmail = await Order.findById(createdOrder._id)
       .populate("products.productId", "name images")
@@ -295,17 +345,32 @@ export const placeOrder = async (req, res) => {
       createdOrder.status === "Pending_Confirmation";
 
     if (isStripeRequest) {
-      await emailOrderRequested({ to: user.email, order: orderForEmail, user });
+      await emailOrderRequested({
+        to: toEmail,
+        order: orderForEmail,
+        user: { name, email: toEmail },
+      });
     } else {
-      await emailOrderConfirmed({ to: user.email, order: orderForEmail, user });
+      await emailOrderConfirmed({
+        to: toEmail,
+        order: orderForEmail,
+        user: { name, email: toEmail },
+      });
     }
+
+    console.log("✅ Order email sent to:", toEmail);
   } catch (e) {
-    console.error("Order email failed:", e?.message);
+    console.error("❌ Order email failed:", e); // ✅ log full error
   }
 })();
 
 
-    return res.status(201).json(createdOrder);
+
+return res.status(201).json({
+  ...createdOrder.toObject(),
+  guestToken,
+});
+
   } catch (err) {
     session.endSession();
     console.error("placeOrder error:", err);
@@ -322,19 +387,35 @@ export const placeOrder = async (req, res) => {
 export const getOrderById = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const userId = req.user._id;
+   const userId = req.user?._id || null;
 
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({ message: "Invalid orderId" });
     }
+    // ✅ Guest token comes from header
+    const guestToken =
+      req.headers["x-guest-token"] ||
+      req.headers["X-Guest-Token"] ||
+      null;
 
-    const order = await Order.findOne({ _id: orderId, user: userId })
+    const order = await Order.findById(orderId)
       .populate("products.productId", "name images price")
       .populate("products.variantId", "images price");
 
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    return res.json(order);
+   // ✅ AUTH CHECK:
+    // 1) Logged-in user must own it
+    if (userId && order.user && String(order.user) === String(userId)) {
+      return res.json(order);
+    }
+
+    // 2) Guest must provide matching guestToken
+    if (!userId && order.guestToken && guestToken && String(order.guestToken) === String(guestToken)) {
+      return res.json(order);
+    }
+
+    return res.status(401).json({ message: "Unauthorized" });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

@@ -150,6 +150,12 @@ export default function MegaNavbar() {
           <div className="flex flex-col gap-2">
             <button
               className="text-left uppercase font-medium py-2"
+              onClick={() => goToPage("/sell-page")}
+            >
+              Sell
+            </button>
+            <button
+              className="text-left uppercase font-medium py-2"
               onClick={() => goToPage("/personal-stylist")}
             >
               Personal Stylist
@@ -355,6 +361,12 @@ export default function MegaNavbar() {
               {!loading && !error && (
                 <>
                   <div className="relative shrink-0">
+                    <button
+              className="px-2 py-3 text-md tracking-wide hover:font-bold uppercase whitespace-nowrap text-start"
+              onClick={() => goToPage("/sell-page")}
+            >
+              Sell 
+            </button>
 
                      <button
                       type="button"

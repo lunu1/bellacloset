@@ -132,17 +132,16 @@ export default function Category() {
     }
   };
 
-  // ---------- DnD: one Droppable per sibling group ----------
+  // ---------- reorder within one sibling list only ----------
   const reorderWithin = useCallback(
     (parentId, sourceIndex, destinationIndex) => {
       const list = parentId ? (findNode(categories, parentId)?.children || []) : categories;
       const next = Array.from(list);
+
       const [moved] = next.splice(sourceIndex, 1);
       next.splice(destinationIndex, 0, moved);
 
-      const updatedTree = parentId
-        ? replaceChildren(categories, parentId, next)
-        : next;
+      const updatedTree = parentId ? replaceChildren(categories, parentId, next) : next;
 
       setCategories(updatedTree);
       setPendingOrder((prev) => ({
@@ -160,18 +159,27 @@ export default function Category() {
     const srcPid = source.droppableId.replace("list-", "");
     const dstPid = destination.droppableId.replace("list-", "");
 
-    // keep same-list moves only (safe & simple)
+    // ✅ ONLY same-list reorder (no parent->child, no child->other parent)
     if (srcPid !== dstPid) return;
 
     const parentId = srcPid === "root" ? null : srcPid;
     reorderWithin(parentId, source.index, destination.index);
   };
 
-  // ---------- UI rows ----------
-  const CategoryRow = ({ cat }) => {
+  // ---------- UI row ----------
+  const CategoryRow = ({ cat, dragHandleProps }) => {
     return (
       <div className="flex items-start justify-between p-3 bg-white border rounded">
         <div className="flex items-start gap-3">
+          {/* ✅ drag handle */}
+          <div
+            {...dragHandleProps}
+            className="cursor-grab active:cursor-grabbing select-none mt-1 text-gray-400 px-1"
+            title="Drag to reorder"
+          >
+            ⋮⋮
+          </div>
+
           {cat.image && (
             <img
               src={cat.image}
@@ -179,8 +187,10 @@ export default function Category() {
               className="w-8 h-8 object-cover rounded mt-0.5"
             />
           )}
+
           <div>
             <div className="font-medium">{cat.label}</div>
+
             {cat.description && (
               <div
                 className="text-xs text-gray-500 max-w-[520px] overflow-hidden text-ellipsis"
@@ -196,14 +206,17 @@ export default function Category() {
             )}
           </div>
         </div>
+
         <div className="ml-3 shrink-0">
           <button
+            type="button"
             className="px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
             onClick={() => handleEdit(cat)}
           >
             Edit
           </button>
           <button
+            type="button"
             className="ml-1 px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
             onClick={() => handleDelete(cat._id)}
           >
@@ -214,38 +227,97 @@ export default function Category() {
     );
   };
 
-  // recursive droppable list for siblings of a parent
+  // ✅ Drag preview: when dragging a ROOT parent, show parent + its children as one block
+  const CategoryGroupPreview = ({ cat }) => {
+    return (
+      <div className="bg-white">
+        {/* parent row */}
+        <div className="pointer-events-none">
+          <CategoryRow cat={cat} dragHandleProps={{}} />
+        </div>
+
+        {/* children (visual only) */}
+        {cat.children?.length > 0 && (
+          <div className="mt-2 ml-6 space-y-2">
+            {cat.children.map((ch) => (
+              <div key={ch._id} className="pointer-events-none">
+                <CategoryRow cat={ch} dragHandleProps={{}} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /**
+   * ✅ IMPORTANT:
+   * - Root droppable uses type="PARENT"
+   * - Child droppables use type="CHILD"
+   * This prevents parent items from ever interacting with child lists.
+   *
+   * ✅ Also:
+   * - Draggable wraps ONLY the row
+   * - Children droppable rendered outside the draggable (so parent drag starts reliably)
+   * - renderClone for ROOT shows the whole group moving together (parent + children)
+   */
   const DroppableChildren = ({ parentId, items, level }) => {
     const droppableId = `list-${keyOf(parentId)}`;
+    const droppableType = level === 0 ? "PARENT" : "CHILD";
 
     return (
-      <Droppable droppableId={droppableId}>
+      <Droppable
+        droppableId={droppableId}
+        type={droppableType}
+        renderClone={
+          level === 0
+            ? (provided, snapshot, rubric) => {
+                const cat = items[rubric.source.index];
+                return (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    {...provided.dragHandleProps}
+                    style={provided.draggableProps.style}
+                    className="rounded shadow-lg"
+                  >
+                    <CategoryGroupPreview cat={cat} />
+                  </div>
+                );
+              }
+            : undefined
+        }
+      >
         {(provided) => (
           <div ref={provided.innerRef} {...provided.droppableProps}>
             {items.map((cat, idx) => (
-              <Draggable key={cat._id} draggableId={cat._id} index={idx}>
-                {(p) => (
-                  <div
-                    ref={p.innerRef}
-                    {...p.draggableProps}
-                    {...p.dragHandleProps}
-                    className={`mb-2 ${level > 0 ? "ml-6" : ""}`}
-                  >
-                    <CategoryRow cat={cat} />
+              <div key={cat._id} className={`mb-2 ${level > 0 ? "ml-6" : ""}`}>
+                {/* ✅ Draggable ONLY for row */}
+                <Draggable draggableId={String(cat._id)} index={idx}>
+                  {(p) => (
+                    <div
+                      ref={p.innerRef}
+                      {...p.draggableProps}
+                      style={p.draggableProps.style}
+                    >
+                      <CategoryRow cat={cat} dragHandleProps={p.dragHandleProps} />
+                    </div>
+                  )}
+                </Draggable>
 
-                    {cat.children && cat.children.length > 0 && (
-                      <div className="mt-2">
-                        <DroppableChildren
-                          parentId={cat._id}
-                          items={cat.children}
-                          level={level + 1}
-                        />
-                      </div>
-                    )}
+                {/* ✅ children outside draggable */}
+                {cat.children && cat.children.length > 0 && (
+                  <div className="mt-2">
+                    <DroppableChildren
+                      parentId={cat._id}
+                      items={cat.children}
+                      level={level + 1}
+                    />
                   </div>
                 )}
-              </Draggable>
+              </div>
             ))}
+
             {provided.placeholder}
           </div>
         )}
@@ -253,11 +325,7 @@ export default function Category() {
     );
   };
 
-  // Save button visible if any pending order exists
-  const hasPending = useMemo(
-    () => Object.keys(pendingOrder).length > 0,
-    [pendingOrder]
-  );
+  const hasPending = useMemo(() => Object.keys(pendingOrder).length > 0, [pendingOrder]);
 
   return (
     <div className="max-w-3xl mx-auto mt-10 p-6 border rounded shadow">
@@ -290,25 +358,20 @@ export default function Category() {
           className="w-full p-2 border rounded min-h-[100px]"
           maxLength={2000}
         />
-        <div className="text-xs text-gray-500 text-right">
-          {description.length}/2000
-        </div>
+        <div className="text-xs text-gray-500 text-right">{description.length}/2000</div>
 
         <input
           type="file"
           accept="image/*"
           ref={fileInputRef}
-          onChange={(e) => setImageFile(e.target.files[0])}
+          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
           className="w-full p-2 border rounded"
         />
 
         {isSubmitting && imageFile && uploadPct > 0 && (
           <div className="mt-2">
             <div className="h-2 w-full bg-gray-200 rounded">
-              <div
-                className="h-2 bg-black rounded"
-                style={{ width: `${uploadPct}%` }}
-              />
+              <div className="h-2 bg-black rounded" style={{ width: `${uploadPct}%` }} />
             </div>
             <p className="text-xs text-gray-500 mt-1">{uploadPct}%</p>
           </div>
@@ -361,32 +424,26 @@ export default function Category() {
           {hasPending && (
             <button
               type="button"
-onClick={async () => {
-  try {
-    console.log("pendingOrder =>", pendingOrder);
+              onClick={async () => {
+                try {
+                  const ordersArr = Object.entries(pendingOrder).map(([k, ids]) => ({
+                    parent: k === "root" ? null : k,
+                    orderedIds: Array.isArray(ids) ? ids : [],
+                  }));
 
-    const ordersArr = Object.entries(pendingOrder).map(([k, ids]) => ({
-      parent: k === "root" ? null : k,
-      orderedIds: Array.isArray(ids) ? ids : [],   // ✅ never undefined
-    }));
+                  await axios.post(
+                    `${backendURL}/api/category/reorder`,
+                    { orders: ordersArr },
+                    { headers: { "Content-Type": "application/json" } }
+                  );
 
-    console.log("ordersArr =>", ordersArr);
-    console.log("payload =>", { orders: ordersArr });
-
-    await axios.post(
-      `${backendURL}/api/category/reorder`,
-      { orders: ordersArr },                       // ✅ always defined
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    alert("Order saved!");
-    setPendingOrder({});
-    fetchCategories();
-  } catch (err) {
-    alert(err.response?.data?.message || "Failed to save order");
-  }
-}}
-
+                  alert("Order saved!");
+                  setPendingOrder({});
+                  fetchCategories();
+                } catch (err) {
+                  alert(err.response?.data?.message || "Failed to save order");
+                }
+              }}
               className="bg-black text-white px-4 py-2 rounded"
             >
               Save Order
@@ -395,7 +452,7 @@ onClick={async () => {
         </div>
 
         <DragDropContext onDragEnd={handleDragEnd}>
-          {/* top-level droppable */}
+          {/* ✅ root (parents) */}
           <DroppableChildren parentId={null} items={categories} level={0} />
         </DragDropContext>
       </div>

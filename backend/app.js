@@ -30,6 +30,10 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import adminStripeOrderRoutes from "./routes/adminStripeOrderRoutes.js";
 import personalStylistRoutes from "./routes/personalStylist.routes.js";
 import featureRoutes from "./routes/featureRoutes.js";
+import ratesRoutes from "./routes/rates.routes.js";
+import newsletterRoutes from "./routes/newsletterRoutes.js";
+import sellPageRoutes from "./routes/sellPageRoutes.js";
+import sellRequestRoutes from "./routes/sellRequestRoutes.js"
 
 
 
@@ -108,8 +112,11 @@ app.use("/api/personal-stylist", personalStylistRoutes);
 
 app.use("/api/payment", paymentRoutes);
 app.use("/api/admin/stripe-orders", adminStripeOrderRoutes);
-
+app.use("/api/newsletter", newsletterRoutes )
 app.use("/api/features", featureRoutes);
+app.use("/api/rates", ratesRoutes)
+app.use("/api/sell-page", sellPageRoutes)
+app.use("/api/sell-requests", sellRequestRoutes)
 
 
 

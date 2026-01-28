@@ -1,6 +1,7 @@
 // src/components/cart/CartRow.jsx
 import React from "react";
 import { assets } from "../../assets/assets";
+import { useCurrency } from "../../context/CurrencyContext";
 
 const StockBadge = ({ stock, quantity }) => {
   const effectiveStock = stock ?? 0;
@@ -27,12 +28,9 @@ const StockBadge = ({ stock, quantity }) => {
   return <span className="text-xs text-green-600">✅ In stock</span>;
 };
 
-export default function CartRow({
-  line,
-  currency = "AED",
-  onQtyChange,
-  onAskRemove,
-}) {
+export default function CartRow({ line, onQtyChange, onAskRemove }) {
+  const { format } = useCurrency();
+
   const { item, productData, price, stock } = line;
   if (!productData) return null;
 
@@ -55,9 +53,7 @@ export default function CartRow({
 
           <div className="flex items-center gap-5 mt-2">
             <p>
-              
-              {typeof price === "number" ? price : "N/A"}
-              {currency}
+              {typeof price === "number" ? format(price) : "N/A"}
             </p>
 
             {(item.size || item.color) && (
@@ -82,14 +78,18 @@ export default function CartRow({
         onChange={(e) => onQtyChange?.(Number(e.target.value) || 1)}
       />
 
-      {/* Remove (opens modal in parent) */}
+      {/* Remove */}
       <div className="ml-auto">
         <button
           title="Delete / Move to wishlist"
           className="p-2 rounded hover:bg-gray-100"
           onClick={() => onAskRemove?.()}
         >
-          <img src={assets.bin_icon} className="w-4 h-4 sm:w-5 sm:h-5" alt="Remove" />
+          <img
+            src={assets.bin_icon}
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            alt="Remove"
+          />
         </button>
       </div>
     </div>

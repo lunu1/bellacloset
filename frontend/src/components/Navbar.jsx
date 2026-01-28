@@ -1,3 +1,4 @@
+// src/components/Navbar.jsx
 import { useContext, useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -6,6 +7,7 @@ import axios from "axios";
 
 import { assets } from "../assets/assets";
 import { AppContext } from "../context/AppContext";
+import CurrencySwitcher from "./CurrencySwitcher";
 
 import {
   setQuery,
@@ -34,10 +36,8 @@ const Navbar = () => {
   // --- Local UI state ---
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false); // click-based dropdown (better for touch)
+  const [profileOpen, setProfileOpen] = useState(false);
   const drawerRef = useRef(null);
-
-  // simple debounce timer for suggestions
   const debounceTimer = useRef(null);
 
   // Fetch wishlist & cart after auth loads
@@ -73,7 +73,7 @@ const Navbar = () => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Focus the close button when drawer opens (a11y)
+  // Focus close button when drawer opens
   useEffect(() => {
     if (mobileMenuOpen) {
       drawerRef.current
@@ -83,18 +83,14 @@ const Navbar = () => {
   }, [mobileMenuOpen]);
 
   const handleProfileIconClick = () => {
-  // Optional: prevent weird flicker while auth is still loading
-  if (authLoading) return;
+    if (authLoading) return;
 
-  if (!userData) {
-    // Not logged in → go to login page
-    navigate("/login");
-  } else {
-    // Logged in → toggle dropdown
-    setProfileOpen((prev) => !prev);
-  }
-};
-
+    if (!userData) {
+      navigate("/login");
+    } else {
+      setProfileOpen((prev) => !prev);
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -103,8 +99,8 @@ const Navbar = () => {
   };
 
   const queueSuggestions = (value) => {
-    // debounce to reduce dispatch spam
     clearTimeout(debounceTimer.current);
+
     if (value.trim()) {
       debounceTimer.current = setTimeout(() => {
         dispatch(fetchSearchSuggestions(value));
@@ -169,9 +165,8 @@ const Navbar = () => {
       <div className="container mx-auto px-4 sm:px-6">
         {/* Top bar */}
         <div className="flex items-center justify-between gap-3 sm:gap-5 py-3 sm:py-4">
-          {/* Left: Logo + mobile menu */}
+          {/* Left: Logo + menu + currency */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Mobile menu button */}
             <button
               aria-label="Open menu"
               className="sm:hidden p-2 -ml-2 rounded hover:bg-gray-100"
@@ -184,16 +179,20 @@ const Navbar = () => {
               <img
                 src="/logo.png"
                 alt="Bella Closet"
-                className="block h-20 sm:h-18 w-auto object-contain"
-
+                className="block h-14 sm:h-16 w-auto object-contain"
                 loading="eager"
                 decoding="async"
               />
             </Link>
+
+            {/* Currency switcher left (desktop) */}
+            <div className="hidden sm:block">
+              <CurrencySwitcher />
+            </div>
           </div>
 
-          {/* Center: Desktop search */}
-          <div className="hidden sm:block flex-none relative w-[420px] lg:w-[620px]">
+          {/* Center: Desktop search (RESPONSIVE ✅) */}
+          <div className="hidden sm:block flex-1 relative max-w-[680px] mx-4 lg:mx-8">
             <form
               onSubmit={handleSearchSubmit}
               className="inline-flex items-center w-full px-4 py-2 border border-black rounded-md"
@@ -222,7 +221,6 @@ const Navbar = () => {
               ) : null}
             </form>
 
-            {/* Suggestions (desktop) */}
             {search && (
               <ul className="absolute z-40 bg-white border mt-1 rounded w-full max-h-60 overflow-y-auto no-scrollbar shadow">
                 {suggestions.length > 0 ? (
@@ -244,8 +242,8 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Right: Icons & profile */}
-          <div className="flex items-center gap-4 sm:gap-6 whitespace-nowrap">
+          {/* Right: keep icons ALWAYS visible ✅ */}
+          <div className="flex items-center gap-4 sm:gap-6 whitespace-nowrap shrink-0">
             {/* Mobile search toggle */}
             <button
               aria-label="Open search"
@@ -255,16 +253,17 @@ const Navbar = () => {
               <img src={assets.search_icon} className="w-6" alt="search" />
             </button>
 
-            {/* Username (desktop only) */}
-            <span className="hidden sm:block pt-2">{userData?.name}</span>
+            {/* Username (desktop) */}
+            <span className="hidden md:block pt-1">{userData?.name}</span>
 
-            {/* Profile (click to open; touch-friendly) */}
-            <div className="relative hidden sm:block pt-2">
+            {/* Profile */}
+            <div className="relative hidden sm:block">
               <button
-               onClick={handleProfileIconClick}
+                onClick={handleProfileIconClick}
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
                 aria-label="Account menu"
+                className="p-1 rounded hover:bg-gray-100"
               >
                 <img
                   src={assets.profile_icon}
@@ -272,8 +271,9 @@ const Navbar = () => {
                   alt="profile"
                 />
               </button>
+
               {userData && profileOpen && (
-                <div className="absolute right-0 pt-4 z-50">
+                <div className="absolute right-0 pt-3 z-50">
                   <div className="flex flex-col gap-2 px-5 py-3 text-gray-700 rounded w-44 bg-white border shadow">
                     {!userData?.isAccountVerified && (
                       <button
@@ -315,11 +315,7 @@ const Navbar = () => {
             </div>
 
             {/* Wishlist */}
-            <Link
-              to="/wishlist"
-              className="relative"
-              aria-label={`Wishlist${wishlistCount ? ` with ${wishlistCount} items` : ""}`}
-            >
+            <Link to="/wishlist" className="relative" aria-label="Wishlist">
               <img src={assets.heart_icon} className="w-6 min-w-5" alt="wishlist" />
               {wishlistCount > 0 && (
                 <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-[#aa956f] text-white aspect-square rounded-full text-[10px]">
@@ -329,11 +325,7 @@ const Navbar = () => {
             </Link>
 
             {/* Cart */}
-            <Link
-              to="/cart"
-              className="relative"
-              aria-label={`Cart with ${cartlistCount} items`}
-            >
+            <Link to="/cart" className="relative" aria-label="Cart">
               <img src={assets.cart_icon} className="w-6 min-w-5" alt="cart" />
               <p className="absolute right-0 -bottom-1 translate-x-1/2 w-4 text-center leading-4 bg-[#aa956f] text-white aspect-square rounded-full text-[10px]">
                 {cartlistCount}
@@ -364,18 +356,12 @@ const Navbar = () => {
                 aria-label="Search products mobile"
               />
               {search ? (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={clearSearch}
-                  className="p-1"
-                >
+                <button type="button" aria-label="Clear search" onClick={clearSearch} className="p-1">
                   <img src={assets.cross_icon} alt="clear" className="w-3" />
                 </button>
               ) : null}
             </form>
 
-            {/* Suggestions (mobile) */}
             {search && (
               <ul className="absolute inset-x-0 mx-4 z-40 bg-white border mt-1 rounded max-h-60 overflow-y-auto shadow">
                 {suggestions.length > 0 ? (
@@ -401,26 +387,28 @@ const Navbar = () => {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-[60] sm:hidden  ${mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-0 z-[60] sm:hidden ${
+          mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
         aria-hidden={!mobileMenuOpen}
       >
-        {/* Backdrop */}
         <div
-          className={`absolute inset-0 bg-black/40 transition-opacity ${mobileMenuOpen ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 bg-black/40 transition-opacity ${
+            mobileMenuOpen ? "opacity-100" : "opacity-0"
+          }`}
           onClick={() => setMobileMenuOpen(false)}
         />
 
-        {/* Panel */}
         <aside
           ref={drawerRef}
           className={`absolute left-0 top-0 h-full w-[78%] max-w-xs bg-white shadow-xl transition-transform
-            ${mobileMenuOpen ? "translate-x-0 shadow-xl" : "-translate-x-[110%] shadow-none"}`}
+            ${mobileMenuOpen ? "translate-x-0" : "-translate-x-[110%]"}`}
           role="dialog"
           aria-modal="true"
           aria-label="Mobile menu"
         >
-          <div className="flex items-center justify-between p-3 border-b ">
-            <div className="flex items-center gap-2 ">
+          <div className="flex items-center justify-between p-3 border-b">
+            <div className="flex items-center gap-2">
               <img src={assets.profile_icon} className="w-6" alt="" />
               <div className="font-medium">
                 {userData ? `Hi, ${userData.name}` : "Welcome"}
@@ -433,6 +421,11 @@ const Navbar = () => {
             >
               <img src={assets.cross_icon} alt="close" className="w-3.5" />
             </button>
+          </div>
+
+          {/* Currency in drawer (mobile ✅) */}
+          <div className="p-4 border-b">
+            <CurrencySwitcher className="w-full" />
           </div>
 
           <nav className="p-4 flex flex-col gap-3 text-gray-800 bg-white">
@@ -524,5 +517,3 @@ const Navbar = () => {
 };
 
 export default Navbar;
-
-

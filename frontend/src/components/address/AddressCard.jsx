@@ -35,14 +35,22 @@ export default function AddressCard({
           className="mt-1"
         />
 
-        <div className="flex-1 mx-4">
-          {/* Name + phone */}
-          <p className="font-medium text-gray-900">
-            {address.fullName || "—"}
-          </p>
-          {address.phone ? (
-            <p className="text-gray-700 mt-1">Phone: {address.phone}</p>
-          ) : null}
+      <div className="flex-1 mx-4">
+  {/* Name */}
+  <p className="font-medium text-gray-900">
+    {address.fullName || "—"}
+  </p>
+
+  {/* ✅ Email (ADD THIS HERE) */}
+  {address.email ? (
+    <p className="text-gray-700 mt-1">Email: {address.email}</p>
+  ) : null}
+
+  {/* Phone */}
+  {address.phone ? (
+    <p className="text-gray-700 mt-1">Phone: {address.phone}</p>
+  ) : null}
+
 
           {/* Address type */}
           {address.addressType ? (

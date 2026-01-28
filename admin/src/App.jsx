@@ -24,6 +24,7 @@ import SettingsPage from "./pages/SettingPage";
 import Offer from "./pages/Offer";
 import PersonalStylistAdmin from "./pages/PersonalStylist";
 import FeaturesAdmin from "./pages/admin/FeaturesAdmin";
+import SellPageAdmin from "./pages/SellAdmin";
 
 export let currency = "AED. ";
 
@@ -70,6 +71,7 @@ const App = () => {
                 <Route path="/offer" element={<Offer/>} />
                 <Route path="personal-stylist" element= { <PersonalStylistAdmin />}/>
                 <Route path="/admin/features" element={<FeaturesAdmin />} />
+                <Route path="/sell-page" element={<SellPageAdmin/>} />
 
                 <Route path="*" element={<Navigate to="/" />} />
 

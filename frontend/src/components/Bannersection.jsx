@@ -6,7 +6,7 @@ import { fetchCategories } from "../features/category/categorySlice";
 
 export default function Bannersection() {
   const [banner1, setBanner1] = useState("");
-  const [banner2, setBanner2] = useState("");
+  // const [banner2, setBanner2] = useState("");
   const [banner3, setBanner3] = useState("");
 
   // categories from store
@@ -109,9 +109,9 @@ export default function Bannersection() {
       if (banner1Res.status === "fulfilled" && banner1Res.value?.data?.imageUrl) {
         setBanner1(banner1Res.value.data.imageUrl);
       }
-      if (banner2Res.status === "fulfilled" && banner2Res.value?.data?.imageUrl) {
-        setBanner2(banner2Res.value.data.imageUrl);
-      }
+      // if (banner2Res.status === "fulfilled" && banner2Res.value?.data?.imageUrl) {
+      //   setBanner2(banner2Res.value.data.imageUrl);
+      // }
       if (banner3Res.status === "fulfilled" && banner3Res.value?.data?.imageUrl) {
         setBanner3(banner3Res.value.data.imageUrl);
       }
@@ -145,7 +145,7 @@ export default function Bannersection() {
         ))}
 
       {/* Banner 2 & 3 are just images; add links similarly if you need */}
-      {banner2 && 
+      {/* {banner2 && 
       (clothingHref ? (
         <Link
           to={clothingHref}
@@ -164,7 +164,7 @@ export default function Bannersection() {
           className="w-full object-cover my-4"
         />)
         
-      )}
+      )} */}
 
    {banner3 && 
       (jewelleryHref ? (

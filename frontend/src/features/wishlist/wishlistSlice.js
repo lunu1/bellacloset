@@ -76,14 +76,80 @@ const initialState = {
 const wishlistSlice = createSlice({
   name: "wishlist",
   initialState,
-  reducers: {
-    clearWishlist(state) {
-      state.items = [];
-      state.loading = false;
-      state.error = null;
-      state.status = "idle";
-    },
+ reducers: {
+  clearWishlist(state) {
+    state.items = [];
+    state.loading = false;
+    state.error = null;
+    state.status = "idle";
   },
+
+  // ✅ load guest wishlist into redux
+  setGuestWishlistState(state, action) {
+    // we store guest wishlist as array of { productId, variantId } OR array of ids
+    const raw = Array.isArray(action.payload) ? action.payload : [];
+
+    // normalize to wishlist items
+    state.items = raw.map((x) => {
+      // allow both formats:
+      // 1) { productId, variantId }
+      // 2) string -> treat as productId
+      if (typeof x === "string") {
+        return { wishlistId: `guest_${x}`, productId: x, variantId: null };
+      }
+      return {
+        wishlistId: x.wishlistId || `guest_${x.productId}_${x.variantId ?? "null"}`,
+        productId: x.productId,
+        variantId: x.variantId ?? null,
+        product: x.product ?? null,
+        variant: x.variant ?? null,
+      };
+    });
+
+    state.loading = false;
+    state.error = null;
+    state.status = "succeeded";
+  },
+
+  // ✅ guest add
+ addToWishlistGuest(state, action) {
+  const { productId, variantId = null } = action.payload || {};
+  const pid = String(productId || "");
+  const vid = variantId ? String(variantId) : null;
+
+  const exists = state.items.some(
+    (it) => String(it.productId) === pid && String(it.variantId ?? null) === String(vid ?? null)
+  );
+  if (exists) return;
+
+  state.items.unshift({
+    wishlistId: `guest_${pid}_${vid ?? "null"}`, // ✅ stable
+    productId: pid,
+    variantId: vid,
+    product: null,
+    variant: null,
+  });
+},
+
+
+  // ✅ guest remove
+  removeFromWishlistGuest(state, action) {
+    const { productId, variantId = null, wishlistId } = action.payload || {};
+
+    if (wishlistId) {
+      state.items = state.items.filter((it) => String(it.wishlistId) !== String(wishlistId));
+      return;
+    }
+
+    const pid = String(productId || "");
+    const vid = variantId ? String(variantId) : null;
+
+    state.items = state.items.filter(
+      (it) => !(String(it.productId) === pid && String(it.variantId ?? null) === String(vid ?? null))
+    );
+  },
+},
+
   extraReducers: (builder) => {
     builder
       // GET
@@ -164,5 +230,11 @@ const wishlistSlice = createSlice({
   },
 });
 
-export const { clearWishlist } = wishlistSlice.actions;
+export const {
+  clearWishlist,
+  setGuestWishlistState,
+  addToWishlistGuest,
+  removeFromWishlistGuest,
+} = wishlistSlice.actions;
+
 export default wishlistSlice.reducer;

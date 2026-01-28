@@ -101,12 +101,122 @@ const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
-    clearCart(state) {
-      state.items = [];
-      state.loading = false;
-      state.error = null;
-    },
+  clearCart(state) {
+    state.items = [];
+    state.loading = false;
+    state.error = null;
   },
+
+  // ✅ sets cart state from guest localStorage (already normalized or close)
+  setGuestCartState(state, action) {
+  const raw = Array.isArray(action.payload) ? action.payload : [];
+  state.items = raw.map((i) => ({
+    lineId: i.lineId || `guest_${i.productId}_${i.variantId ?? "null"}`,
+    productId: String(i.productId || ""),
+    variantId: i.variantId ? String(i.variantId) : null,
+    quantity: Number(i.quantity || 1),
+    unitPrice: Number(i.unitPrice || 0),
+    unavailable: false,
+    reason: null,
+    product: i.product ?? null,
+    variant: i.variant ?? null,
+  }));
+  state.loading = false;
+  state.error = null;
+},
+
+
+  // ✅ guest add (no API)
+ // ✅ guest add (no API)
+addToCartGuest(state, action) {
+  const {
+    productId = "",
+    variantId = null,
+    quantity = 1,
+    unitPrice = 0,
+    product = null,
+    variant = null,
+  } = action.payload || {};
+
+  const pid = String(productId || "");
+  const vid = variantId ? String(variantId) : null;
+
+  const idx = state.items.findIndex(
+    (i) =>
+      String(i.productId) === pid &&
+      String(i.variantId ?? null) === String(vid ?? null)
+  );
+
+  if (idx >= 0) {
+    state.items[idx].quantity =
+      (state.items[idx].quantity || 1) + Number(quantity || 1);
+
+    // ✅ ensure price stays (don’t overwrite with 0)
+    if (Number(unitPrice) > 0) state.items[idx].unitPrice = Number(unitPrice);
+
+    // optional: keep snapshots
+    if (product) state.items[idx].product = product;
+    if (variant) state.items[idx].variant = variant;
+  } else {
+    state.items.unshift({
+      lineId: `guest_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      productId: pid,
+      variantId: vid,
+      quantity: Number(quantity || 1),
+
+      // ✅ THIS is the important part
+      unitPrice: Number(unitPrice || 0),
+
+      unavailable: false,
+      reason: null,
+
+      // ✅ optional snapshots for UI (name/images without extra fetch)
+      product: product || null,
+      variant: variant || null,
+    });
+  }
+},
+
+
+
+  // ✅ guest remove
+  removeFromCartGuest(state, action) {
+    const { lineId, productId, variantId = null } = action.payload || {};
+    if (lineId) {
+      state.items = state.items.filter((i) => String(i.lineId) !== String(lineId));
+      return;
+    }
+
+    const pid = String(productId || "");
+    const vid = variantId ? String(variantId) : null;
+
+    state.items = state.items.filter(
+      (i) => !(String(i.productId) === pid && String(i.variantId ?? null) === String(vid ?? null))
+    );
+  },
+
+  // ✅ guest qty update
+  updateQuantityGuest(state, action) {
+    const { productId, variantId = null, quantity = 1 } = action.payload || {};
+    const pid = String(productId || "");
+    const vid = variantId ? String(variantId) : null;
+
+    const idx = state.items.findIndex(
+      (i) => String(i.productId) === pid && String(i.variantId ?? null) === String(vid ?? null)
+    );
+
+    if (idx >= 0) {
+      state.items[idx].quantity = Math.max(1, Number(quantity || 1));
+    }
+  },
+
+  clearCartGuest(state) {
+    state.items = [];
+    state.loading = false;
+    state.error = null;
+  },
+},
+
   extraReducers: (builder) => {
     const fulfill = (s, a) => { s.loading = false; s.items = normalize(a.payload); };
     const reject  = (s, a) => { s.loading = false; s.error = a.payload || a.error?.message; };
@@ -134,5 +244,13 @@ const cartSlice = createSlice({
   },
 });
 
-export const { clearCart } = cartSlice.actions;
+export const {
+  clearCart,
+  setGuestCartState,
+  addToCartGuest,
+  removeFromCartGuest,
+  updateQuantityGuest,
+  clearCartGuest,
+} = cartSlice.actions;
+
 export default cartSlice.reducer;

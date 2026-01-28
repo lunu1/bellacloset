@@ -1,3 +1,5 @@
+import { useCurrency } from "../../context/CurrencyContext";
+
 function Card({ title, value, sub }) {
   return (
     <div className="border rounded-lg p-4 bg-white shadow-sm">
@@ -8,13 +10,29 @@ function Card({ title, value, sub }) {
   );
 }
 
-export default function OrderSummary({ order, currency = "AED" }) {
-  const itemsCount = (order.products || []).reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+export default function OrderSummary({ order }) {
+  const { format } = useCurrency();
+
+  const itemsCount = (order.products || []).reduce(
+    (s, l) => s + (Number(l.quantity) || 0),
+    0
+  );
+
   return (
     <div className="max-w-4xl mx-auto px-4 mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <Card title="Items" value={itemsCount} sub={`${order.products?.length || 0} line(s)`} />
-      <Card title="Total" value={`${Number(order.totalAmount || 0).toFixed(2)}${currency}`} />
-      <Card title="Payment" value={`${order.paymentMethod || "—"} · ${order.paymentStatus || "—"}`} />
+      <Card
+        title="Items"
+        value={itemsCount}
+        sub={`${order.products?.length || 0} line(s)`}
+      />
+
+      {/* ✅ price now auto changes with currency dropdown */}
+      <Card title="Total" value={format(order.totalAmount || 0)} />
+
+      <Card
+        title="Payment"
+        value={`${order.paymentMethod || "—"} · ${order.paymentStatus || "—"}`}
+      />
     </div>
   );
 }

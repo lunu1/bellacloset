@@ -223,7 +223,7 @@ function Orders() {
                       </div>
                     </td>
 
-                    <td className="px-3 py-2">{o.user?.email || "-"}</td>
+                    <td className="px-3 py-2">{o.user?.email || o.address?.email || "-"}</td>
 
                     <td className="px-3 py-2">{o.products?.length || 0}</td>
 

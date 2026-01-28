@@ -55,6 +55,7 @@ export const getUserData = async (req, res) => {
             isAuthenticated: true,
             userData: {
                 name: user.name,
+                email: user.email,
                 isAccountVerified: user.isAccountVerified, 
             }
         })
@@ -183,6 +184,7 @@ export const addAddress = async (req, res) => {
     const {
       label,
       fullName,
+      email,
       phone,
       addressType,   // apartment | villa | office
       unitNumber,
@@ -220,6 +222,7 @@ export const addAddress = async (req, res) => {
     user.addresses.push({
       label: label || "Home",
       fullName,
+      email: (email || "").trim().toLowerCase(), 
       phone: phoneE164,
       addressType: addressType || "apartment",
       unitNumber,
@@ -263,6 +266,7 @@ export const updateAddress = async (req, res) => {
     const {
       label,
       fullName,
+      email,
       phone,
       addressType,
       unitNumber,
@@ -281,6 +285,8 @@ export const updateAddress = async (req, res) => {
 
     if (label !== undefined) set["addresses.$.label"] = label;
     if (fullName !== undefined) set["addresses.$.fullName"] = fullName;
+    if (email !== undefined) set["addresses.$.email"] = String(email || "").trim().toLowerCase();
+
 
     if (phone !== undefined) {
       if (phone === "") set["addresses.$.phone"] = "";

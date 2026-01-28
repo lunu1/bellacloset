@@ -11,11 +11,13 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
+import { CurrencyProvider } from "./context/CurrencyContext.jsx";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
+    <CurrencyProvider >
     <Provider store={store}>
       <BrowserRouter>
         <AppContextProvider>
@@ -28,5 +30,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         </AppContextProvider>
       </BrowserRouter>
     </Provider>
+    </CurrencyProvider>
   </React.StrictMode>
 );
