@@ -230,6 +230,47 @@ export const addToCart = async (req, res) => {
   }
 };
 
+//mergeCart
+export const mergeCart = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+
+    if (!items.length) return res.json({ success: true });
+
+    let cart = await Cart.findOne({ user: userId });
+    if (!cart) cart = await Cart.create({ user: userId, items: [] });
+
+    for (const it of items) {
+      const pid = String(it.productId || "");
+      const vid = it.variantId ? String(it.variantId) : null;
+      const qty = Math.max(1, Number(it.quantity || 1));
+
+      if (!pid) continue;
+
+      const idx = cart.items.findIndex(
+        (x) => String(x.product) === pid && String(x.variant || "") === String(vid || "")
+      );
+
+      if (idx >= 0) {
+        cart.items[idx].quantity = (cart.items[idx].quantity || 0) + qty;
+      } else {
+        cart.items.push({
+          product: pid,
+          variant: vid,
+          quantity: qty,
+        });
+      }
+    }
+
+    await cart.save();
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+
 /** POST /api/cart/remove */
 export const removeFromCart = async (req, res) => {
   const userId = req.user._id;

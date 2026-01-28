@@ -35,7 +35,31 @@ function Login() {
     // Axios only enters here for 2xx responses
     if (data.success) {
       setisLoggedin(true);
-       await getUserData(); // make sure this finishes before navigating
+      // ✅ 1) MERGE guest cart + wishlist into user account (if exists)
+    const guestCart = JSON.parse(localStorage.getItem("guest_cart") || "[]");
+    const guestWishlist = JSON.parse(localStorage.getItem("guest_wishlist") || "[]");
+
+    // only call merge if something exists
+    if (guestCart.length) {
+      await axios.post(
+        backendUrl + "/api/cart/merge",
+        { items: guestCart },
+        { withCredentials: true }
+      );
+      localStorage.removeItem("guest_cart");
+    }
+
+    if (guestWishlist.length) {
+      await axios.post(
+        backendUrl + "/api/wishlist/merge",
+        { items: guestWishlist },
+        { withCredentials: true }
+      );
+      localStorage.removeItem("guest_wishlist");
+    }
+
+    // ✅ 2) refresh user data (and later your cart/wishlist redux load if you have it)
+    await getUserData();
         // navigate("/");
         // console.log("✅ User logged in:", data.success);
      toast.success(data.message);

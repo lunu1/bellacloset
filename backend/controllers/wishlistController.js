@@ -157,6 +157,48 @@ async function shapeWishlistItem(doc) {
   };
 }
 
+//** POST /api/wishlist/merge */
+// POST /api/wishlist/merge
+export const mergeWishlist = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const raw = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (!raw.length) return res.json({ success: true, merged: 0 });
+
+    // ✅ Normalize: accept ["pid1","pid2"] OR [{productId:"pid"}]
+    const productIds = raw
+      .map((it) => (typeof it === "string" ? it : it?.productId))
+      .filter(Boolean)
+      .map(String)
+      .filter((pid) => mongoose.Types.ObjectId.isValid(pid)); // ✅ prevent cast errors
+
+    if (!productIds.length) return res.json({ success: true, merged: 0 });
+
+    // ✅ De-duplicate
+    const uniqueIds = [...new Set(productIds)];
+
+    // ✅ Upsert each (no duplicates)
+    let merged = 0;
+    for (const pid of uniqueIds) {
+      const result = await Wishlist.updateOne(
+        { user: userId, product: pid },
+        { $setOnInsert: { user: userId, product: pid } },
+        { upsert: true }
+      );
+
+      // merged if inserted
+      if (result.upsertedCount > 0) merged++;
+    }
+
+    return res.json({ success: true, merged });
+  } catch (e) {
+    console.error("wishlist merge error:", e);
+    return res.status(500).json({ success: false, message: e.message });
+  }
+};
+
+
 /** POST /api/wishlist */
 export const addToWishlist = async (req, res) => {
   try {
