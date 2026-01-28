@@ -123,24 +123,53 @@ const Navbar = () => {
     navigate("/c");
   };
 
+  // const handleLogout = async () => {
+  //   try {
+  //     axios.defaults.withCredentials = true;
+  //     const { data } = await axios.post(`${backendUrl}/api/auth/logout`);
+  //     if (data.success) {
+  //       setisLoggedin(false);
+  //       setuserData(null);
+  //       dispatch(clearWishlist());
+  //       dispatch(clearCart());
+  //       navigate("/");
+  //       toast.success(data.message);
+  //     } else {
+  //       toast.error("Logout failed. Please try again.");
+  //     }
+  //   } catch (error) {
+  //     toast.error(`Error signing out: ${error.message}`);
+  //   }
+  // };
+
   const handleLogout = async () => {
-    try {
-      axios.defaults.withCredentials = true;
-      const { data } = await axios.post(`${backendUrl}/api/auth/logout`);
-      if (data.success) {
-        setisLoggedin(false);
-        setuserData(null);
-        dispatch(clearWishlist());
-        dispatch(clearCart());
-        navigate("/");
-        toast.success(data.message);
-      } else {
-        toast.error("Logout failed. Please try again.");
-      }
-    } catch (error) {
-      toast.error(`Error signing out: ${error.message}`);
+  try {
+    axios.defaults.withCredentials = true;
+
+    const { data } = await axios.post(`${backendUrl}/api/auth/logout`);
+
+    if (data.success) {
+      // 1️⃣ auth reset
+      setisLoggedin(false);
+      setuserData(null);
+
+      // 2️⃣ redux reset
+      dispatch(clearWishlist());
+      dispatch(clearCart());
+
+      // 3️⃣ 🔥 IMPORTANT: clear guest storage
+      localStorage.removeItem("guest_cart");        // adjust key if different
+      localStorage.removeItem("guest_wishlist");    // adjust key if different
+
+      navigate("/");
+      toast.success(data.message);
+    } else {
+      toast.error("Logout failed. Please try again.");
     }
-  };
+  } catch (error) {
+    toast.error(`Error signing out: ${error.message}`);
+  }
+};
 
   const SendVerificationOtp = async () => {
     try {
